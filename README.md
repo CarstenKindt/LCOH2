@@ -41,3 +41,13 @@ python -m pytest
 ## Grundsatz
 
 Die Excel ist der Maßstab. Jede Rechengröße wird gegen die entsprechende Excel-Zelle getestet.
+
+
+## Vorabversion starten
+
+```
+pip install -r requirements.txt
+streamlit run app.py
+```
+
+Der Browser öffnet sich automatisch (sonst http://localhost:8501). Tests: `python -m pytest`.
