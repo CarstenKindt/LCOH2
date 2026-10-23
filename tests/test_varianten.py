@@ -75,3 +75,13 @@ def test_s13k_knapp_komplett():
     assert r.ely_consumption_kwh == pytest.approx(ref["B4!Y4"], rel=1e-9)
     assert r.h2_kg_per_year == pytest.approx(ref["B2!F8"], rel=1e-9)
     assert r.section13k_hours > 0 and (r.hourly["spot_kwh"] > 0).any()
+
+
+def test_s13k_batterie_eigener_spotpreis():
+    """Batterie + §13k + Spotmarkt (eigener Preis 50 EUR/MWh) bei 5 MW und 1,2 MW Grundlast."""
+    inp, ref, stunden = lade("s13k_batt")
+    assert inp.battery_enabled and inp.spot_price_source == "Eigene Preise"
+    r = run_operation(inp, load_default_timeseries())
+    pruefe_stunden(inp, ref, stunden, r.hourly)
+    assert r.ely_consumption_kwh == pytest.approx(ref["B4!Y4"], rel=1e-9)
+    assert r.h2_kg_per_year == pytest.approx(ref["B2!F8"], rel=1e-9)
