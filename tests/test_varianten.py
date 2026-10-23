@@ -64,3 +64,14 @@ def test_s13k_spot_schalter_stunden():
     power = system_power(inp, ref["B3!C29"])
     hourly = simulate_dispatch(inp, ts, build_market_series(inp, ts), power)
     pruefe_stunden(inp, ref, stunden, hourly)
+
+
+def test_s13k_knapp_komplett():
+    """5-MW-Anlage, Grundlast 1,2 MW, dazu §13k-Strom und Spotmarkt (beide wirksam), ohne Batterie."""
+    inp, ref, stunden = lade("s13k_knapp")
+    r = run_operation(inp, load_default_timeseries())
+    pruefe_stunden(inp, ref, stunden, r.hourly)
+    assert r.power.total_kw == pytest.approx(ref["B4!C5"], rel=1e-9)
+    assert r.ely_consumption_kwh == pytest.approx(ref["B4!Y4"], rel=1e-9)
+    assert r.h2_kg_per_year == pytest.approx(ref["B2!F8"], rel=1e-9)
+    assert r.section13k_hours > 0 and (r.hourly["spot_kwh"] > 0).any()
