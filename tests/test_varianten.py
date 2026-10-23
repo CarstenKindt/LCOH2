@@ -53,3 +53,14 @@ def test_klein_stunden_mit_excel_wirkungsgrad():
     r = run_operation(inp, ts)
     assert r.stack_interval_years == pytest.approx(ref["B6!C5"])
     assert r.ely_consumption_kwh == pytest.approx(ref["B4!Y4"], rel=1e-9)
+
+
+def test_s13k_spot_schalter_stunden():
+    """Spotmarkt und §13k sind eingeschaltet, die Grundlast deckt die Anlage aber schon voll ab;
+    geprüft wird, dass die eingeschalteten Schalter nichts verändern (wie in der Excel)."""
+    inp, ref, stunden = lade("s13k")
+    assert inp.section13k_enabled and inp.spot_enabled
+    ts = load_default_timeseries()
+    power = system_power(inp, ref["B3!C29"])
+    hourly = simulate_dispatch(inp, ts, build_market_series(inp, ts), power)
+    pruefe_stunden(inp, ref, stunden, hourly)
