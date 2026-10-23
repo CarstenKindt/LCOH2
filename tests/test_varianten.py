@@ -85,3 +85,12 @@ def test_s13k_batterie_eigener_spotpreis():
     pruefe_stunden(inp, ref, stunden, r.hourly)
     assert r.ely_consumption_kwh == pytest.approx(ref["B4!Y4"], rel=1e-9)
     assert r.h2_kg_per_year == pytest.approx(ref["B2!F8"], rel=1e-9)
+
+
+def test_v5_thg_variante_betrieb():
+    """Variante mit THG (Inbetriebnahme 2029, THG-Preis 500 EUR/t); Ziel-LCOH 4,5695 EUR/kg (Etappe 4)."""
+    inp, ref, stunden = lade("v5")
+    assert inp.thg_enabled and inp.commissioning_year == 2029
+    r = run_operation(inp, load_default_timeseries())
+    pruefe_stunden(inp, ref, stunden, r.hourly)
+    assert r.h2_kg_per_year == pytest.approx(ref["B2!F8"], rel=1e-9)
