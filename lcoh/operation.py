@@ -63,9 +63,11 @@ class OperationResult:
     iterations: int
 
 
-def run_operation(inp: Inputs, ts: pd.DataFrame, max_iter: int = 20) -> OperationResult:
+def run_operation(inp: Inputs, ts: pd.DataFrame, max_iter: int = 20,
+                  fixed_interval_years: float | None = None) -> OperationResult:
+    """fixed_interval_years: nur für Vergleiche mit Excel-Dateien, deren Hilfszelle F129 nicht nachgeführt wurde."""
     market = build_market_series(inp, ts)
-    interval = 0.0
+    interval = 0.0 if fixed_interval_years is None else fixed_interval_years
     seen: list[float] = []
     for i in range(1, max_iter + 1):
         eff = average_efficiency(inp, interval)
@@ -74,7 +76,7 @@ def run_operation(inp: Inputs, ts: pd.DataFrame, max_iter: int = 20) -> Operatio
         ely_kwh = float(hourly["consumption_kwh"].sum() * power.ely_kw / power.total_kw)
         flh = ely_kwh / power.ely_kw
         new_interval = stack_interval_years(inp, stack_replacements(inp, flh))
-        if new_interval == interval:
+        if fixed_interval_years is not None or new_interval == interval:
             break
         if new_interval in seen:  # Zyklus: den größeren (vorsichtigeren) Wert nehmen und beenden
             interval = max(interval, new_interval)
@@ -94,7 +96,7 @@ def run_operation(inp: Inputs, ts: pd.DataFrame, max_iter: int = 20) -> Operatio
         cycles = math.ceil((hourly["battery_charge_kwh"].sum() - soc_end) / power.battery_capacity_kwh - 1e-12)
     return OperationResult(
         inputs=inp, power=power, hourly=hourly, market=market, avg_efficiency=eff,
-        stack_interval_years=interval, stack_replacements=stack_replacements(inp, flh),
+        stack_interval_years=new_interval if fixed_interval_years is not None else interval, stack_replacements=stack_replacements(inp, flh),
         ely_consumption_kwh=ely_kwh, full_load_hours=flh, h2_energy_kwh=h2_energy,
         h2_kg_per_year=h2_energy / k.HHV_KWH_PER_KG_H2,
         section7_hours=int((hourly["s7_kwh"] > 0).sum()),
