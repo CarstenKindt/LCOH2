@@ -23,7 +23,7 @@ MONTHS = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt",
 def year_axis(n: int = 8760) -> tuple[np.ndarray, dict]:
     """Zeitachse 1.1. bis 31.12. (Nicht-Schaltjahr) mit Monatsbeschriftung."""
     t0 = np.datetime64("2025-01-01T00:00")
-    x = t0 + np.arange(n) * np.timedelta64(1, "h")
+    x = (t0 + np.arange(n) * np.timedelta64(1, "h")).astype("datetime64[ns]")
     starts = [np.datetime64(f"2025-{m:02d}-01T00:00") for m in range(1, 13)]
     axis = dict(tickmode="array", tickvals=starts, ticktext=MONTHS, range=[str(x[0]), str(x[-1])],
                 ticks="outside", showgrid=True, gridcolor="rgba(128,128,128,0.15)")
@@ -185,7 +185,7 @@ def spot_price_figure(market, height: int = 340) -> go.Figure:
                          (2, "Preis über dem eigenen Maximalpreis", "#d62828")]:
         idx = np.where(regime[:-1] == k)[0]
         ys = np.full(3 * len(idx), np.nan)
-        xs = np.full(3 * len(idx), np.datetime64("NaT"), dtype="datetime64[ns]")
+        xs = np.full(3 * len(idx), np.datetime64("NaT", "ns"), dtype="datetime64[ns]")
         xs[0::3], xs[1::3] = xt[idx], xt[idx + 1]
         ys[0::3], ys[1::3] = raw[idx], raw[idx + 1]
         fig.add_trace(go.Scatter(x=xs, y=ys, mode="lines", name=name, line=dict(color=col, width=1.2),

@@ -4,11 +4,39 @@ from pathlib import Path
 from streamlit.testing.v1 import AppTest
 
 
-def neue_app() -> AppTest:
+def leere_app() -> AppTest:
     at = AppTest.from_file(str(Path(__file__).resolve().parent.parent / "app.py"), default_timeout=120)
     at.run()
     assert not at.exception
     return at
+
+
+def neue_app() -> AppTest:
+    """App mit geladenen Standardwerten."""
+    at = leere_app()
+    [b for b in at.button if b.label == "Standardwerte laden"][0].click().run()
+    assert not at.exception
+    return at
+
+
+def test_start_ohne_werte():
+    at = leere_app()
+    assert at.text_input(key="w_electrolyzer_power_kw").value == ""
+    assert not [m for m in at.metric if m.label == "Gestehungskosten"]
+    assert any("fehlen noch" in i.value for i in at.info)
+
+
+def test_leeren_nach_standardwerten():
+    at = neue_app()
+    [b for b in at.button if b.label == "Alle Felder leeren"][0].click().run()
+    assert at.text_input(key="w_electrolyzer_power_kw").value == ""
+    assert any("fehlen noch" in i.value for i in at.info)
+
+
+def test_einzelnes_feld_leeren_blendet_ergebnis_aus():
+    at = neue_app()
+    at.text_input(key="w_electrolyzer_power_kw").set_value("").run()
+    assert not [m for m in at.metric if m.label == "Gestehungskosten"]
 
 
 def metrik(at: AppTest, label: str) -> str:

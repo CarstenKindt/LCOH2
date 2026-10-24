@@ -51,8 +51,22 @@ def de(x: float, n: int = 2) -> str:
 
 
 # ---------------------------------------------------------------- Zustand
+NUMERIC_KEYS = [sp.key for sp in SPEC_BY_KEY.values() if sp.kind in ("number", "percent")]
+SELECT_KEYS = [sp.key for sp in SPEC_BY_KEY.values()
+               if sp.kind == "choice" and (len(sp.choices) > 3 or isinstance(sp.choices[0], int))]
+BLANK_KEYS = NUMERIC_KEYS + SELECT_KEYS
+
+
+def empty_state() -> dict:
+    """Leerer Startzustand: Zahlenfelder ohne Wert; Schalter und Auswahlfelder stehen auf ihren Standardwerten."""
+    d = Inputs().to_dict()
+    for k in BLANK_KEYS:
+        d[k] = None
+    return d
+
+
 if "S" not in st.session_state:
-    st.session_state["S"] = Inputs().to_dict()
+    st.session_state["S"] = empty_state()
 if "series" not in st.session_state:
     st.session_state["series"] = {}
 S: dict = st.session_state["S"]
@@ -64,10 +78,14 @@ def reset_widgets() -> None:
 
 
 def to_display(spec, value):
+    if value is None:
+        return None
     return value * 100 if spec.kind == "percent" else value
 
 
 def from_display(spec, value):
+    if value is None:
+        return None
     if spec.kind == "percent":
         return value / 100
     if spec.kind == "number" and is_int(spec):
@@ -106,6 +124,8 @@ def decimals_of(spec):
 
 
 def fmt_de(value: float, decimals) -> str:
+    if value is None:
+        return ""
     if decimals is None:
         txt = f"{value:,.4f}".rstrip("0").rstrip(".")
     else:
@@ -132,6 +152,11 @@ def commit_text(key: str) -> None:
     wk = f"w_{key}"
     errs = st.session_state.setdefault("_ferr", {})
     dec = decimals_of(spec)
+    if not str(st.session_state[wk]).strip():
+        errs.pop(key, None)
+        S[key] = None
+        st.session_state[wk] = ""
+        return
     try:
         v = parse_de(st.session_state[wk])
         lo = to_display(spec, spec.minimum) if spec.minimum is not None else None
@@ -173,7 +198,7 @@ def field(key: str, label: str | None = None, hide_label: bool = False) -> None:
                            format_func=lambda x: fmt(x, x), label_visibility=vis)
         else:
             val = st.selectbox(text, spec.choices, key=wk, help=helptext, format_func=lambda x: fmt(x, str(x)),
-                               label_visibility=vis)
+                               label_visibility=vis, index=None, placeholder="Bitte wählen")
     elif use_text:
         st.text_input(text, key=wk, help=helptext, on_change=commit_text, args=(key,), label_visibility=vis)
         err = st.session_state.get("_ferr", {}).get(key)
@@ -274,16 +299,26 @@ with st.sidebar:
     upload = st.file_uploader("Gespeicherte Eingaben laden (.json)", type="json", key="up_inputs")
     if upload is not None and st.session_state.get("_loaded") != (upload.name, upload.size):
         try:
-            loaded = Inputs.from_dict(json.load(upload)).to_dict()
+            raw = json.load(upload)
+            filled = {k: v for k, v in raw.items() if v is not None}
+            loaded = Inputs.from_dict({**Inputs().to_dict(), **filled}).to_dict()
+            for k in BLANK_KEYS:
+                if k in raw and raw[k] is None:
+                    loaded[k] = None
             S.update(loaded)
             reset_widgets()
             st.session_state["_loaded"] = (upload.name, upload.size)
             st.rerun()
         except Exception:
             st.error("Die Datei konnte nicht gelesen werden. Bitte eine mit diesem Tool gespeicherte Datei verwenden.")
-    if st.button("Auf Standardwerte zurücksetzen", width="stretch"):
+    if st.button("Standardwerte laden", width="stretch",
+                 help="Füllt alle Eingabefelder mit sinnvollen Beispielwerten. Diese können Sie anschließend anpassen."):
         S.update(Inputs().to_dict())
-        st.session_state["series"] = {}
+        st.session_state.pop("_loaded", None)
+        reset_widgets()
+        st.rerun()
+    if st.button("Alle Felder leeren", width="stretch"):
+        S.update(empty_state())
         st.session_state.pop("_loaded", None)
         reset_widgets()
         st.rerun()
@@ -354,14 +389,92 @@ with tab_rev:
             render_section(title, gate, keys, scope="Einnahmepotenziale")
 
 # ---------------------------------------------------------------- Prüfung und Rechnung
-errors = Inputs.from_dict(S).validate()
-if errors:
+GATE_OF = {k: g for _, secs in PAGES for _, g, ks in secs for k in ks}
+GATE_OF.update({k: g for _, g, ks in REVENUE_PAGE for k in ks})
+
+
+def is_active(key: str) -> bool:
+    """Eingabe ist sichtbar und ihr Abschnitt eingeschaltet."""
+    gate = GATE_OF.get(key)
+    if gate is not None and not (GATES[gate](S) if gate in GATES else bool(S[gate])):
+        return False
+    return visible(key)
+
+
+defaults_dict = Inputs().to_dict()
+shown_keys = set(GATE_OF) | {k for _, _, ks in COCKPIT for k in ks} | {f"levy_{sd}_{n}_ct_per_kwh" for sd in ("ely", "rest")
+                                                                      for n, _ in LEVIES}
+shown_keys |= {"demand_charge_ely_eur_per_kw_month", "demand_charge_rest_eur_per_kw_month"}
+# Felder mit Standardwert 0 sind freiwillig; ein leeres Feld zählt dort als 0
+missing = [k for k in BLANK_KEYS if S[k] is None and k in shown_keys and defaults_dict[k] not in (0, 0.0)
+           and is_active(k)]
+effective = {k: (defaults_dict[k] if v is None else v) for k, v in S.items()}
+inp_eff = Inputs.from_dict(effective)
+errors = inp_eff.validate()
+
+
+def render_data_tab(inp) -> None:
+    st.markdown("### Zeitreihen (Energiedaten und Preise)")
+    st.caption("Im Standard rechnet das Tool mit den hinterlegten Zeitreihen. Eigene Reihen müssen genau 8.760 Stundenwerte "
+               "enthalten (eine Zahl pro Zeile, als .csv oder .txt; Dezimalkomma ist erlaubt).")
+    defaults = load_default_timeseries()
+    series_info = {
+        "wind_kwh_per_kw": ("wind_kwh_per_kw", "kWh/kW"), "pv_kwh_per_kw": ("pv_kwh_per_kw", "kWh/kW"),
+        "day_ahead": (f"day_ahead_{inp.day_ahead_scenario_year}_eur_per_mwh", "€/MWh"),
+        "co2_eur_per_t": ("co2_eur_per_t", "€/t"), "section13k_kwh": ("section13k_kwh", "kWh")}
+    for name, (col, unit) in series_info.items():
+        with st.container(border=True):
+            c1, c2 = st.columns([1.2, 1])
+            custom = name in st.session_state["series"]
+            values = np.array(st.session_state["series"][name] if custom else defaults[col], dtype=float)
+            with c1:
+                st.markdown(f"**{SERIES_LABELS[name]}** · {'eigene Datei' if custom else 'Standardwerte'}")
+                fig = go.Figure(go.Scatter(y=values, mode="lines", line=dict(color="#1f4e79", width=1)))
+                fig.update_layout(height=160, margin=dict(l=0, r=0, t=5, b=0), yaxis_title=unit, xaxis_title="Stunde")
+                st.plotly_chart(fig, width="stretch", key=f"plot_{name}")
+                st.caption(f"Summe {de(values.sum(), 0)} · Mittelwert {de(values.mean(), 3)} · Maximum {de(values.max(), 2)} {unit}")
+            with c2:
+                up = st.file_uploader("Eigene Zeitreihe hochladen", type=["csv", "txt"], key=f"up_{name}")
+                if up is not None and st.session_state.get(f"_up_{name}") != (up.name, up.size):
+                    try:
+                        st.session_state["series"][name] = parse_series(up.getvalue())
+                        st.session_state[f"_up_{name}"] = (up.name, up.size)
+                        st.rerun()
+                    except ValueError as err:
+                        st.error(str(err))
+                st.download_button("Aktuelle Reihe herunterladen (.csv)", "\n".join(f"{v:.6g}" for v in values),
+                                   f"{name}.csv", "text/csv", key=f"dl_{name}", width="stretch")
+                if custom and st.button("Auf Standard zurücksetzen", key=f"rs_{name}", width="stretch"):
+                    del st.session_state["series"][name]
+                    st.session_state.pop(f"_up_{name}", None)
+                    st.rerun()
+    st.info("Hinweis: Eine hochgeladene Preisreihe ersetzt alle hinterlegten Börsenpreis-Szenarien. Die Reihen gelten "
+            "für die gesamte Projektlaufzeit; die jährlichen Preisentwicklungen werden wie bisher darauf angewendet.")
+
+
+if missing or errors:
     with tab_cockpit:
-        right.error("Bitte Eingaben prüfen:\n\n" + "\n".join(f"- {m}" for m in errors))
+        if missing:
+            right.info(f"Es fehlen noch {len(missing)} Angaben. Tragen Sie die Werte ein oder klicken Sie links auf "
+                       f"„Standardwerte laden“. Sobald alle Pflichtfelder gefüllt sind, erscheinen hier die Ergebnisse.")
+            with right.expander("Welche Angaben fehlen?"):
+                for k in missing:
+                    st.markdown(f"- {SPEC_BY_KEY[k].label}")
+        else:
+            right.error("Bitte Eingaben prüfen:\n\n" + "\n".join(f"- {m}" for m in errors))
+    with tab_res:
+        st.info("Noch keine Ergebnisse: Es fehlen Angaben oder sie sind nicht plausibel. Siehe Reiter „Cockpit“.")
+    with tab_data:
+        render_data_tab(inp_eff)
+    with st.sidebar:
+        st.divider()
+        st.caption("Noch keine Ergebnisse. Bitte Eingaben ergänzen oder Standardwerte laden.")
+        st.divider()
+        st.image(str(ASSETS / "logo_bmwe.png"), width=150)
     st.stop()
 
 series_json = json.dumps(st.session_state["series"])
-r, e = rechnen(json.dumps(S, sort_keys=True, default=float), series_json)
+r, e = rechnen(json.dumps(effective, sort_keys=True, default=float), series_json)
 inp = r.inputs
 
 with st.sidebar:
@@ -629,41 +742,6 @@ with tab_res:
     d3.download_button("Eingaben (.json)", json.dumps(S, ensure_ascii=False, indent=1, default=float),
                        "eingaben_lcoh2.json", "application/json", width="stretch")
 
-# ---------------------------------------------------------------- Daten
+
 with tab_data:
-    st.markdown("### Zeitreihen (Energiedaten und Preise)")
-    st.caption("Im Standard rechnet das Tool mit den hinterlegten Zeitreihen. Eigene Reihen müssen genau 8.760 Stundenwerte "
-               "enthalten (eine Zahl pro Zeile, als .csv oder .txt; Dezimalkomma ist erlaubt).")
-    defaults = load_default_timeseries()
-    series_info = {
-        "wind_kwh_per_kw": ("wind_kwh_per_kw", "kWh/kW"), "pv_kwh_per_kw": ("pv_kwh_per_kw", "kWh/kW"),
-        "day_ahead": (f"day_ahead_{inp.day_ahead_scenario_year}_eur_per_mwh", "€/MWh"),
-        "co2_eur_per_t": ("co2_eur_per_t", "€/t"), "section13k_kwh": ("section13k_kwh", "kWh")}
-    for name, (col, unit) in series_info.items():
-        with st.container(border=True):
-            c1, c2 = st.columns([1.2, 1])
-            custom = name in st.session_state["series"]
-            values = np.array(st.session_state["series"][name] if custom else defaults[col], dtype=float)
-            with c1:
-                st.markdown(f"**{SERIES_LABELS[name]}** · {'eigene Datei' if custom else 'Standardwerte'}")
-                fig = go.Figure(go.Scatter(y=values, mode="lines", line=dict(color="#1f4e79", width=1)))
-                fig.update_layout(height=160, margin=dict(l=0, r=0, t=5, b=0), yaxis_title=unit, xaxis_title="Stunde")
-                st.plotly_chart(fig, width="stretch", key=f"plot_{name}")
-                st.caption(f"Summe {de(values.sum(), 0)} · Mittelwert {de(values.mean(), 3)} · Maximum {de(values.max(), 2)} {unit}")
-            with c2:
-                up = st.file_uploader("Eigene Zeitreihe hochladen", type=["csv", "txt"], key=f"up_{name}")
-                if up is not None and st.session_state.get(f"_up_{name}") != (up.name, up.size):
-                    try:
-                        st.session_state["series"][name] = parse_series(up.getvalue())
-                        st.session_state[f"_up_{name}"] = (up.name, up.size)
-                        st.rerun()
-                    except ValueError as err:
-                        st.error(str(err))
-                st.download_button("Aktuelle Reihe herunterladen (.csv)", "\n".join(f"{v:.6g}" for v in values),
-                                   f"{name}.csv", "text/csv", key=f"dl_{name}", width="stretch")
-                if custom and st.button("Auf Standard zurücksetzen", key=f"rs_{name}", width="stretch"):
-                    del st.session_state["series"][name]
-                    st.session_state.pop(f"_up_{name}", None)
-                    st.rerun()
-    st.info("Hinweis: Eine hochgeladene Preisreihe ersetzt alle hinterlegten Börsenpreis-Szenarien. Die Reihen gelten "
-            "für die gesamte Projektlaufzeit; die jährlichen Preisentwicklungen werden wie bisher darauf angewendet.")
+    render_data_tab(inp)
