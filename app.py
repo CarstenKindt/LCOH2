@@ -686,11 +686,16 @@ with tab_res:
         st.caption("Jede Einflussgröße wird einzeln um die Schrittweite verringert bzw. erhöht; alle übrigen Kostenblöcke "
                    "bleiben unverändert (Vorgehen wie in der Excel). Grün: Die Gestehungskosten sinken, rot: sie steigen.")
     st.plotly_chart(sensitivity_figure(rows_s, S["sensitivity_step"] or 0.3), width="stretch")
-    sens_df = pd.DataFrame([(z.name, z.lcoh_minus, z.base, z.lcoh_plus, z.high - z.low) for z in rows_s],
-                           columns=["Einflussgröße", "Wert −", "Basis", "Wert +", "Spannweite"])
-    st.dataframe(sens_df.style.format({c: (lambda v: de(v, 2)) for c in sens_df.columns[1:]}), hide_index=True,
-                 width="stretch")
-    st.caption("Alle Werte in €/kg Wasserstoff. „Wert −“: Einflussgröße um die Schrittweite verringert; „Wert +“: erhöht.")
+    pct_txt = f"{de(S['sensitivity_step'] * 100 if S['sensitivity_step'] is not None else 30, 0)} %"
+    sens_df = pd.DataFrame([(z.name, z.block, z.v_minus, z.v_base, z.v_plus, z.setting, z.lcoh_minus, z.lcoh_plus)
+                            for z in rows_s],
+                           columns=["Einflussgröße", "Betroffener Kostenblock", f"Wert −{pct_txt}", "Basis",
+                                    f"Wert +{pct_txt}", "Einstellung (− | Basis | +)", "Gestehungskosten − [€/kg]",
+                                    "Gestehungskosten + [€/kg]"])
+    fmt = {c: (lambda v: de(v, 2)) for c in sens_df.columns if c.startswith(("Wert", "Basis", "Gestehungs"))}
+    st.dataframe(sens_df.style.format(fmt), hide_index=True, width="stretch")
+    st.caption("Die Spalten „Wert“ zeigen den veränderten Kostenblock in € bzw. € pro Jahr, die letzten beiden Spalten "
+               "die daraus folgenden Gestehungskosten.")
 
     t1, t2 = st.columns(2)
     with t1:

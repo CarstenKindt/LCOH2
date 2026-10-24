@@ -209,11 +209,12 @@ def sensitivity_figure(rows, step: float, height: int = 420) -> go.Figure:
     for sign, attr in ((-1, "lcoh_minus"), (1, "lcoh_plus")):
         vals = [getattr(z, attr) for z in rows]
         fig.add_trace(go.Bar(
-            y=[z.name for z in rows], x=[v - base for v in vals], base=[base] * len(rows), orientation="h",
+            y=[z.name for z in rows], x=[v - base for v in vals], base=[base] * len(rows), orientation="h", width=0.38,
             marker=dict(color=["#3f9b4f" if v < base else "#d1495b" for v in vals]),
-            text=[de(v) for v in vals], textposition="outside", cliponaxis=False,
-            customdata=[de(v) for v in vals],
-            hovertemplate=("%{y}, " + ("−" if sign < 0 else "+") + pct + ": %{customdata} €/kg<extra></extra>"),
+            text=[de(v) + " €/kg" for v in vals], textposition="outside", cliponaxis=False,
+            customdata=[[de(v), z.block, de(z.v_minus if sign < 0 else z.v_plus)] for z, v in zip(rows, vals)],
+            hovertemplate=("%{y}, " + ("−" if sign < 0 else "+") + pct + ": %{customdata[0]} €/kg<br>"
+                           "%{customdata[1]}: %{customdata[2]}<extra></extra>"),
             showlegend=False))
     fig.add_vline(x=base, line=dict(color="#16324f", width=2))
     fig.add_annotation(x=base, y=1.07, yref="paper", text=f"Basis: {de(base)} €/kg", showarrow=False,
