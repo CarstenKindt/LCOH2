@@ -36,7 +36,8 @@ def _shades(block: str, n: int) -> list[str]:
 
 
 def cost_structure_figure(items: list[Item], lcoh: float, detail: bool, height: int = 420,
-                          labels_in_bars: bool = True) -> go.Figure:
+                          labels_in_bars: bool = True, subsidy_title: str | None = None,
+                          gross_label: str | None = None) -> go.Figure:
     """Gestapeltes Wasserfalldiagramm.
 
     Übersicht (detail=False): ein Balken je Block, der Balken ist aus den Einzelposten zusammengesetzt.
@@ -60,11 +61,16 @@ def cost_structure_figure(items: list[Item], lcoh: float, detail: bool, height: 
     for b in COST_BLOCKS:
         add_block(b)
     gross = sum(i.eur_per_kg for i in used if i.block in COST_BLOCKS)
-    bars.append(dict(label=GROSS_LABEL, block=None, segs=[(GROSS_LABEL, gross, TOTAL_COLOR)], total=True))
+    gl = gross_label or GROSS_LABEL
+    bars.append(dict(label=gl, block=None, segs=[(gl, gross, TOTAL_COLOR)], total=True))
     for b in RELIEF_BLOCKS:
         add_block(b)
     bars.append(dict(label=NET_LABEL, block=None, segs=[(NET_LABEL, lcoh, TOTAL_COLOR)], total=True))
 
+    if subsidy_title and not detail:
+        for bar in bars:
+            if bar["block"] == BLOCK_SUBSIDY:
+                bar["label"] = subsidy_title
     fig = go.Figure()
     level = 0.0
     tops: list[float] = []
@@ -74,9 +80,12 @@ def cost_structure_figure(items: list[Item], lcoh: float, detail: bool, height: 
         start = 0.0 if bar["total"] else level
         cur = start
         for label, val, col in bar["segs"]:
+            if val < 0 and bar["block"] in COST_BLOCKS:  # Abzug innerhalb eines Kostenblocks: grün schraffiert
+                col = BLOCK_COLORS[BLOCK_SUBSIDY]
             show = labels_in_bars and (abs(val) > 0.045 * span) and not bar["total"]
             fig.add_trace(go.Bar(
-                x=[x], y=[val], base=[cur], width=0.66, marker=dict(color=col, line=dict(color="white", width=1)),
+                x=[x], y=[val], base=[cur], width=0.66, marker=dict(color=col, line=dict(color="white", width=1),
+                            pattern=dict(shape="/", fgcolor="white", size=6) if (val < 0 and bar["block"] in COST_BLOCKS) else None),
                 text=[label if (show and not detail) else ""], textposition="inside", insidetextanchor="middle",
                 textfont=dict(size=10, color="white" if _dark(col) else "#222"),
                 hovertemplate=f"{label}: {de(val)} €/kg<extra></extra>", showlegend=False, cliponaxis=False))
@@ -100,7 +109,7 @@ def cost_structure_figure(items: list[Item], lcoh: float, detail: bool, height: 
                 continue
             n = sum(1 for bar in bars if bar["block"] == b)
             if n:
-                fig.add_annotation(x=pos + (n - 1) / 2, y=1.04, yref="paper", text=f"<b>{b}</b>", showarrow=False,
+                fig.add_annotation(x=pos + (n - 1) / 2, y=1.04, yref="paper", text=f"<b>{subsidy_title if (b == BLOCK_SUBSIDY and subsidy_title) else b}</b>", showarrow=False,
                                    font=dict(size=12, color=BLOCK_COLORS[b]))
             pos += n
     fig.update_layout(

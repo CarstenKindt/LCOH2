@@ -4,6 +4,7 @@ from __future__ import annotations
 import io
 import json
 import re
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -19,9 +20,10 @@ from lcoh.charts import COST_BLOCKS as COST_BLOCK_NAMES, cost_structure_figure, 
 from lcoh.ui_layout import (CHOICE_LABELS, COCKPIT, FINE_STEP, GATES, LABEL_OVERRIDES, LEVIES, PAGES, REVENUE_PAGE,
                             VISIBLE)
 from lcoh.waterfall import (BLOCK_CAPEX, BLOCK_INTEREST, BLOCK_OPEX, BLOCK_POWER, BLOCK_REVENUE, BLOCK_STACK,
-                            BLOCK_SUBSIDY, block_subtotal, waterfall_items)
+                            BLOCK_SUBSIDY, block_subtotal, net_power_items, waterfall_items)
 from lcoh.zeitreihen import SERIES_LABELS, load_default_timeseries, parse_series
 
+ASSETS = Path(__file__).resolve().parent / "assets"
 st.set_page_config(page_title="Wasserstoff-Kostenrechner", page_icon="💧", layout="wide")
 st.markdown("""
 <style>
@@ -31,9 +33,12 @@ div[data-testid="stVerticalBlockBorderWrapper"] h4 {margin-top: 0; font-size: 1.
 .st-key-cockpit_out [data-testid="stMetricLabel"] p {white-space: normal !important;}
 .st-key-cockpit_in [data-testid="stWidgetLabel"] {min-height: 2.8rem; align-items: flex-end;}
 .st-key-cockpit_out [data-testid="stMetricValue"] {font-size: 1.6rem;}
+[data-testid="stTabPanel"] [data-testid="stTab"] p {font-weight: 400 !important; font-size: 1.05rem !important;}
+.sumbox.small {margin-bottom: 0; gap: 1.2rem;}
+.sumbox.small .v {font-size: 1rem;}
 .sumbox {display: flex; gap: 2rem; justify-content: flex-end; text-align: right; margin-bottom: .5rem;}
 .sumbox .l {font-size: .8rem; color: #666;}
-.sumbox .v {font-size: 1.25rem; font-weight: 700;}
+.sumbox .v {font-size: 1.25rem; font-weight: 700; white-space: nowrap;}
 </style>""", unsafe_allow_html=True)
 
 
@@ -180,10 +185,16 @@ def visible(key: str) -> bool:
     return True if rule is None else bool(rule(S))
 
 
-def render_section(title: str, gate: str | None, keys: list[str], skip: set[str] | None = None) -> None:
+SECTION_SLOTS: dict = {}
+
+
+def render_section(title: str, gate: str | None, keys: list[str], skip: set[str] | None = None,
+                   scope: str = "") -> None:
     keys = [k for k in keys if not skip or k not in skip]
     with st.container(border=True):
-        st.markdown(f"#### {title}")
+        h1, h2 = st.columns([1.1, 1.1])
+        h1.markdown(f"#### {title}")
+        SECTION_SLOTS[f"{scope}|{title}"] = h2.container()
         if gate is not None:
             on = GATES[gate](S) if gate in GATES else bool(S[gate])
             if not on:
@@ -254,8 +265,8 @@ def rechnen(inputs_json: str, series_json: str):
 
 # ---------------------------------------------------------------- Seitenleiste (Laden/Speichern)
 with st.sidebar:
-    st.markdown("### Wasserstoff-Kostenrechner")
-    st.caption("Was kostet ein Kilogramm grüner Wasserstoff aus Ihrem Elektrolyseprojekt?")
+    st.image(str(ASSETS / "logo_hs_flensburg.png"), width=170)
+    st.image(str(ASSETS / "logo_nrl.png"), width=190)
     st.markdown("**Eingaben speichern und laden**")
     upload = st.file_uploader("Gespeicherte Eingaben laden (.json)", type="json", key="up_inputs")
     if upload is not None and st.session_state.get("_loaded") != (upload.name, upload.size):
@@ -274,6 +285,8 @@ with st.sidebar:
         reset_widgets()
         st.rerun()
 
+st.markdown("# Wasserstoff-Kostenrechner")
+st.caption("Was kostet ein Kilogramm grüner Wasserstoff aus Ihrem Elektrolyseprojekt?")
 tab_cockpit, tab_inputs, tab_rev, tab_res, tab_data = st.tabs(
     ["Cockpit", "Eingaben", "Einnahmepotenziale", "Ergebnisse", "Daten"])
 
@@ -323,7 +336,7 @@ with tab_inputs:
             i = 0
             for title, gate, keys in sections:
                 with cols[i % 2]:
-                    render_section(title, gate, keys, skip=cockpit_keys)
+                    render_section(title, gate, keys, skip=cockpit_keys, scope=name)
                 i += 1
             if name == "Strombezug & Nebenkosten":
                 render_levies()
@@ -335,7 +348,7 @@ with tab_rev:
     cols = st.columns(2)
     for i, (title, gate, keys) in enumerate(REVENUE_PAGE):
         with cols[i % 2]:
-            render_section(title, gate, keys)
+            render_section(title, gate, keys, scope="Einnahmepotenziale")
 
 # ---------------------------------------------------------------- Prüfung und Rechnung
 errors = Inputs.from_dict(S).validate()
@@ -353,8 +366,14 @@ with st.sidebar:
     st.metric("Kosten pro kg Wasserstoff", f"{de(e.lcoh_eur_per_kg)} €/kg",
               help="Wasserstoffgestehungskosten (LCOH2): alle Kosten über die Projektlaufzeit, abzüglich Förderungen und Zusatzeinnahmen, je kg Wasserstoff.")
     st.caption(f"{de(e.lcoh_ct_per_kwh)} ct/kWh (Brennwert) · {de(e.h2_kg_per_year / 1000, 0)} t Wasserstoff pro Jahr")
+    st.metric("Ø Auslastung", f"{de(r.full_load_hours, 0)} h/a",
+              help="Volllaststunden des Elektrolyseurs: Jahresenergie geteilt durch Nennleistung.")
+    st.metric("Auslastung", f"{de(r.full_load_hours / 87.6, 1)} %",
+              help="Volllaststunden bezogen auf die 8.760 Stunden eines Jahres.")
     st.download_button("Eingaben speichern (.json)", json.dumps(S, ensure_ascii=False, indent=1, default=float),
                        "eingaben_lcoh2.json", "application/json", width="stretch")
+    st.divider()
+    st.image(str(ASSETS / "logo_bmwe.png"), width=150)
 
 # ---------------------------------------------------------------- Kennzahlen
 pc = e.power
@@ -369,10 +388,29 @@ HELP_GREEN = ("Anteil des bezogenen Stroms, der nicht aus dem Spotmarkt (Netzmix
               "RFNBO-Kriterien.")
 
 
-def summary_box(slot, pairs: list[tuple[str, str]]) -> None:
+def summary_box(slot, pairs: list[tuple[str, str]], small: bool = False) -> None:
     html = "".join(f'<div><div class="l">{lab}</div><div class="v">{val}</div></div>' for lab, val in pairs)
     with slot:
-        st.markdown(f'<div class="sumbox">{html}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="sumbox{" small" if small else ""}">{html}</div>', unsafe_allow_html=True)
+
+
+def section_sum(scope: str, title: str, pairs: list[tuple[str, str]]) -> None:
+    slot = SECTION_SLOTS.get(f"{scope}|{title}")
+    if slot is not None:
+        summary_box(slot, pairs, small=True)
+
+
+def eur(v: float) -> str:
+    return f"{de(v)} €"
+
+
+def per_year(label: str, v: float) -> list[tuple[str, str]]:
+    return [(label, f"{eur(v)} /a")]
+
+
+def capex_pair(*names: str) -> list[tuple[str, str]]:
+    v = sum(e.capex_items.get(n, 0.0) for n in names)
+    return [("Kosten", eur(v)), ("je kW Ely", f"{de(v / ely_kw)} €/kW")]
 
 
 ely_kw = r.power.ely_kw
@@ -394,6 +432,37 @@ summary_box(SUMMARY_SLOTS["Finanzierung & Förderungen"], [
 summary_box(SUMMARY_SLOTS["Einnahmepotenziale"], [
     ("Zusatzeinnahmen pro Jahr", f"{de(e.revenue_total)} €"),
     ("je kg Wasserstoff", f"{de(e.revenue_total / e.h2_kg_per_year if e.h2_kg_per_year else 0)} €/kg")])
+
+A, P, O, F, R = "Anlage & Investitionen", "Strombezug & Nebenkosten", "Betrieb (OPEX)", "Finanzierung & Förderungen", "Einnahmepotenziale"
+section_sum(A, "Investitionskosten (CAPEX)", capex_pair("EPC", "Balance of Plant", "Gebäude und Tiefbau"))
+section_sum(A, "Abwärme", capex_pair("Abwärmesystem"))
+section_sum(A, "Sauerstoff", capex_pair("Sauerstoffsystem"))
+section_sum(A, "Wasserstoff-Aufbereitung", capex_pair("H2-Aufbereitung"))
+section_sum(A, "Peripherie", [("Leistung Peripherie", f"{de(r.power.peripherals_kw, 0)} kW")])
+section_sum(A, "Batteriesystem (Kosten)", capex_pair("Batteriesystem") if inp.battery_enabled else [("Kosten", eur(0))])
+section_sum(A, "Stacktausch", per_year("Kosten pro Jahr", e.stack_cost_per_year) + [("Tausche", f"{r.stack_replacements}")])
+section_sum(A, "Individuelle CAPEX", capex_pair("Individuelle CAPEX"))
+section_sum(P, "Preisentwicklung PPA", per_year("PPA-Kosten", pc.cost_pv + pc.cost_wind + pc.cost_baseload))
+section_sum(P, "Spotmarkt und Börsenpreise", per_year("Spotmarkt-Kosten", pc.cost_spot))
+section_sum(P, "Strombezug nach §7 der 37. BImSchV", per_year("Kosten", pc.cost_s7))
+section_sum(P, "Strombezug nach §13k EnWG", per_year("Kosten", pc.cost_13k))
+section_sum(O, "Pauschale oder Einzelpositionen", per_year("OPEX gesamt", e.opex_total))
+section_sum(O, "Wartung & Instandhaltung", per_year("Kosten", e.opex_maintenance))
+section_sum(O, "Personal", per_year("Kosten", e.opex_personnel))
+section_sum(O, "Rückstellungen (ohne Stacktausch)", per_year("Kosten", e.opex_provisions))
+section_sum(O, "Wasser", per_year("Kosten", e.opex_water))
+section_sum(O, "Sonstige OPEX", per_year("Kosten", e.opex_other))
+section_sum(F, "Finanzierung", per_year("Kapitalkosten", e.financing_total))
+section_sum(F, "CAPEX-Förderung", [("Fördersumme", eur(e.capex_subsidy))])
+section_sum(F, "OPEX-Förderung", per_year("Förderung", e.opex_subsidy))
+section_sum(F, "Strompreisförderung", per_year("Förderung", pc.power_subsidy))
+section_sum(F, "Strompreiskompensation", per_year("Förderung", e.spk))
+section_sum(R, "THG-Quote", per_year("Einnahmen", e.revenue_thg))
+section_sum(R, "Verkauf von Überschussstrom", per_year("Einnahmen", e.revenue_power_spot + e.revenue_power_ppa))
+section_sum(R, "Sauerstoff", per_year("Einnahmen", e.revenue_oxygen))
+section_sum(R, "Abwärme", per_year("Einnahmen", e.revenue_heat))
+section_sum(R, "Regelenergie", per_year("Einnahmen", e.revenue_balancing))
+section_sum(R, "Sonstige Einnahmen", per_year("Einnahmen", e.revenue_other))
 
 # ---------------------------------------------------------------- Cockpit (Ergebnis rechts)
 with cockpit_slot:
@@ -444,12 +513,25 @@ with tab_res:
                              "Bezugsquellen und Abgaben: Wie viel entfällt auf PPA, Spotmarkt usw. und auf Netzentgelt, "
                              "Steuern und Umlagen? Die Summe der Stromkosten ist in beiden Fällen gleich.")
     with ctl2:
-        detail = st.toggle("Detailansicht (jeder Einzelposten ein eigener Balken)", value=False, key="detail_toggle")
+        mode = st.radio("Darstellung", ["Gestapelt nach Bereichen", "Detailliert (Einzelposten)",
+                                        "Strom netto (Befreiungen verrechnet)"], key="chart_mode",
+                        help="Gestapelt: ein Balken je Bereich, farbig nach Einzelposten unterteilt. Detailliert: jeder "
+                             "Einzelposten ein eigener Balken. Strom netto: Die Befreiungen von Stromnebenkosten werden "
+                             "direkt mit den Stromkosten verrechnet; unter „Förderungen“ stehen nur echte Förderungen.")
     items = waterfall_items(r, e, "verbraucher" if view == "Verbrauchern" else "quelle")
-    fig = cost_structure_figure(items, e.lcoh_eur_per_kg, detail=detail, height=640 if detail else 520)
+    detail = mode.startswith("Detailliert")
+    sub_title = None
+    if mode.startswith("Strom netto"):
+        items = (waterfall_items(r, e, "verbraucher", netto=True) if view == "Verbrauchern"
+                 else net_power_items(items))
+        sub_title = "Förderungen"
+    fig = cost_structure_figure(items, e.lcoh_eur_per_kg, detail=detail, height=640 if detail else 520,
+                                subsidy_title=sub_title, gross_label="Zwischensumme" if sub_title else None)
     st.plotly_chart(fig, width="stretch")
     gross = sum(i.eur_per_kg for i in items if i.block in COST_BLOCK_NAMES)
-    st.caption(f"Gestehungskosten brutto (ohne Förderungen, Befreiungen und Zusatzeinnahmen): {de(gross)} €/kg · "
+    gross_text = ("Zwischensumme (ohne Förderungen und Zusatzeinnahmen)" if sub_title
+                  else "Gestehungskosten brutto (ohne Förderungen, Befreiungen und Zusatzeinnahmen)")
+    st.caption(f"{gross_text}: {de(gross)} €/kg · "
                f"Gestehungskosten: {de(e.lcoh_eur_per_kg)} €/kg")
 
     st.markdown("### Geordneter Lastverlauf")

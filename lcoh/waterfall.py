@@ -27,8 +27,10 @@ class Item:
     eur_per_kg: float
 
 
-def waterfall_items(r: OperationResult, e: Economics, power_view: str = "quelle") -> list[Item]:
-    """power_view: "quelle" = nach Bezugsquelle und Abgaben, "verbraucher" = nach Verbrauchern (wie Excel)."""
+def waterfall_items(r: OperationResult, e: Economics, power_view: str = "quelle",
+                    netto: bool = False) -> list[Item]:
+    """power_view: "quelle" = nach Bezugsquelle und Abgaben, "verbraucher" = nach Verbrauchern (wie Excel).
+    netto: nur Ansicht "verbraucher": befreite Abgaben werden gar nicht erst als Kosten angesetzt."""
     inp, pc, life, h2 = r.inputs, e.power, r.inputs.project_lifetime_years, e.h2_kg_per_year
     d = h2 if h2 else float("nan")
     items: list[Item] = []
@@ -65,7 +67,8 @@ def waterfall_items(r: OperationResult, e: Economics, power_view: str = "quelle"
         levy_rate = full_levies / total_mwh if total_mwh else 0.0
         # Befreiungen hängen an den Seiten Elektrolyseur und Rest; je Verbraucher gleicher Satz je Seite
         def cost_of(mwh: float, side: str) -> float:
-            side_full = sum(getattr(inp, f"levy_{side}_{n}_ct_per_kwh") for n in pc.levy_full_eur) * 10.0
+            side_full = sum(getattr(inp, f"levy_{side}_{n}_ct_per_kwh") for n in pc.levy_full_eur
+                            if not (netto and getattr(inp, f"levy_{side}_{n}_exempt"))) * 10.0
             return mwh * (avg + side_full)
         add(BLOCK_POWER, "Strom Elektrolyseur", cost_of(ely_mwh, "ely"))
         add(BLOCK_POWER, "Strom Peripherie", cost_of(per_mwh, "rest"))
@@ -91,7 +94,8 @@ def waterfall_items(r: OperationResult, e: Economics, power_view: str = "quelle"
     add(BLOCK_SUBSIDY, "OPEX-Förderung", e.opex_subsidy, -1)
     add(BLOCK_SUBSIDY, "Strompreisförderung", pc.power_subsidy, -1)
     for name, label in LEVY_LABELS.items():
-        add(BLOCK_SUBSIDY, f"Befreiung {label}", pc.levy_privilege_eur[name], -1)
+        if not (netto and power_view == "verbraucher"):
+            add(BLOCK_SUBSIDY, f"Befreiung {label}", pc.levy_privilege_eur[name], -1)
     add(BLOCK_SUBSIDY, "Strompreiskompensation", e.spk, -1)
 
     add(BLOCK_REVENUE, "Abwärme", e.revenue_heat, -1)
@@ -105,3 +109,25 @@ def waterfall_items(r: OperationResult, e: Economics, power_view: str = "quelle"
 
 def block_subtotal(items: list[Item], *blocks: str) -> float:
     return sum(i.eur_per_kg for i in items if i.block in blocks)
+
+
+def net_power_items(items: list[Item]) -> list[Item]:
+    """Verrechnet die Befreiungen von Stromnebenkosten mit den Stromkosten.
+
+    Quellenansicht: jede Abgabe wird um ihre Befreiung gekürzt. Verbraucheransicht: eine Zeile
+    "Befreiung Stromnebenkosten" im Stromkostenblock. Im Block Förderungen bleiben nur echte Förderungen."""
+    exempt = {i.label: i.eur_per_kg for i in items if i.block == BLOCK_SUBSIDY and i.label.startswith("Befreiung ")}
+    out: list[Item] = []
+    power_labels = {i.label for i in items if i.block == BLOCK_POWER}
+    for it in items:
+        if it.block == BLOCK_SUBSIDY and it.label in exempt:
+            continue
+        if it.block == BLOCK_POWER and f"Befreiung {it.label}" in exempt:
+            out.append(Item(it.block, it.label + " (nach Befreiung)", it.eur_per_kg + exempt[f"Befreiung {it.label}"]))
+        else:
+            out.append(it)
+    if not any(label.replace("Befreiung ", "") in power_labels for label in exempt):
+        total = sum(exempt.values())
+        idx = max(n for n, i in enumerate(out) if i.block == BLOCK_POWER)
+        out.insert(idx + 1, Item(BLOCK_POWER, "Befreiung Stromnebenkosten", total))
+    return out
