@@ -17,6 +17,19 @@ GROSS_LABEL = "Gestehungskosten brutto"
 NET_LABEL = "Gestehungskosten"
 
 
+MONTHS = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"]
+
+
+def year_axis(n: int = 8760) -> tuple[np.ndarray, dict]:
+    """Zeitachse 1.1. bis 31.12. (Nicht-Schaltjahr) mit Monatsbeschriftung."""
+    t0 = np.datetime64("2025-01-01T00:00")
+    x = t0 + np.arange(n) * np.timedelta64(1, "h")
+    starts = [np.datetime64(f"2025-{m:02d}-01T00:00") for m in range(1, 13)]
+    axis = dict(tickmode="array", tickvals=starts, ticktext=MONTHS, range=[str(x[0]), str(x[-1])],
+                ticks="outside", showgrid=True, gridcolor="rgba(128,128,128,0.15)")
+    return x, axis
+
+
 def de(x: float, n: int = 2) -> str:
     return f"{x:,.{n}f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
@@ -146,13 +159,13 @@ def load_duration_figure(hourly, power, height: int = 360) -> go.Figure:
 
 def battery_soc_figure(hourly, power, height: int = 300) -> go.Figure:
     soc = hourly["battery_soc_kwh"].to_numpy(dtype=float)
-    x = np.arange(1, len(soc) + 1)
+    x, xaxis = year_axis(len(soc))
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=x, y=soc, mode="lines", fill="tozeroy", line=dict(color="#7b5ea7", width=1),
-                             name="Ladezustand", hovertemplate="Stunde %{x}: %{y:,.0f} kWh<extra></extra>"))
+                             name="Ladezustand", hovertemplate="%{x|%d.%m. %H:%M} Uhr: %{y:,.0f} kWh<extra></extra>"))
     fig.add_hline(y=power.battery_capacity_kwh, line=dict(color="#999", dash="dot"),
                   annotation_text=f"Kapazität {de(power.battery_capacity_kwh, 0)} kWh", annotation_position="top left")
-    fig.update_layout(height=height, margin=dict(l=0, r=0, t=10, b=0), xaxis_title="Stunde des Jahres",
+    fig.update_layout(height=height, margin=dict(l=0, r=0, t=10, b=0), xaxis=xaxis,
                       yaxis_title="Ladezustand [kWh]", yaxis_tickformat=",.0f", separators=",.", showlegend=False)
     return fig
 
@@ -165,22 +178,23 @@ def spot_price_figure(market, height: int = 340) -> go.Figure:
     smax = float(market.spot_max_price)
     regime = np.where(raw < lim7, 0, np.where(raw <= smax, 1, 2))
     n = len(raw)
+    xt, xaxis = year_axis(n)
     fig = go.Figure()
     for k, name, col in [(0, "Preis unter der §7-Grenze", "#3f9b4f"),
                          (1, "Preis zwischen §7-Grenze und eigenem Maximalpreis", "#ffc000"),
                          (2, "Preis über dem eigenen Maximalpreis", "#d62828")]:
         idx = np.where(regime[:-1] == k)[0]
-        xs = np.full(3 * len(idx), np.nan)
         ys = np.full(3 * len(idx), np.nan)
-        xs[0::3], xs[1::3] = idx + 1, idx + 2
+        xs = np.full(3 * len(idx), np.datetime64("NaT"), dtype="datetime64[ns]")
+        xs[0::3], xs[1::3] = xt[idx], xt[idx + 1]
         ys[0::3], ys[1::3] = raw[idx], raw[idx + 1]
         fig.add_trace(go.Scatter(x=xs, y=ys, mode="lines", name=name, line=dict(color=col, width=1.2),
                                  hoverinfo="skip"))
-    fig.add_trace(go.Scatter(x=np.arange(1, n + 1), y=raw, mode="markers", marker=dict(size=4, opacity=0),
-                             showlegend=False, hovertemplate="Stunde %{x}: %{y:,.2f} €/MWh<extra></extra>"))
+    fig.add_trace(go.Scatter(x=xt, y=raw, mode="markers", marker=dict(size=4, opacity=0),
+                             showlegend=False, hovertemplate="%{x|%d.%m. %H:%M} Uhr: %{y:,.2f} €/MWh<extra></extra>"))
     top = max(smax * 2.5, float(np.percentile(raw, 99.8)))
     low = min(0.0, float(np.percentile(raw, 0.2)))
-    fig.update_layout(height=height, margin=dict(l=0, r=0, t=10, b=0), xaxis_title="Stunde des Jahres",
+    fig.update_layout(height=height, margin=dict(l=0, r=0, t=10, b=0), xaxis=xaxis,
                       yaxis=dict(title="Preis [€/MWh]", range=[low * 1.1, top]), separators=",.",
                       legend=dict(orientation="h", y=1.12))
     return fig
