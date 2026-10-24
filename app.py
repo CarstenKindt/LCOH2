@@ -415,6 +415,13 @@ inp_eff = Inputs.from_dict(effective)
 errors = inp_eff.validate()
 
 
+def footer() -> None:
+    st.divider()
+    st.caption("Der Wasserstoff-Kostenrechner liefert eine Abschätzung auf Basis der eingegebenen Annahmen und der "
+               "hinterlegten Beispiel-Zeitreihen. Die Ergebnisse ersetzen keine Wirtschaftlichkeitsprüfung oder "
+               "Genehmigungsplanung und erfolgen ohne Gewähr. Entwickelt an der Hochschule Flensburg im Norddeutschen Reallabor.")
+
+
 def render_data_tab(inp) -> None:
     st.markdown("### Zeitreihen (Energiedaten und Preise)")
     st.caption("Im Standard rechnet das Tool mit den hinterlegten Zeitreihen. Eigene Reihen müssen genau 8.760 Stundenwerte "
@@ -473,6 +480,7 @@ if missing or errors:
         st.caption("Noch keine Ergebnisse. Bitte Eingaben ergänzen oder Standardwerte laden.")
         st.divider()
         st.image(str(ASSETS / "logo_bmwe.png"), width=150)
+    footer()
     st.stop()
 
 series_json = json.dumps(st.session_state["series"])
@@ -763,3 +771,4 @@ with tab_res:
 
 with tab_data:
     render_data_tab(inp)
+footer()

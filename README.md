@@ -4,18 +4,19 @@
 Es bildet das Excel-Modell `Berechnungstool_Modell_Rev_10.xlsx` aus dem Norddeutschen Reallabor nach
 und soll Unternehmen, die einen Elektrolyseur planen, eine schnelle Kostenabschätzung ermöglichen.
 
-**Stand:** Etappe 1 von 6 (Fundament). Das Tool rechnet noch nicht, die Eingaben und Standarddaten stehen.
+**Stand:** Die Berechnung und die Oberfläche sind fertig und gegen die Excel getestet. Offen sind Feinschliff
+und die Veröffentlichung (siehe `docs/Veroeffentlichung.md`).
 
 ## Etappen
 
 | Etappe | Inhalt | Stand |
 |---|---|---|
 | 1 | Projektgerüst, Eingaben (151) mit Excel-Standardwerten, Zeitreihen, Excel-Referenzwerte | fertig |
-| 2 | Stündlicher Strombezug, Batterie, Auslastung | offen |
-| 3 | Stromkosten, Nebenkosten, Privilegierungen, Stacktausch | offen |
-| 4 | CAPEX, OPEX, Finanzierung, Förderungen, Einnahmen inkl. THG-Quote → LCOH | offen |
-| 5 | Oberfläche: Cockpit-Startseite, Eingabemasken, Ergebnisse, Up- und Download | offen |
-| 6 | Sensitivitätsanalyse, Feinschliff, Veröffentlichung | offen |
+| 2 | Stündlicher Strombezug, Batterie, Auslastung | fertig |
+| 3 | Stromkosten, Nebenkosten, Privilegierungen, Stacktausch | fertig |
+| 4 | CAPEX, OPEX, Finanzierung, Förderungen, Einnahmen inkl. THG-Quote → LCOH | fertig |
+| 5 | Oberfläche: Cockpit, Eingabemasken, Ergebnisse, Up- und Download | fertig |
+| 6 | Sensitivitätsanalyse, Feinschliff, Veröffentlichung | in Arbeit |
 
 ## Aufbau
 
@@ -34,7 +35,7 @@ docs/            Dokumentation, u. a. Zuordnung Excel-Zelle zu Eingabe
 ## Tests starten
 
 ```
-pip install -r requirements.txt
+pip install -r requirements-dev.txt
 python -m pytest
 ```
 
