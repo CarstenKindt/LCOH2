@@ -158,24 +158,29 @@ def battery_soc_figure(hourly, power, height: int = 300) -> go.Figure:
 
 
 def spot_price_figure(market, height: int = 340) -> go.Figure:
-    """Börsenpreis über das Jahr wie in der Excel (Blatt 8): grün bis zur §7-Grenze, gelb bis zum eigenen
-    Maximalpreis, rot darüber."""
-    price = np.asarray(market.price_s7, dtype=float)
+    """Börsenpreis über das Jahr (Excel Blatt 8): Die Linie ist grün, solange der Preis unter der §7-Grenze liegt,
+    gelb bis zum eigenen Maximalpreis und rot darüber."""
     raw = np.asarray(market.price_raw, dtype=float)
     lim7 = np.asarray(market.section7_limit, dtype=float)
     smax = float(market.spot_max_price)
-    green = np.minimum(price, lim7)
-    yellow = np.minimum(np.maximum(lim7, raw), smax)
-    red = np.maximum(raw, smax)
-    x = np.arange(1, len(raw) + 1)
+    regime = np.where(raw < lim7, 0, np.where(raw <= smax, 1, 2))
+    n = len(raw)
     fig = go.Figure()
-    for name, y, col in [("Preis über dem eigenen Maximalpreis", red, "#d62828"),
-                         ("Preis zwischen §7-Grenze und eigenem Maximalpreis", yellow, "#ffc000"),
-                         ("Preis unter der §7-Grenze", green, "#3f9b4f")]:
-        fig.add_trace(go.Scatter(x=x, y=y, mode="lines", name=name, line=dict(color=col, width=1), fill="tozeroy", fillcolor=col,
-                                 hovertemplate="Stunde %{x}: %{y:,.2f} €/MWh<extra>" + name + "</extra>"))
+    for k, name, col in [(0, "Preis unter der §7-Grenze", "#3f9b4f"),
+                         (1, "Preis zwischen §7-Grenze und eigenem Maximalpreis", "#ffc000"),
+                         (2, "Preis über dem eigenen Maximalpreis", "#d62828")]:
+        idx = np.where(regime[:-1] == k)[0]
+        xs = np.full(3 * len(idx), np.nan)
+        ys = np.full(3 * len(idx), np.nan)
+        xs[0::3], xs[1::3] = idx + 1, idx + 2
+        ys[0::3], ys[1::3] = raw[idx], raw[idx + 1]
+        fig.add_trace(go.Scatter(x=xs, y=ys, mode="lines", name=name, line=dict(color=col, width=1.2),
+                                 hoverinfo="skip"))
+    fig.add_trace(go.Scatter(x=np.arange(1, n + 1), y=raw, mode="markers", marker=dict(size=4, opacity=0),
+                             showlegend=False, hovertemplate="Stunde %{x}: %{y:,.2f} €/MWh<extra></extra>"))
     top = max(smax * 2.5, float(np.percentile(raw, 99.8)))
     low = min(0.0, float(np.percentile(raw, 0.2)))
     fig.update_layout(height=height, margin=dict(l=0, r=0, t=10, b=0), xaxis_title="Stunde des Jahres",
-                      yaxis=dict(title="Preis [€/MWh]", range=[low * 1.1, top]), separators=",.", legend=dict(orientation="h", y=1.12))
+                      yaxis=dict(title="Preis [€/MWh]", range=[low * 1.1, top]), separators=",.",
+                      legend=dict(orientation="h", y=1.12))
     return fig

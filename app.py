@@ -484,9 +484,10 @@ with cockpit_slot:
     k8.metric("Kapitalkostensatz (WACC)", f"{de(e.wacc * 100, 1)} %")
     k9.metric("Stacktausche", f"{r.stack_replacements}", help=f"Anzahl der Stacktausche in der Projektlaufzeit "
               f"(alle {de(r.stack_interval_years, 1)} Jahre).")
-    items = waterfall_items(r, e, "verbraucher")
+    items = waterfall_items(r, e, "verbraucher", netto=True)
     st.markdown("#### Kostenstruktur")
-    st.plotly_chart(cost_structure_figure(items, e.lcoh_eur_per_kg, detail=False, height=430), width="stretch")
+    st.plotly_chart(cost_structure_figure(items, e.lcoh_eur_per_kg, detail=False, height=430,
+                                          subsidy_title="Förderungen", gross_label="Zwischensumme"), width="stretch")
     st.caption("Detaillierte Auswertung im Reiter „Ergebnisse“.")
 
 # ---------------------------------------------------------------- Ergebnisse
@@ -549,7 +550,7 @@ with tab_res:
 
     st.markdown("### Spotmarktpreise")
     st.plotly_chart(spot_price_figure(r.market), width="stretch")
-    st.caption(f"Grün: Preis unter der §7-Grenze. Gelb: zwischen der §7-Grenze und Ihrem Maximalpreis "
+    st.caption(f"Die Linie ist grün, solange der Preis unter der §7-Grenze liegt. Gelb: zwischen der §7-Grenze und Ihrem Maximalpreis "
                f"({de(inp.spot_max_price_eur_per_mwh)} €/MWh). Rot: darüber. Einzelne extreme Preisspitzen sind zugunsten der "
                f"Lesbarkeit abgeschnitten; Sie können im Diagramm hineinzoomen.")
 
