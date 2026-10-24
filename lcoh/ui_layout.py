@@ -147,6 +147,7 @@ CHOICE_LABELS = {
 
 # Angepasste Feldbeschriftungen (ersetzen die Beschriftung aus der Eingabeliste)
 LABEL_OVERRIDES = {
+    "battery_enabled": "Batterie nutzen?",
     "min_part_load": "Minimale Teillast",
     "capex_custom_1_eur_per_kw": "Individuelle CAPEX",
     "thg_adjustment_factor": "Anpassungsfaktor",

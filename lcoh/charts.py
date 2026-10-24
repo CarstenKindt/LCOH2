@@ -142,3 +142,40 @@ def load_duration_figure(hourly, power, height: int = 360) -> go.Figure:
                       yaxis_title="Energie pro Stunde [kWh]", legend=dict(orientation="h", y=1.1),
                       yaxis_tickformat=",.0f", separators=",.")
     return fig
+
+
+def battery_soc_figure(hourly, power, height: int = 300) -> go.Figure:
+    soc = hourly["battery_soc_kwh"].to_numpy(dtype=float)
+    x = np.arange(1, len(soc) + 1)
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=x, y=soc, mode="lines", fill="tozeroy", line=dict(color="#7b5ea7", width=1),
+                             name="Ladezustand", hovertemplate="Stunde %{x}: %{y:,.0f} kWh<extra></extra>"))
+    fig.add_hline(y=power.battery_capacity_kwh, line=dict(color="#999", dash="dot"),
+                  annotation_text=f"Kapazität {de(power.battery_capacity_kwh, 0)} kWh", annotation_position="top left")
+    fig.update_layout(height=height, margin=dict(l=0, r=0, t=10, b=0), xaxis_title="Stunde des Jahres",
+                      yaxis_title="Ladezustand [kWh]", yaxis_tickformat=",.0f", separators=",.", showlegend=False)
+    return fig
+
+
+def spot_price_figure(market, height: int = 340) -> go.Figure:
+    """Börsenpreis über das Jahr wie in der Excel (Blatt 8): grün bis zur §7-Grenze, gelb bis zum eigenen
+    Maximalpreis, rot darüber."""
+    price = np.asarray(market.price_s7, dtype=float)
+    raw = np.asarray(market.price_raw, dtype=float)
+    lim7 = np.asarray(market.section7_limit, dtype=float)
+    smax = float(market.spot_max_price)
+    green = np.minimum(price, lim7)
+    yellow = np.minimum(np.maximum(lim7, raw), smax)
+    red = np.maximum(raw, smax)
+    x = np.arange(1, len(raw) + 1)
+    fig = go.Figure()
+    for name, y, col in [("Preis über dem eigenen Maximalpreis", red, "#d62828"),
+                         ("Preis zwischen §7-Grenze und eigenem Maximalpreis", yellow, "#ffc000"),
+                         ("Preis unter der §7-Grenze", green, "#3f9b4f")]:
+        fig.add_trace(go.Scatter(x=x, y=y, mode="lines", name=name, line=dict(color=col, width=1), fill="tozeroy", fillcolor=col,
+                                 hovertemplate="Stunde %{x}: %{y:,.2f} €/MWh<extra>" + name + "</extra>"))
+    top = max(smax * 2.5, float(np.percentile(raw, 99.8)))
+    low = min(0.0, float(np.percentile(raw, 0.2)))
+    fig.update_layout(height=height, margin=dict(l=0, r=0, t=10, b=0), xaxis_title="Stunde des Jahres",
+                      yaxis=dict(title="Preis [€/MWh]", range=[low * 1.1, top]), separators=",.", legend=dict(orientation="h", y=1.12))
+    return fig

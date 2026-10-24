@@ -16,7 +16,7 @@ from lcoh.help_texts import HELP
 from lcoh.input_spec import SPEC_BY_KEY
 from lcoh.inputs import Inputs
 from lcoh.operation import run_operation
-from lcoh.charts import COST_BLOCKS as COST_BLOCK_NAMES, cost_structure_figure, load_duration_figure
+from lcoh.charts import COST_BLOCKS as COST_BLOCK_NAMES, battery_soc_figure, cost_structure_figure, load_duration_figure, spot_price_figure
 from lcoh.ui_layout import (CHOICE_LABELS, COCKPIT, FINE_STEP, GATES, LABEL_OVERRIDES, LEVIES, PAGES, REVENUE_PAGE,
                             VISIBLE)
 from lcoh.waterfall import (BLOCK_CAPEX, BLOCK_INTEREST, BLOCK_OPEX, BLOCK_POWER, BLOCK_REVENUE, BLOCK_STACK,
@@ -34,6 +34,9 @@ div[data-testid="stVerticalBlockBorderWrapper"] h4 {margin-top: 0; font-size: 1.
 .st-key-cockpit_in [data-testid="stWidgetLabel"] {min-height: 2.8rem; align-items: flex-end;}
 .st-key-cockpit_out [data-testid="stMetricValue"] {font-size: 1.6rem;}
 [data-testid="stTabPanel"] [data-testid="stTab"] p {font-weight: 400 !important; font-size: 1.05rem !important;}
+section[data-testid="stSidebar"] {width: 250px !important; min-width: 250px !important;}
+.st-key-cockpit_out [data-testid="stMetric"] {width: 100%; align-items: center;}
+.st-key-cockpit_out [data-testid="stMetric"] * {justify-content: center !important; text-align: center !important;}
 .sumbox.small {margin-bottom: 0; gap: 1.2rem;}
 .sumbox.small .v {font-size: 1rem;}
 .sumbox {display: flex; gap: 2rem; justify-content: flex-end; text-align: right; margin-bottom: .5rem;}
@@ -302,7 +305,7 @@ def row(keys: list[str]) -> None:
 
 
 with tab_cockpit:
-    left, right = st.columns([1.25, 1])
+    left, right = st.columns([1.1, 1.1])
     with left:
         st.markdown("### **Elektrolysesystem**")
         with st.container(key="cockpit_in"):
@@ -365,11 +368,9 @@ with st.sidebar:
     st.divider()
     st.metric("Kosten pro kg Wasserstoff", f"{de(e.lcoh_eur_per_kg)} €/kg",
               help="Wasserstoffgestehungskosten (LCOH2): alle Kosten über die Projektlaufzeit, abzüglich Förderungen und Zusatzeinnahmen, je kg Wasserstoff.")
-    st.caption(f"{de(e.lcoh_ct_per_kwh)} ct/kWh (Brennwert) · {de(e.h2_kg_per_year / 1000, 0)} t Wasserstoff pro Jahr")
-    st.metric("Ø Auslastung", f"{de(r.full_load_hours, 0)} h/a",
-              help="Volllaststunden des Elektrolyseurs: Jahresenergie geteilt durch Nennleistung.")
-    st.metric("Auslastung", f"{de(r.full_load_hours / 87.6, 1)} %",
-              help="Volllaststunden bezogen auf die 8.760 Stunden eines Jahres.")
+    st.caption(f"{de(e.lcoh_ct_per_kwh)} ct/kWh (Brennwert)  \n{de(e.h2_kg_per_year / 1000, 0)} t Wasserstoff pro Jahr  \n"
+               f"{de(r.full_load_hours, 0)} h/a Ø Auslastung (Volllaststunden)  \n"
+               f"{de(r.full_load_hours / 87.6, 1)} % Auslastung")
     st.download_button("Eingaben speichern (.json)", json.dumps(S, ensure_ascii=False, indent=1, default=float),
                        "eingaben_lcoh2.json", "application/json", width="stretch")
     st.divider()
@@ -513,8 +514,8 @@ with tab_res:
                              "Bezugsquellen und Abgaben: Wie viel entfällt auf PPA, Spotmarkt usw. und auf Netzentgelt, "
                              "Steuern und Umlagen? Die Summe der Stromkosten ist in beiden Fällen gleich.")
     with ctl2:
-        mode = st.radio("Darstellung", ["Gestapelt nach Bereichen", "Detailliert (Einzelposten)",
-                                        "Strom netto (Befreiungen verrechnet)"], key="chart_mode",
+        mode = st.radio("Darstellung", ["Detailliert (Einzelposten)", "Gestapelt nach Bereichen",
+                                        "Strom netto (Befreiungen verrechnet)"], index=2, key="chart_mode",
                         help="Gestapelt: ein Balken je Bereich, farbig nach Einzelposten unterteilt. Detailliert: jeder "
                              "Einzelposten ein eigener Balken. Strom netto: Die Befreiungen von Stromnebenkosten werden "
                              "direkt mit den Stromkosten verrechnet; unter „Förderungen“ stehen nur echte Förderungen.")
@@ -538,6 +539,19 @@ with tab_res:
     st.plotly_chart(load_duration_figure(r.hourly, r.power), width="stretch")
     st.caption("Jede Linie zeigt die Energie je Stunde, der Größe nach geordnet (höchste Stunde links). Der "
                "Gesamtstrombezug liegt über dem Verbrauch, wenn Strom in die Batterie geladen oder als Überschuss verkauft wird.")
+
+    st.markdown("### Ladezustand der Batterie")
+    if inp.battery_enabled and r.power.battery_capacity_kwh > 0:
+        st.plotly_chart(battery_soc_figure(r.hourly, r.power), width="stretch")
+        st.caption(f"Ladezyklen pro Jahr: {r.battery_cycles}")
+    else:
+        st.info("Die Batterie ist ausgeschaltet.")
+
+    st.markdown("### Spotmarktpreise")
+    st.plotly_chart(spot_price_figure(r.market), width="stretch")
+    st.caption(f"Grün: Preis unter der §7-Grenze. Gelb: zwischen der §7-Grenze und Ihrem Maximalpreis "
+               f"({de(inp.spot_max_price_eur_per_mwh)} €/MWh). Rot: darüber. Einzelne extreme Preisspitzen sind zugunsten der "
+               f"Lesbarkeit abgeschnitten; Sie können im Diagramm hineinzoomen.")
 
     t1, t2 = st.columns(2)
     with t1:
