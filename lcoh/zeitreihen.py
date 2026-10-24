@@ -47,3 +47,51 @@ def check_timeseries(df: pd.DataFrame) -> list[str]:
     if df[list(COLUMNS)].isna().any().any():
         problems.append("Die Tabelle enthält leere Zellen.")
     return problems
+
+
+SERIES_LABELS = {
+    "wind_kwh_per_kw": "Windprofil [kWh je kW und Stunde]",
+    "pv_kwh_per_kw": "PV-Profil [kWh je kW und Stunde]",
+    "day_ahead": "Börsenstrompreise Day-Ahead [€/MWh]",
+    "co2_eur_per_t": "CO₂-Preis [€/t]",
+    "section13k_kwh": "§13k-Energie [kWh je Stunde]",
+}
+
+
+def parse_series(data: bytes) -> list[float]:
+    """Liest eine hochgeladene Zeitreihe (CSV oder Textdatei) mit 8760 Werten.
+
+    Erlaubt sind eine Spalte oder mehrere Spalten (dann wird die letzte Spalte verwendet), die Trennzeichen
+    Semikolon, Tabulator oder Komma sowie Dezimalkomma. Eine Überschriftenzeile wird übersprungen.
+    Wirft ValueError mit einer verständlichen Meldung, wenn die Datei nicht passt.
+    """
+    try:
+        text = data.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        text = data.decode("latin-1")
+    values: list[float] = []
+    for number, line in enumerate(text.splitlines(), start=1):
+        line = line.strip()
+        if not line:
+            continue
+        if ";" in line:
+            cells = line.split(";")
+        elif "\t" in line:
+            cells = line.split("\t")
+        elif line.count(",") >= 2:
+            cells = line.split(",")
+        else:
+            cells = [line]
+        cell = cells[-1].strip().replace(" ", "")
+        if cell.count(",") == 1 and "." not in cell:
+            cell = cell.replace(",", ".")
+        try:
+            values.append(float(cell))
+        except ValueError:
+            if values or number > 1:
+                raise ValueError(f"Zeile {number}: „{cells[-1].strip()}“ ist keine Zahl.") from None
+    if len(values) != HOURS_PER_YEAR:
+        raise ValueError(f"Die Datei enthält {len(values)} Werte, erwartet werden {HOURS_PER_YEAR} Stundenwerte.")
+    if any(v != v or v in (float("inf"), float("-inf")) for v in values):
+        raise ValueError("Die Datei enthält ungültige Zahlenwerte.")
+    return values

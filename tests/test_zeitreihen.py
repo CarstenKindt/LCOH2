@@ -45,3 +45,18 @@ def test_check_finds_missing_columns_and_length():
     assert any("fehlen" in p for p in check_timeseries(bad))
     ts = load_default_timeseries().head(100)
     assert any("8760" in p for p in check_timeseries(ts))
+
+
+def test_parse_series_formate():
+    from lcoh.zeitreihen import parse_series
+    n = 8760
+    einfach = "\n".join(str(i / 10) for i in range(n)).encode()
+    assert len(parse_series(einfach)) == n
+    deutsch = ("Wert\n" + "\n".join(f"{i / 10:.1f}".replace(".", ",") for i in range(n))).encode("latin-1")
+    assert parse_series(deutsch)[5] == pytest.approx(0.5)
+    mehrspaltig = "\n".join(f"{i};{i / 10:.2f}".replace(".", ",") for i in range(n)).encode()
+    assert parse_series(mehrspaltig)[10] == pytest.approx(1.0)
+    with pytest.raises(ValueError, match="8760"):
+        parse_series(b"1\n2\n3\n")
+    with pytest.raises(ValueError, match="keine Zahl"):
+        parse_series(("1\n" * 100 + "abc\n").encode())
