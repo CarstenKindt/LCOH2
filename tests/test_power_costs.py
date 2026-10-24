@@ -31,3 +31,15 @@ def test_stromkosten(name):
     assert pc.cost_total == pytest.approx(ref["B2!G59"], rel=1e-9, abs=1e-6)
     assert pc.sale_revenue_spot == pytest.approx(ref["B5!V31"], rel=1e-9, abs=1e-6)
     assert pc.sale_revenue_ppa == pytest.approx(ref["B5!V32"], rel=1e-9, abs=1e-6)
+
+
+@pytest.mark.parametrize("name", FAELLE)
+def test_privilegierungen(name):
+    """Wert der Befreiungen (Blatt 5, AE38:AE53 und AE54) und Stromkosten ohne Privilegien (AE21)."""
+    inp, ref = lade(name)
+    pc = power_costs(run_operation(inp, load_default_timeseries()))
+    assert sum(pc.levy_privilege_eur.values()) == pytest.approx(ref["B5!AE54"], rel=1e-9, abs=1e-6)
+    zeilen = {"grid_fee": (38, 47), "electricity_tax": (39, 48), "concession_fee": (40, 49),
+              "kwk_levy": (41, 50), "stromnev19_levy": (42, 51), "offshore_levy": (43, 52)}
+    for komp, (z1, z2) in zeilen.items():
+        assert pc.levy_privilege_eur[komp] == pytest.approx(ref[f"B5!AE{z1}"] + ref[f"B5!AE{z2}"], rel=1e-9, abs=1e-6)

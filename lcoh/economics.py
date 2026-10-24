@@ -87,6 +87,10 @@ class Economics:
     lcoh_ct_per_kwh: float      # Blatt 2, F4
     power: PowerCosts
     stack: StackCosts
+    capex_items: dict           # CAPEX je Position in EUR (brutto)
+    interest_cost: float        # Zinskosten Fremd- und Eigenkapital pro Jahr (Blatt 3, C63)
+    wacc: float                 # Blatt 2, F17
+    water_cost: float
 
 
 def compute_economics(r: OperationResult) -> Economics:
@@ -110,6 +114,18 @@ def compute_economics(r: OperationResult) -> Economics:
     custom = (inp.capex_custom_1_eur_per_kw + inp.capex_custom_2_share_of_electrolyzer * inp.capex_electrolyzer_eur_per_kw
               + (inp.capex_custom_3_eur / ely_kw if ely_kw else 0.0)) if ely_kw else 0.0
     capex = per_kw * ely_kw + battery + custom * ely_kw
+    capex_items = {
+        "Elektrolyseur": inp.capex_electrolyzer_eur_per_kw * ely_kw,
+        "EPC": inp.capex_epc_eur_per_kw * ely_kw,
+        "Balance of Plant": inp.capex_bop_eur_per_kw * ely_kw,
+        "Gebäude und Tiefbau": (inp.capex_building_eur_per_kw + inp.capex_civil_eur_per_kw) * ely_kw,
+        "Abwärmesystem": (inp.capex_waste_heat_eur_per_kw if inp.waste_heat_enabled else 0.0) * ely_kw,
+        "Sauerstoffsystem": (inp.capex_oxygen_eur_per_kw if inp.oxygen_enabled else 0.0) * ely_kw,
+        "H2-Aufbereitung": (inp.capex_h2_compression_eur_per_kw if inp.h2_processing_mode == "Verdichtung"
+                            else inp.capex_h2_direct_eur_per_kw) * ely_kw,
+        "Batteriesystem": battery,
+        "Individuelle CAPEX": custom * ely_kw,
+    }
 
     mode = inp.capex_subsidy_mode.lower()
     if mode == "prozentual":
@@ -153,6 +169,9 @@ def compute_economics(r: OperationResult) -> Economics:
     equity = capex_net * (1 - inp.debt_share)
     a_debt, a_equity = annuity(debt, inp.debt_interest_rate), annuity(equity, inp.equity_interest_rate)
     financing = a_debt + a_equity
+    interest = financing - capex_net / life
+    wacc = (inp.equity_interest_rate * (1 - inp.debt_share)
+            + inp.debt_interest_rate * inp.debt_share * (1 - inp.corporate_tax_rate))
 
     # ---- Erlöse (Blatt 3, K20:L50)
     thg = thg_revenue_per_year(inp, h2)
@@ -188,4 +207,4 @@ def compute_economics(r: OperationResult) -> Economics:
         maintenance, personnel, provisions, water, other, opex_subsidy, opex,
         pc.cost_total, sc.annual_cost, debt, a_debt, equity, a_equity, financing,
         thg, pc.sale_revenue_spot, pc.sale_revenue_ppa, oxygen, heat, balancing, other_rev, revenue, spk,
-        h2, lcoh, lcoh * k.CT_PER_EUR / k.HHV_KWH_PER_KG_H2, pc, sc)
+        h2, lcoh, lcoh * k.CT_PER_EUR / k.HHV_KWH_PER_KG_H2, pc, sc, capex_items, interest, wacc, water)

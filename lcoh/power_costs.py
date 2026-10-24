@@ -52,6 +52,14 @@ class PowerCosts:
     sale_price_ppa: float             # Blatt 3, C45
     sale_revenue_spot: float          # Blatt 5, V31
     sale_revenue_ppa: float           # Blatt 5, V32
+    # Aufteilung der Nebenkosten (EUR pro Jahr) für Auswertungen
+    levy_full_eur: dict               # Abgaben ohne Befreiung, je Komponente (Blatt 5, AI25.. x Mengen)
+    levy_actual_eur: dict             # tatsächlich zu zahlende Abgaben je Komponente
+    levy_privilege_eur: dict          # Wert der Befreiungen je Komponente (Blatt 5, AE38:AE53)
+    demand_charge_eur: float          # tatsächlich zu zahlender Leistungspreis (beide Seiten)
+    consumption_periphery_kwh: float
+    consumption_o2_kwh: float
+    consumption_h2_kwh: float
 
 
 def power_costs(r: OperationResult) -> PowerCosts:
@@ -111,6 +119,18 @@ def power_costs(r: OperationResult) -> PowerCosts:
     levies_ely = levies("ely") + demand_ely
     levies_rest = levies("rest") + demand_rest
 
+    # Aufteilung je Komponente (Befreiung = Differenz aus voller und tatsächlicher Abgabe)
+    levy_full, levy_actual, levy_priv = {}, {}, {}
+    for name in LEVIES:
+        full = actual = 0.0
+        for side, mwh in (("ely", ely_mwh), ("rest", rest_mwh)):
+            rate = getattr(inp, f"levy_{side}_{name}_ct_per_kwh") * k.KWH_PER_MWH / k.CT_PER_EUR
+            full += rate * mwh
+            if not getattr(inp, f"levy_{side}_{name}_exempt"):
+                actual += rate * mwh
+        levy_full[name], levy_actual[name], levy_priv[name] = full, actual, full - actual
+    demand_cost = demand_ely * ely_mwh + demand_rest * rest_mwh
+
     # --- Kosten
     m = k.KWH_PER_MWH
     c_pv, c_wind, c_base = pv / m * price_pv, wind / m * price_wind, base / m * price_base
@@ -140,4 +160,5 @@ def power_costs(r: OperationResult) -> PowerCosts:
         price_pv, price_wind, price_base, price_13k, price_s7, price_spot,
         levies_ely, levies_rest, avg_price,
         c_pv, c_wind, c_base, c_13k, c_s7, c_spot, c_lely, c_lrest, total, subsidy, total - subsidy,
-        sale_spot, sale_ppa, surplus_mwh * sale_spot, surplus_mwh * sale_ppa)
+        sale_spot, sale_ppa, surplus_mwh * sale_spot, surplus_mwh * sale_ppa,
+        levy_full, levy_actual, levy_priv, demand_cost, periph, o2, h2c)
