@@ -10,7 +10,7 @@ from lcoh.power_costs import power_costs
 from lcoh.zeitreihen import load_default_timeseries
 
 REF = Path(__file__).parent / "reference"
-FAELLE = ["basis", "klein", "ohne_batterie", "s13k", "s13k_knapp", "s13k_batt", "v5"]
+FAELLE = ["basis", "klein", "ohne_batterie", "s13k", "s13k_knapp", "s13k_batt", "v5", "mit_nk"]
 
 
 def lade(name):
