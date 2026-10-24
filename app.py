@@ -16,7 +16,8 @@ from lcoh.help_texts import HELP
 from lcoh.input_spec import SPEC_BY_KEY
 from lcoh.inputs import Inputs
 from lcoh.operation import run_operation
-from lcoh.charts import COST_BLOCKS as COST_BLOCK_NAMES, battery_soc_figure, cost_structure_figure, load_duration_figure, spot_price_figure
+from lcoh.sensitivity import sensitivity
+from lcoh.charts import COST_BLOCKS as COST_BLOCK_NAMES, battery_soc_figure, cost_structure_figure, load_duration_figure, sensitivity_figure, spot_price_figure
 from lcoh.ui_layout import (CHOICE_LABELS, COCKPIT, FINE_STEP, GATES, LABEL_OVERRIDES, LEVIES, PAGES, REVENUE_PAGE,
                             VISIBLE)
 from lcoh.waterfall import (BLOCK_CAPEX, BLOCK_INTEREST, BLOCK_OPEX, BLOCK_POWER, BLOCK_REVENUE, BLOCK_STACK,
@@ -61,7 +62,8 @@ def empty_state() -> dict:
     """Leerer Startzustand: Zahlenfelder ohne Wert; Schalter und Auswahlfelder stehen auf ihren Standardwerten."""
     d = Inputs().to_dict()
     for k in BLANK_KEYS:
-        d[k] = None
+        if k != "sensitivity_step":
+            d[k] = None
     return d
 
 
@@ -667,6 +669,21 @@ with tab_res:
                f"({de(inp.spot_max_price_eur_per_mwh)} €/MWh). Rot: darüber. Einzelne extreme Preisspitzen sind zugunsten der "
                f"Lesbarkeit abgeschnitten; Sie können im Diagramm hineinzoomen.")
 
+    st.markdown("### Sensitivitätsanalyse")
+    sc1, sc2 = st.columns([1, 3])
+    with sc1:
+        field("sensitivity_step")
+    rows_s = sensitivity(r, e, S["sensitivity_step"] if S["sensitivity_step"] is not None else 0.3)
+    with sc2:
+        st.caption("Jede Einflussgröße wird einzeln um die Schrittweite verringert bzw. erhöht; alle übrigen Kostenblöcke "
+                   "bleiben unverändert (Vorgehen wie in der Excel). Grün: Die Gestehungskosten sinken, rot: sie steigen.")
+    st.plotly_chart(sensitivity_figure(rows_s, S["sensitivity_step"] or 0.3), width="stretch")
+    sens_df = pd.DataFrame([(z.name, z.lcoh_minus, z.base, z.lcoh_plus, z.high - z.low) for z in rows_s],
+                           columns=["Einflussgröße", "Wert −", "Basis", "Wert +", "Spannweite"])
+    st.dataframe(sens_df.style.format({c: (lambda v: de(v, 2)) for c in sens_df.columns[1:]}), hide_index=True,
+                 width="stretch")
+    st.caption("Alle Werte in €/kg Wasserstoff. „Wert −“: Einflussgröße um die Schrittweite verringert; „Wert +“: erhöht.")
+
     t1, t2 = st.columns(2)
     with t1:
         st.markdown("### Kosten und Erlöse pro Jahr")
@@ -731,6 +748,7 @@ with tab_res:
             xw, sheet_name="Wasserfall", index=False)
         df.to_excel(xw, sheet_name="Kosten und Erlöse", index=False)
         tab.to_excel(xw, sheet_name="Strombezug", index=False)
+        sens_df.to_excel(xw, sheet_name="Sensitivität", index=False)
         pd.DataFrame([(SPEC_BY_KEY[k].label, SPEC_BY_KEY[k].unit, v) for k, v in S.items() if k in SPEC_BY_KEY],
                      columns=["Eingabe", "Einheit", "Wert (Anteile als Dezimalzahl)"]).to_excel(xw, sheet_name="Eingaben", index=False)
         r.hourly.to_excel(xw, sheet_name="Stundenwerte", index=False)

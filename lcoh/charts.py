@@ -198,3 +198,29 @@ def spot_price_figure(market, height: int = 340) -> go.Figure:
                       yaxis=dict(title="Preis [€/MWh]", range=[low * 1.1, top]), separators=",.",
                       legend=dict(orientation="h", y=1.12))
     return fig
+
+
+def sensitivity_figure(rows, step: float, height: int = 420) -> go.Figure:
+    """Tornado-Diagramm: Gestehungskosten, wenn die Einflussgröße um die Schrittweite sinkt bzw. steigt."""
+    rows = sorted(rows, key=lambda z: z.high - z.low)  # größte Wirkung oben
+    base = rows[0].base if rows else 0.0
+    pct = f"{de(step * 100, 0)} %"
+    fig = go.Figure()
+    for sign, attr in ((-1, "lcoh_minus"), (1, "lcoh_plus")):
+        vals = [getattr(z, attr) for z in rows]
+        fig.add_trace(go.Bar(
+            y=[z.name for z in rows], x=[v - base for v in vals], base=[base] * len(rows), orientation="h",
+            marker=dict(color=["#3f9b4f" if v < base else "#d1495b" for v in vals]),
+            text=[de(v) for v in vals], textposition="outside", cliponaxis=False,
+            customdata=[de(v) for v in vals],
+            hovertemplate=("%{y}, " + ("−" if sign < 0 else "+") + pct + ": %{customdata} €/kg<extra></extra>"),
+            showlegend=False))
+    fig.add_vline(x=base, line=dict(color="#16324f", width=2))
+    fig.add_annotation(x=base, y=1.07, yref="paper", text=f"Basis: {de(base)} €/kg", showarrow=False,
+                       font=dict(color="#16324f"))
+    lo = min((z.low for z in rows), default=base)
+    hi = max((z.high for z in rows), default=base)
+    pad = (hi - lo) * 0.12 or 0.5
+    fig.update_layout(barmode="overlay", height=height, margin=dict(l=0, r=0, t=30, b=0), separators=",.",
+                      xaxis=dict(title="Gestehungskosten [€/kg]", range=[lo - pad, hi + pad]))
+    return fig
