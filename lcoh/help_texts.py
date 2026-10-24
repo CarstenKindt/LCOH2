@@ -22,7 +22,7 @@ HELP: dict[str, str] = {
     "h2_processing_mode": "„Verdichtung“: Der Wasserstoff wird auf einen Ausgangsdruck verdichtet; der Verdichter braucht Strom und erhöht die Systemleistung. „Direkt“: Der Wasserstoff wird ohne Verdichtung abgegeben.",
     "capex_h2_compression_eur_per_kw": "Investitionskosten des Verdichtersystems für Wasserstoff je kW Elektrolyseurleistung (nur bei „Verdichtung“).",
     "capex_h2_direct_eur_per_kw": "Investitionskosten der direkten Wasserstoffabgabe ohne Verdichter je kW Elektrolyseurleistung (nur bei „direkt“).",
-    "capex_custom_1_eur_per_kw": "Weitere, selbst definierte Investitionskosten je kW Elektrolyseurleistung, zum Beispiel für den Netzanschluss.",
+    "capex_custom_1_eur_per_kw": "Weitere, selbst definierte Investitionskosten je kW Elektrolyseurleistung, zum Beispiel für Netzanschluss oder Wasserstoffspeicher. Mehrere Posten bitte zu einem Wert zusammenfassen.",
     "capex_custom_2_share_of_electrolyzer": "Weitere, selbst definierte Investitionskosten als Anteil der Elektrolyseurkosten, zum Beispiel für einen Wasserstoffspeicher.",
     "capex_custom_3_eur": "Weitere, selbst definierte Investitionskosten als einmaliger Betrag in Euro.",
     # ---- Batterie

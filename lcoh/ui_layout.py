@@ -30,8 +30,7 @@ PAGES = [
         ("Stacktausch", None, [
             "stack_lifetime_h", "stack_degradation_per_year", "stack_replacement_cost_share",
             "stack_cost_degression", "stack_interest_rate"]),
-        ("Individuelle CAPEX", None, [
-            "capex_custom_1_eur_per_kw", "capex_custom_2_share_of_electrolyzer", "capex_custom_3_eur"]),
+        ("Individuelle CAPEX", None, ["capex_custom_1_eur_per_kw"]),
     ]),
     ("Strombezug & Nebenkosten", [
         ("Preisentwicklung PPA", None, ["ppa_baseload_price_escalation", "ppa_pap_price_escalation"]),
@@ -145,3 +144,13 @@ CHOICE_LABELS = {
     "thg_adjustment_factor": {0.4: "0,4 – Brennstoffzellen-Elektroantrieb", 1.0: "1,0 – Verbrennungsmotor"},
     "h2_processing_mode": {"direkt": "Direkt (ohne Verdichtung)", "Verdichtung": "Verdichtung"},
 }
+
+# Angepasste Feldbeschriftungen (ersetzen die Beschriftung aus der Eingabeliste)
+LABEL_OVERRIDES = {
+    "min_part_load": "Minimale Teillast",
+    "capex_custom_1_eur_per_kw": "Individuelle CAPEX",
+    "thg_adjustment_factor": "Anpassungsfaktor",
+    "day_ahead_scenario_year": "Börsenpreis-Szenario (Jahr)",
+}
+# Prozentfelder mit feinerer Schrittweite (0,01 statt 0,1)
+FINE_STEP = {"stack_degradation_per_year"}

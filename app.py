@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import io
 import json
+import re
 
 import numpy as np
 import pandas as pd
@@ -14,16 +15,25 @@ from lcoh.help_texts import HELP
 from lcoh.input_spec import SPEC_BY_KEY
 from lcoh.inputs import Inputs
 from lcoh.operation import run_operation
-from lcoh.ui_layout import CHOICE_LABELS, COCKPIT, GATES, LEVIES, PAGES, REVENUE_PAGE, VISIBLE
+from lcoh.charts import COST_BLOCKS as COST_BLOCK_NAMES, cost_structure_figure, load_duration_figure
+from lcoh.ui_layout import (CHOICE_LABELS, COCKPIT, FINE_STEP, GATES, LABEL_OVERRIDES, LEVIES, PAGES, REVENUE_PAGE,
+                            VISIBLE)
 from lcoh.waterfall import (BLOCK_CAPEX, BLOCK_INTEREST, BLOCK_OPEX, BLOCK_POWER, BLOCK_REVENUE, BLOCK_STACK,
                             BLOCK_SUBSIDY, block_subtotal, waterfall_items)
 from lcoh.zeitreihen import SERIES_LABELS, load_default_timeseries, parse_series
 
-st.set_page_config(page_title="LCOH2-Rechner", page_icon="💧", layout="wide")
+st.set_page_config(page_title="Wasserstoff-Kostenrechner", page_icon="💧", layout="wide")
 st.markdown("""
 <style>
 div[data-testid="stVerticalBlockBorderWrapper"] h4 {margin-top: 0; font-size: 1.05rem;}
 .block-container {padding-top: 2.2rem;}
+[data-testid="stTab"] p {font-weight: 700 !important; font-size: 1.2rem !important;}
+.st-key-cockpit_out [data-testid="stMetricLabel"] p {white-space: normal !important;}
+.st-key-cockpit_in [data-testid="stWidgetLabel"] {min-height: 2.8rem; align-items: flex-end;}
+.st-key-cockpit_out [data-testid="stMetricValue"] {font-size: 1.6rem;}
+.sumbox {display: flex; gap: 2rem; justify-content: flex-end; text-align: right; margin-bottom: .5rem;}
+.sumbox .l {font-size: .8rem; color: #666;}
+.sumbox .v {font-size: 1.25rem; font-weight: 700;}
 </style>""", unsafe_allow_html=True)
 
 
@@ -52,18 +62,84 @@ def to_display(spec, value):
 def from_display(spec, value):
     if spec.kind == "percent":
         return value / 100
-    if spec.kind == "number" and isinstance(spec.default, int) and not isinstance(spec.default, bool):
+    if spec.kind == "number" and is_int(spec):
         return int(value)
     return value
 
 
+def is_int(spec) -> bool:
+    return isinstance(spec.default, int) and not isinstance(spec.default, bool)
+
+
+def fine_percent(spec) -> bool:
+    d = spec.default * 100
+    return spec.key in FINE_STEP or abs(round(d, 1) - d) > 1e-9
+
+
 def default_step(spec) -> float:
-    if isinstance(spec.default, int) and not isinstance(spec.default, bool):
+    if is_int(spec):
         return 1
-    d = abs(spec.default) if spec.default else 1.0
     if spec.kind == "percent":
-        return 0.5
+        return 0.01 if fine_percent(spec) else 0.1
+    d = abs(spec.default) if spec.default else 1.0
     return 100.0 if d >= 5000 else 10.0 if d >= 100 else 1.0 if d >= 10 else 0.5 if d >= 1 else 0.1
+
+
+def decimals_of(spec):
+    """Anzahl Nachkommastellen: Geldwerte 2, Prozent 1 (bzw. 2), ganze Zahlen 0, sonst frei (None)."""
+    unit = spec.unit or ""
+    if is_int(spec):
+        return 0
+    if spec.kind == "percent":
+        return 2 if fine_percent(spec) else 1
+    if "€" in unit or unit.startswith("ct"):
+        return 2
+    return None
+
+
+def fmt_de(value: float, decimals) -> str:
+    if decimals is None:
+        txt = f"{value:,.4f}".rstrip("0").rstrip(".")
+    else:
+        txt = f"{value:,.{decimals}f}"
+    return txt.replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def parse_de(text: str) -> float:
+    t = text.strip().replace(" ", "").replace("\u00a0", "")
+    if "," in t:
+        t = t.replace(".", "").replace(",", ".")
+    elif "." in t and re.fullmatch(r"-?\d{1,3}(\.\d{3})+", t):
+        t = t.replace(".", "")
+    return float(t)
+
+
+def uses_text_field(spec) -> bool:
+    """Zahlen werden als Textfeld im deutschen Format (1.000,00) dargestellt; das Streamlit-Zahlenfeld kann das nicht."""
+    return spec.kind in ("number", "percent")
+
+
+def commit_text(key: str) -> None:
+    spec = SPEC_BY_KEY[key]
+    wk = f"w_{key}"
+    errs = st.session_state.setdefault("_ferr", {})
+    dec = decimals_of(spec)
+    try:
+        v = parse_de(st.session_state[wk])
+        lo = to_display(spec, spec.minimum) if spec.minimum is not None else None
+        hi = to_display(spec, spec.maximum) if spec.maximum is not None else None
+        if lo is not None and v < lo - 1e-12:
+            raise ValueError(f"Der Wert darf nicht kleiner als {fmt_de(lo, dec)} sein.")
+        if hi is not None and v > hi + 1e-12:
+            raise ValueError(f"Der Wert darf nicht größer als {fmt_de(hi, dec)} sein.")
+    except ValueError as err:
+        msg = str(err)
+        errs[key] = msg if msg.startswith("Der Wert") else "Bitte eine Zahl eingeben, zum Beispiel 25.000 oder 12,5."
+        st.session_state[wk] = fmt_de(to_display(spec, S[key]), dec)
+        return
+    errs.pop(key, None)
+    S[key] = from_display(spec, v)
+    st.session_state[wk] = fmt_de(v, dec)
 
 
 def field(key: str, label: str | None = None, hide_label: bool = False) -> None:
@@ -71,10 +147,14 @@ def field(key: str, label: str | None = None, hide_label: bool = False) -> None:
     spec = SPEC_BY_KEY[key]
     wk = f"w_{key}"
     unit = {"percent": "%"}.get(spec.kind, spec.unit)
-    text = label or (spec.label + (f" [{unit}]" if unit else ""))
+    base = label or LABEL_OVERRIDES.get(key) or spec.label
+    text = label or (base + (f" [{unit}]" if unit else ""))
     vis = "collapsed" if hide_label else "visible"
+    use_text = uses_text_field(spec)
+    dec = decimals_of(spec)
     if wk not in st.session_state:
-        st.session_state[wk] = to_display(spec, S[key])
+        v0 = to_display(spec, S[key])
+        st.session_state[wk] = fmt_de(v0, dec) if use_text else v0
     helptext = HELP.get(key)
     if spec.kind == "bool":
         val = st.toggle(text, key=wk, help=helptext)
@@ -86,25 +166,12 @@ def field(key: str, label: str | None = None, hide_label: bool = False) -> None:
         else:
             val = st.selectbox(text, spec.choices, key=wk, help=helptext, format_func=lambda x: fmt(x, str(x)),
                                label_visibility=vis)
-    else:
-        step = default_step(spec)
-        minv = to_display(spec, spec.minimum) if spec.minimum is not None else None
-        maxv = to_display(spec, spec.maximum) if spec.maximum is not None else None
-        is_int = isinstance(spec.default, int) and not isinstance(spec.default, bool)
-        if is_int:
-            fmt_str = "%d"
-        else:
-            fmt_str = "%g"
-        if is_int:
-            minv = int(minv) if minv is not None else None
-            maxv = int(maxv) if maxv is not None else None
-        else:
-            minv = float(minv) if minv is not None else None
-            maxv = float(maxv) if maxv is not None else None
-            st.session_state[wk] = float(st.session_state[wk])
-            step = float(step)
-        val = st.number_input(text, key=wk, min_value=minv, max_value=maxv, step=step, format=fmt_str,
-                              help=helptext, label_visibility=vis)
+    elif use_text:
+        st.text_input(text, key=wk, help=helptext, on_change=commit_text, args=(key,), label_visibility=vis)
+        err = st.session_state.get("_ferr", {}).get(key)
+        if err:
+            st.caption(f":red[{err}]")
+        return
     S[key] = from_display(spec, val)
 
 
@@ -187,8 +254,8 @@ def rechnen(inputs_json: str, series_json: str):
 
 # ---------------------------------------------------------------- Seitenleiste (Laden/Speichern)
 with st.sidebar:
-    st.markdown("### 💧 LCOH2-Rechner")
-    st.caption("Wasserstoffgestehungskosten für Elektrolyseprojekte")
+    st.markdown("### Wasserstoff-Kostenrechner")
+    st.caption("Was kostet ein Kilogramm grüner Wasserstoff aus Ihrem Elektrolyseprojekt?")
     st.markdown("**Eingaben speichern und laden**")
     upload = st.file_uploader("Gespeicherte Eingaben laden (.json)", type="json", key="up_inputs")
     if upload is not None and st.session_state.get("_loaded") != (upload.name, upload.size):
@@ -208,7 +275,7 @@ with st.sidebar:
         st.rerun()
 
 tab_cockpit, tab_inputs, tab_rev, tab_res, tab_data = st.tabs(
-    ["🎛️ Cockpit", "⚙️ Eingaben", "💶 Einnahmepotenziale", "📊 Ergebnisse", "📁 Daten"])
+    ["Cockpit", "Eingaben", "Einnahmepotenziale", "Ergebnisse", "Daten"])
 
 # ---------------------------------------------------------------- Cockpit (Eingaben links)
 def row(keys: list[str]) -> None:
@@ -224,31 +291,34 @@ def row(keys: list[str]) -> None:
 with tab_cockpit:
     left, right = st.columns([1.25, 1])
     with left:
-        st.markdown("### Elektrolysesystem")
-        with st.container(border=True):
-            st.markdown("#### Elektrolyseur & Projekt")
-            row(["electrolyzer_power_kw", "capex_electrolyzer_eur_per_kw", "electrolyzer_efficiency"])
-            row(["commissioning_year", "project_lifetime_years", "min_part_load"])
-        with st.container(border=True):
-            st.markdown("#### Batterie")
-            row(["battery_enabled", "battery_capacity_hours", "battery_input_power_kw"])
-        with st.container(border=True):
-            st.markdown("#### Strombezug")
-            st.caption("Grundlast-PPA: konstanter Bezug. Pay-as-Produced-PPA: Bezug folgt der PV- bzw. Windeinspeisung.")
-            row(["ppa_baseload_enabled", "ppa_baseload_kw", "ppa_baseload_price_eur_per_mwh"])
-            row(["ppa_pap_enabled", None, None])
-            row([None, "ppa_pv_kw", "ppa_pv_price_eur_per_mwh"])
-            row([None, "ppa_wind_kw", "ppa_wind_price_eur_per_mwh"])
-            st.caption("Weitere Bezugsquellen (Details unter „Eingaben“, Reiter „Strombezug & Nebenkosten“):")
-            row(["section7_enabled", "section13k_enabled", "spot_enabled"])
-    cockpit_slot = right.container()
+        st.markdown("### **Elektrolysesystem**")
+        with st.container(key="cockpit_in"):
+            with st.container(border=True):
+                st.markdown("#### Elektrolyseur & Projekt")
+                row(["electrolyzer_power_kw", "capex_electrolyzer_eur_per_kw", "electrolyzer_efficiency"])
+                row(["commissioning_year", "project_lifetime_years", "min_part_load"])
+            with st.container(border=True):
+                st.markdown("#### Batterie")
+                row(["battery_enabled", "battery_capacity_hours", "battery_input_power_kw"])
+            with st.container(border=True):
+                st.markdown("#### Strombezug")
+                st.caption("Grundlast-PPA: konstanter Bezug. Pay-as-Produced-PPA: Bezug folgt der PV- bzw. Windeinspeisung.")
+                row(["ppa_baseload_enabled", "ppa_baseload_kw", "ppa_baseload_price_eur_per_mwh"])
+                row(["ppa_pap_enabled", None, None])
+                row([None, "ppa_pv_kw", "ppa_pv_price_eur_per_mwh"])
+                row([None, "ppa_wind_kw", "ppa_wind_price_eur_per_mwh"])
+                st.caption("Weitere Bezugsquellen (Details unter „Eingaben“, Reiter „Strombezug & Nebenkosten“):")
+                row(["section7_enabled", "section13k_enabled", "spot_enabled"])
+    cockpit_slot = right.container(key="cockpit_out")
 
 # ---------------------------------------------------------------- Eingabeseiten
+SUMMARY_SLOTS: dict = {}
 with tab_inputs:
     sub = st.tabs([name for name, _ in PAGES])
     cockpit_keys = {k for _, _, ks in COCKPIT for k in ks}
     for tab, (name, sections) in zip(sub, PAGES):
         with tab:
+            SUMMARY_SLOTS[name] = st.container()
             cols = st.columns(2)
             i = 0
             for title, gate, keys in sections:
@@ -261,6 +331,7 @@ with tab_inputs:
 with tab_rev:
     st.markdown("### Einnahmepotenziale")
     st.caption("Zusätzliche Erlöse, die die Gestehungskosten senken.")
+    SUMMARY_SLOTS["Einnahmepotenziale"] = st.container()
     cols = st.columns(2)
     for i, (title, gate, keys) in enumerate(REVENUE_PAGE):
         with cols[i % 2]:
@@ -279,113 +350,132 @@ inp = r.inputs
 
 with st.sidebar:
     st.divider()
-    st.metric("Gestehungskosten", f"{de(e.lcoh_eur_per_kg)} €/kg")
+    st.metric("Kosten pro kg Wasserstoff", f"{de(e.lcoh_eur_per_kg)} €/kg",
+              help="Wasserstoffgestehungskosten (LCOH2): alle Kosten über die Projektlaufzeit, abzüglich Förderungen und Zusatzeinnahmen, je kg Wasserstoff.")
     st.caption(f"{de(e.lcoh_ct_per_kwh)} ct/kWh (Brennwert) · {de(e.h2_kg_per_year / 1000, 0)} t Wasserstoff pro Jahr")
     st.download_button("Eingaben speichern (.json)", json.dumps(S, ensure_ascii=False, indent=1, default=float),
                        "eingaben_lcoh2.json", "application/json", width="stretch")
 
+# ---------------------------------------------------------------- Kennzahlen
+pc = e.power
+green_share = 1 - pc.spot_kwh / pc.total_procurement_kwh if pc.total_procurement_kwh else 0.0
+system_util = pc.consumption_total_kwh / (r.power.total_kw * 8760) if r.power.total_kw else 0.0
+ely_util = r.full_load_hours / 8760
+run_hours = int((r.hourly["consumption_kwh"] > 0).sum())
+full_hours = int((r.hourly["consumption_kwh"] >= r.power.total_kw * 0.99999).sum())
+part_hours = run_hours - full_hours
+HELP_GREEN = ("Anteil des bezogenen Stroms, der nicht aus dem Spotmarkt (Netzmix) stammt. PPA (PV, Wind, Grundlast), "
+              "§7 und §13k werden als erneuerbar gewertet. Vereinfachte Kennzahl; sie ersetzt keine Prüfung nach den "
+              "RFNBO-Kriterien.")
+
+
+def summary_box(slot, pairs: list[tuple[str, str]]) -> None:
+    html = "".join(f'<div><div class="l">{lab}</div><div class="v">{val}</div></div>' for lab, val in pairs)
+    with slot:
+        st.markdown(f'<div class="sumbox">{html}</div>', unsafe_allow_html=True)
+
+
+ely_kw = r.power.ely_kw
+capex_sum = sum(e.capex_items.values())
+summary_box(SUMMARY_SLOTS["Anlage & Investitionen"], [
+    ("Investitionskosten gesamt (CAPEX)", f"{de(e.capex_gross)} €"),
+    ("CAPEX je kW Elektrolyseur", f"{de(e.capex_gross / ely_kw)} €/kW")])
+summary_box(SUMMARY_SLOTS["Strombezug & Nebenkosten"], [
+    ("Stromkosten pro Jahr", f"{de(e.power_cost)} €"),
+    ("Mittlerer Strompreis (inkl. Abgaben)", f"{de(e.power_cost / (pc.total_procurement_kwh / 1000) if pc.total_procurement_kwh else 0)} €/MWh")])
+summary_box(SUMMARY_SLOTS["Betrieb (OPEX)"], [
+    ("OPEX gesamt pro Jahr", f"{de(e.opex_total)} €"),
+    ("OPEX je kW Elektrolyseur", f"{de(e.opex_total / ely_kw)} €/(kW·a)"),
+    ("Anteil am CAPEX", f"{de(e.opex_total / e.capex_gross * 100 if e.capex_gross else 0, 1)} %")])
+summary_box(SUMMARY_SLOTS["Finanzierung & Förderungen"], [
+    ("Kapitalkosten pro Jahr", f"{de(e.financing_total)} €"),
+    ("Kapitalkostensatz (WACC)", f"{de(e.wacc * 100, 1)} %"),
+    ("CAPEX-Förderung gesamt", f"{de(e.capex_subsidy)} €")])
+summary_box(SUMMARY_SLOTS["Einnahmepotenziale"], [
+    ("Zusatzeinnahmen pro Jahr", f"{de(e.revenue_total)} €"),
+    ("je kg Wasserstoff", f"{de(e.revenue_total / e.h2_kg_per_year if e.h2_kg_per_year else 0)} €/kg")])
+
 # ---------------------------------------------------------------- Cockpit (Ergebnis rechts)
 with cockpit_slot:
-    st.markdown("### Ergebnis")
-    k1, k2 = st.columns(2)
-    k1.metric("Gestehungskosten", f"{de(e.lcoh_eur_per_kg)} €/kg", help="Wasserstoffgestehungskosten über die Projektlaufzeit, "
-              "inklusive Förderungen, Befreiungen und Zusatzeinnahmen.")
+    st.markdown("### **Ergebnis**")
+    k1, k2, k3 = st.columns(3)
+    k1.metric("Gestehungskosten", f"{de(e.lcoh_eur_per_kg)} €/kg", help="Wasserstoffgestehungskosten (LCOH2) über die "
+              "Projektlaufzeit, inklusive Förderungen, Befreiungen und Zusatzeinnahmen.")
     k2.metric("in ct/kWh", f"{de(e.lcoh_ct_per_kwh)} ct/kWh", help="Bezogen auf den Brennwert von 39,4 kWh/kg.")
-    k3, k4 = st.columns(2)
     k3.metric("Wasserstoff", f"{de(e.h2_kg_per_year / 1000, 0)} t/a")
-    k4.metric("Volllaststunden", f"{de(r.full_load_hours, 0)} h/a")
-    items = waterfall_items(r, e)
-    parts = {
-        "CAPEX": block_subtotal(items, BLOCK_CAPEX), "OPEX": block_subtotal(items, BLOCK_OPEX),
-        "Stacktausch": block_subtotal(items, BLOCK_STACK), "Strom": block_subtotal(items, BLOCK_POWER),
-        "Zinsen": block_subtotal(items, BLOCK_INTEREST),
-        "Förderungen & Befreiungen": block_subtotal(items, BLOCK_SUBSIDY),
-        "Zusatzeinnahmen": block_subtotal(items, BLOCK_REVENUE)}
-    st.caption("Kostenstruktur in €/kg (Kosten positiv, Förderungen/Befreiungen/Einnahmen negativ)")
-    fig = go.Figure(go.Waterfall(
-        x=list(parts) + ["Gestehungskosten"], y=list(parts.values()) + [0],
-        measure=["relative"] * len(parts) + ["total"],
-        increasing={"marker": {"color": "#d1495b"}}, decreasing={"marker": {"color": "#2e8b57"}},
-        totals={"marker": {"color": "#1f4e79"}}, connector={"line": {"color": "#999"}},
-        text=[de(v) for v in parts.values()] + [de(e.lcoh_eur_per_kg)], textposition="outside"))
-    fig.update_layout(height=380, margin=dict(l=0, r=0, t=10, b=0), showlegend=False,
-                      yaxis_title="€ pro kg H₂")
-    st.plotly_chart(fig, width="stretch")
+    k4, k5, k6 = st.columns(3)
+    k4.metric("Anteil grüner Wasserstoff", f"{de(green_share * 100, 1)} %", help=HELP_GREEN)
+    k5.metric("Systemauslastung", f"{de(system_util * 100, 1)} %", help="Stromverbrauch des Gesamtsystems bezogen auf "
+              "den Dauerbetrieb mit Nennleistung über 8.760 Stunden.")
+    k6.metric("Ø Effizienz", f"{de(r.avg_efficiency * 100, 1)} %", help="Mittlerer Wirkungsgrad des Elektrolyseurs über "
+              "die Projektlaufzeit (inklusive Degradation).")
+    k7, k8, k9 = st.columns(3)
+    k7.metric("Volllaststunden", f"{de(r.full_load_hours, 0)} h/a")
+    k8.metric("Kapitalkostensatz (WACC)", f"{de(e.wacc * 100, 1)} %")
+    k9.metric("Stacktausche", f"{r.stack_replacements}", help=f"Anzahl der Stacktausche in der Projektlaufzeit "
+              f"(alle {de(r.stack_interval_years, 1)} Jahre).")
+    items = waterfall_items(r, e, "verbraucher")
+    st.markdown("#### Kostenstruktur")
+    st.plotly_chart(cost_structure_figure(items, e.lcoh_eur_per_kg, detail=False, height=430), width="stretch")
     st.caption("Detaillierte Auswertung im Reiter „Ergebnisse“.")
 
 # ---------------------------------------------------------------- Ergebnisse
 with tab_res:
     c1, c2, c3, c4, c5 = st.columns(5)
-    c1.metric("Gestehungskosten", f"{de(e.lcoh_eur_per_kg)} €/kg")
+    c1.metric("Gestehungskosten", f"{de(e.lcoh_eur_per_kg)} €/kg", help="Wasserstoffgestehungskosten (LCOH2).")
     c2.metric("ct/kWh (Brennwert)", f"{de(e.lcoh_ct_per_kwh)}")
     c3.metric("Wasserstoff", f"{de(e.h2_kg_per_year / 1000, 0)} t/a")
     c4.metric("Anlagenleistung gesamt", f"{de(r.power.total_kw / 1000, 1)} MW")
     c5.metric("CAPEX nach Förderung", f"{de(e.capex_net / 1e6, 1)} Mio. €")
+    o1, o2, o3, o4, o5 = st.columns(5)
+    o1.metric("Betriebsstunden", f"{de(run_hours, 0)} h/a", help="Stunden, in denen das System Strom verbraucht.")
+    o2.metric("davon Volllast", f"{de(full_hours, 0)} h/a")
+    o3.metric("davon Teillast", f"{de(part_hours, 0)} h/a")
+    o4.metric("Volllaststunden (Ely)", f"{de(r.full_load_hours, 0)} h/a", help="Jahresenergie des Elektrolyseurs geteilt "
+              "durch seine Nennleistung.")
+    o5.metric("Ø Auslastung (Ely)", f"{de(ely_util * 100, 1)} %")
 
     st.markdown("### Zusammensetzung der Gestehungskosten")
-    view = st.radio("Stromkosten gliedern nach", ["Bezugsquelle und Abgaben", "Verbrauchern"], horizontal=True,
-                    key="power_view_radio")
+    ctl1, ctl2 = st.columns(2)
+    with ctl1:
+        view = st.radio("Stromkosten aufteilen nach", ["Verbrauchern", "Bezugsquellen und Abgaben"], horizontal=True,
+                        key="power_view_radio",
+                        help="Verbrauchern: Wie viel Stromkosten entfallen auf Elektrolyseur, Peripherie und Verdichter? "
+                             "Bezugsquellen und Abgaben: Wie viel entfällt auf PPA, Spotmarkt usw. und auf Netzentgelt, "
+                             "Steuern und Umlagen? Die Summe der Stromkosten ist in beiden Fällen gleich.")
+    with ctl2:
+        detail = st.toggle("Detailansicht (jeder Einzelposten ein eigener Balken)", value=False, key="detail_toggle")
     items = waterfall_items(r, e, "verbraucher" if view == "Verbrauchern" else "quelle")
-    detail = st.toggle("Detailansicht (alle Einzelposten)", value=True, key="detail_toggle")
-    cost_blocks = [BLOCK_CAPEX, BLOCK_OPEX, BLOCK_STACK, BLOCK_POWER, BLOCK_INTEREST]
-    labels, values, measures = [], [], []
-    def add_block(block: str) -> None:
-        if detail:
-            for it in [i for i in items if i.block == block and abs(i.eur_per_kg) > 1e-9]:
-                labels.append(f"{block}: {it.label}" if block in (BLOCK_POWER,) else it.label)
-                values.append(it.eur_per_kg)
-                measures.append("relative")
-        else:
-            labels.append(block)
-            values.append(block_subtotal(items, block))
-            measures.append("relative")
-    for b in cost_blocks:
-        add_block(b)
-    labels.append("Zwischenergebnis")
-    values.append(0); measures.append("total")
-    for b in (BLOCK_SUBSIDY, BLOCK_REVENUE):
-        add_block(b)
-    labels.append("Gestehungskosten")
-    values.append(0); measures.append("total")
-    zw = sum(i.eur_per_kg for i in items if i.block in cost_blocks)
-    fig = go.Figure(go.Waterfall(
-        x=labels, y=values, measure=measures,
-        increasing={"marker": {"color": "#d1495b"}}, decreasing={"marker": {"color": "#2e8b57"}},
-        totals={"marker": {"color": "#1f4e79"}}, connector={"line": {"color": "#aaa"}},
-        text=[de(v) if m == "relative" else "" for v, m in zip(values, measures)], textposition="outside"))
-    fig.add_annotation(x="Zwischenergebnis", y=zw, text=f"<b>{de(zw)}</b>", showarrow=False, yshift=12)
-    fig.add_annotation(x="Gestehungskosten", y=e.lcoh_eur_per_kg, text=f"<b>{de(e.lcoh_eur_per_kg)}</b>",
-                       showarrow=False, yshift=12)
-    fig.update_layout(height=620 if detail else 480, margin=dict(l=0, r=0, t=10, b=0), showlegend=False,
-                      yaxis_title="€ pro kg H₂", xaxis_tickangle=-55)
+    fig = cost_structure_figure(items, e.lcoh_eur_per_kg, detail=detail, height=640 if detail else 520)
     st.plotly_chart(fig, width="stretch")
-    st.caption(f"Zwischenergebnis ohne Förderungen, Befreiungen und Zusatzeinnahmen: {de(zw)} €/kg · "
+    gross = sum(i.eur_per_kg for i in items if i.block in COST_BLOCK_NAMES)
+    st.caption(f"Gestehungskosten brutto (ohne Förderungen, Befreiungen und Zusatzeinnahmen): {de(gross)} €/kg · "
                f"Gestehungskosten: {de(e.lcoh_eur_per_kg)} €/kg")
 
     st.markdown("### Geordneter Lastverlauf")
-    util = np.sort(r.hourly["consumption_kwh"].to_numpy() / r.power.total_kw * 100)[::-1]
-    fl = go.Figure(go.Scatter(x=np.arange(1, len(util) + 1), y=util, fill="tozeroy", line=dict(color="#1f4e79"),
-                              hovertemplate="Stunde %{x}: %{y:.1f} %<extra></extra>"))
-    fl.update_layout(height=340, margin=dict(l=0, r=0, t=10, b=0), xaxis_title="Stunden pro Jahr (nach Auslastung geordnet)",
-                     yaxis_title="Auslastung des Gesamtsystems [%]", yaxis_range=[0, 105])
-    st.plotly_chart(fl, width="stretch")
-    run_hours = int((r.hourly["consumption_kwh"] > 0).sum())
-    st.caption(f"Betriebsstunden: {de(run_hours, 0)} h · davon Volllast: {de(int((util >= 99.999).sum()), 0)} h · "
-               f"Mittlere Auslastung des Elektrolyseurs: {de(r.full_load_hours / 87.6, 1)} %")
+    st.plotly_chart(load_duration_figure(r.hourly, r.power), width="stretch")
+    st.caption("Jede Linie zeigt die Energie je Stunde, der Größe nach geordnet (höchste Stunde links). Der "
+               "Gesamtstrombezug liegt über dem Verbrauch, wenn Strom in die Batterie geladen oder als Überschuss verkauft wird.")
 
     t1, t2 = st.columns(2)
     with t1:
         st.markdown("### Kosten und Erlöse pro Jahr")
-        rows = [("Kapitalkosten (Finanzierung)", e.financing_total), ("Betriebskosten (OPEX)", e.opex_total),
-                ("Stacktausch", e.stack_cost_per_year), ("Stromkosten", e.power_cost),
-                ("Strompreiskompensation", -e.spk), ("THG-Quote", -e.revenue_thg),
-                ("Stromverkauf", -(e.revenue_power_spot + e.revenue_power_ppa)), ("Sauerstoff", -e.revenue_oxygen),
-                ("Abwärme", -e.revenue_heat), ("Regelenergie", -e.revenue_balancing), ("Sonstige", -e.revenue_other)]
+        h2 = e.h2_kg_per_year
+        rows = []
+        for blk in COST_BLOCK_NAMES:
+            rows.append((blk, block_subtotal(items, blk) * h2))
+        rows.append(("Gestehungskosten brutto", sum(v for _, v in rows)))
+        for blk in (BLOCK_SUBSIDY, BLOCK_REVENUE):
+            rows.append((blk, block_subtotal(items, blk) * h2))
+        rows.append(("Gestehungskosten", sum(v for n, v in rows if n != "Gestehungskosten brutto")))
         df = pd.DataFrame(rows, columns=["Position", "€ pro Jahr"])
-        df["€ pro kg H₂"] = df["€ pro Jahr"] / e.h2_kg_per_year if e.h2_kg_per_year else 0.0
-        df.loc[len(df)] = ["Summe (Gestehungskosten)", df["€ pro Jahr"].sum(), df["€ pro kg H₂"].sum()]
-        st.dataframe(df.style.format({"€ pro Jahr": lambda v: de(v, 0), "€ pro kg H₂": lambda v: de(v, 3)}),
+        df["€ pro kg H₂"] = df["€ pro Jahr"] / h2 if h2 else 0.0
+        st.dataframe(df.style.format({"€ pro Jahr": lambda v: de(v, 2), "€ pro kg H₂": lambda v: de(v, 2)}),
                      hide_index=True, width="stretch")
+        capex_part = e.capex_net / inp.project_lifetime_years / h2 if h2 else 0.0
+        st.caption(f"Die Kapitalkosten (Finanzierung) von {de(e.financing_total / h2 if h2 else 0)} €/kg bestehen aus dem "
+                   f"CAPEX-Anteil nach Förderung ({de(capex_part)} €/kg, Tilgung über die Laufzeit) und den "
+                   f"Zinskosten ({de(block_subtotal(items, BLOCK_INTEREST))} €/kg). Im Diagramm stehen beide getrennt.")
     with t2:
         st.markdown("### Anlage und Betrieb")
         pc = e.power
