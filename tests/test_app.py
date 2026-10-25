@@ -80,3 +80,20 @@ def test_prozent_mit_komma():
     at = neue_app()
     at.text_input(key="w_electrolyzer_efficiency").set_value("65,5").run()
     assert abs(at.session_state["S"]["electrolyzer_efficiency"] - 0.655) < 1e-12
+
+
+def test_befreite_abgabe_ohne_wert_ist_nicht_noetig():
+    at = neue_app()
+    at.toggle(key="w_levy_ely_grid_fee_exempt").set_value(True).run()
+    at.text_input(key="w_levy_ely_grid_fee_ct_per_kwh").set_value("").run()
+    assert [m for m in at.metric if m.label == "Gestehungskosten"]
+    at.toggle(key="w_levy_ely_grid_fee_exempt").set_value(False).run()
+    assert not [m for m in at.metric if m.label == "Gestehungskosten"]
+
+
+def test_bereichs_button_fuellt_nur_leere_felder():
+    at = leere_app()
+    at.text_input(key="w_electrolyzer_power_kw").set_value("10.000").run()
+    [b for b in at.button if b.key == "fill_cockpit_ely"][0].click().run()
+    assert at.text_input(key="w_electrolyzer_power_kw").value == "10.000"
+    assert at.text_input(key="w_capex_electrolyzer_eur_per_kw").value == "1.000,00"

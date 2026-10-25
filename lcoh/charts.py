@@ -201,8 +201,8 @@ def spot_price_figure(market, height: int = 340) -> go.Figure:
 
 
 def sensitivity_figure(rows, step: float, height: int = 460) -> go.Figure:
-    """Tornado-Diagramm wie Blatt 7 der Excel: Reihenfolge der Excel (erste Zeile unten), Balken von der Basis bis zu
-    den Gestehungskosten bei -x % und +x %. Grün: Kosten sinken, rot: Kosten steigen. Im Balken steht die Änderung in €/kg."""
+    """Tornado-Diagramm: Links steht die Wirkung von -x %, rechts die von +x % der Einflussgröße (Reihenfolge wie Blatt 7 der
+    Excel, erste Zeile unten). Die Balkenlänge ist der Betrag der Kostenänderung in €/kg; Rot: Kosten steigen, grün: sinken."""
     base = rows[0].base if rows else 0.0
     pct = f"{de(step * 100, 0)} %"
     fig = go.Figure()
@@ -210,20 +210,21 @@ def sensitivity_figure(rows, step: float, height: int = 460) -> go.Figure:
         vals = [getattr(z, attr) for z in rows]
         delta = [v - base for v in vals]
         fig.add_trace(go.Bar(
-            y=[z.name for z in rows], x=delta, base=[base] * len(rows), orientation="h", width=0.55,
+            y=[z.name for z in rows], x=[sign * abs(d) for d in delta], orientation="h", width=0.55,
             marker=dict(color=["#3f9b4f" if d < 0 else "#d1495b" for d in delta]),
-            text=[("−" if sign < 0 else "+") + pct + ": " + ("+" if d > 0 else "−" if d < 0 else "") + de(abs(d)) for d in delta],
-            textposition="inside", insidetextanchor="middle", textfont=dict(color="white", size=12),
+            text=[("+" if d > 0 else "−" if d < 0 else "") + de(abs(d)) for d in delta],
+            textposition="inside", insidetextanchor="middle", textfont=dict(color="white", size=13),
             customdata=[[de(v), z.block, de(getattr(z, vattr)), de(d)] for z, v, d in zip(rows, vals, delta)],
-            hovertemplate=("%{y}, " + ("−" if sign < 0 else "+") + pct + ": %{customdata[0]} €/kg "
+            hovertemplate=("%{y}, " + ("−" if sign < 0 else "+") + pct + ": Gestehungskosten %{customdata[0]} €/kg "
                            "(Änderung %{customdata[3]} €/kg)<br>%{customdata[1]}: %{customdata[2]}<extra></extra>"),
             showlegend=False))
-    fig.add_vline(x=base, line=dict(color="#16324f", width=2))
-    fig.add_annotation(x=base, y=1.06, yref="paper", text=f"Basis: {de(base)} €/kg", showarrow=False,
-                       font=dict(color="#16324f"))
-    lo = min((z.low for z in rows), default=base)
-    hi = max((z.high for z in rows), default=base)
-    pad = (hi - lo) * 0.05 or 0.5
-    fig.update_layout(barmode="overlay", height=height, margin=dict(l=0, r=0, t=30, b=0), separators=",.",
-                      xaxis=dict(title="Gestehungskosten [€/kg]", range=[lo - pad, hi + pad]))
+    m = max((abs(getattr(z, a) - base) for z in rows for a in ("lcoh_minus", "lcoh_plus")), default=1.0) * 1.08 or 1.0
+    ticks = [m * i / 4 for i in range(-4, 5)]
+    fig.add_vline(x=0, line=dict(color="#16324f", width=2))
+    fig.add_annotation(x=0, y=1.07, yref="paper", text=f"Basis: {de(base)} €/kg", showarrow=False, font=dict(color="#16324f"))
+    fig.add_annotation(x=-m, xanchor="left", y=1.07, yref="paper", text=f"<b>−{pct}</b> der Einflussgröße", showarrow=False)
+    fig.add_annotation(x=m, xanchor="right", y=1.07, yref="paper", text=f"<b>+{pct}</b> der Einflussgröße", showarrow=False)
+    fig.update_layout(barmode="overlay", height=height, margin=dict(l=0, r=0, t=34, b=0), separators=",.",
+                      xaxis=dict(title="Änderung der Gestehungskosten [€/kg] (Betrag)", range=[-m, m], tickvals=ticks,
+                                 ticktext=[de(abs(t), 1) for t in ticks], zeroline=False))
     return fig

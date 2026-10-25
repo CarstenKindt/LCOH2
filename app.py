@@ -58,6 +58,35 @@ SELECT_KEYS = [sp.key for sp in SPEC_BY_KEY.values()
 BLANK_KEYS = NUMERIC_KEYS + SELECT_KEYS
 
 
+DEFAULTS = Inputs().to_dict()
+SOFT = {"Strompreiskompensation": "Strompreis&shy;kompensation", "Strompreisförderung": "Strompreis&shy;förderung",
+        "Investitionskosten": "Investitions&shy;kosten", "Überschussstrom": "Überschuss&shy;strom",
+        "Stromnebenkosten": "Stromneben&shy;kosten", "Wasserstoff-Aufbereitung": "Wasserstoff-&#8203;Aufbereitung",
+        "Instandhaltung": "Instand&shy;haltung", "Rückstellungen": "Rück&shy;stellungen"}
+
+
+def soft(title: str) -> str:
+    for k, v in SOFT.items():
+        title = title.replace(k, v)
+    return title
+
+
+def fill_defaults(keys: list[str]) -> None:
+    for k in keys:
+        if S.get(k) is None and DEFAULTS.get(k) is not None:
+            S[k] = DEFAULTS[k]
+            st.session_state.pop(f"w_{k}", None)
+            st.session_state.get("_ferr", {}).pop(k, None)
+
+
+def fill_button(keys: list[str], ident: str) -> None:
+    """Schaltfläche, die nur die leeren Felder dieses Bereichs mit Standardwerten füllt."""
+    if any(S.get(k) is None and k in BLANK_KEYS and visible(k) for k in keys):
+        st.button("Leere Felder mit Standardwerten füllen", key=f"fill_{ident}", on_click=fill_defaults,
+                  args=([k for k in keys if visible(k)],), help="Übernimmt die Standardwerte nur für die noch leeren "
+                  "Felder dieses Bereichs. Bereits eingegebene Werte bleiben unverändert.")
+
+
 TOGGLE_KEYS = {"waste_heat_enabled", "oxygen_enabled", "thg_enabled", "power_sale_enabled", "balancing_enabled",
                "other_revenue_enabled"}
 START_OFF = ["battery_enabled", "ppa_baseload_enabled", "ppa_pap_enabled", "spot_enabled", "section7_enabled",
@@ -210,7 +239,10 @@ def field(key: str, label: str | None = None, hide_label: bool = False) -> None:
             val = st.selectbox(text, spec.choices, key=wk, help=helptext, format_func=lambda x: fmt(x, str(x)),
                                label_visibility=vis, index=None, placeholder="Bitte wählen")
     elif use_text:
-        st.text_input(text, key=wk, help=helptext, on_change=commit_text, args=(key,), label_visibility=vis)
+        dv = DEFAULTS.get(key)
+        ph = f"Standard: {fmt_de(to_display(spec, dv), dec)}" if isinstance(dv, (int, float)) and not isinstance(dv, bool) else None
+        st.text_input(text, key=wk, help=helptext, on_change=commit_text, args=(key,), label_visibility=vis,
+                      placeholder=ph)
         err = st.session_state.get("_ferr", {}).get(key)
         if err:
             st.caption(f":red[{err}]")
@@ -236,10 +268,10 @@ def render_section(title: str, gate: str | None, keys: list[str], skip: set[str]
             c0, h1, h2 = st.columns([0.2, 1.0, 1.0], vertical_alignment="center")
             with c0:
                 field(own, hide_label=True)
-            h1.markdown(f"#### {title}")
+            h1.markdown(f"#### {soft(title)}")
         else:
-            h1, h2 = st.columns([1.1, 1.1])
-            h1.markdown(f"#### {title}")
+            h1, h2 = st.columns([1.5, 1.0])
+            h1.markdown(f"#### {soft(title)}")
         SECTION_SLOTS[f"{scope}|{title}"] = h2.container()
         if own:
             on = bool(S[own])
@@ -252,6 +284,7 @@ def render_section(title: str, gate: str | None, keys: list[str], skip: set[str]
         if not on:
             return
         with st.expander("Eingaben anzeigen", expanded=False):
+            fill_button(rest, f"{scope}_{title}")
             for key in rest:
                 if visible(key):
                     field(key)
@@ -260,6 +293,8 @@ def render_section(title: str, gate: str | None, keys: list[str], skip: set[str]
 def render_levies() -> None:
     with st.container(border=True):
         st.markdown("#### Stromnebenkosten und Befreiungen")
+        fill_button([f"levy_{sd}_{n}_ct_per_kwh" for sd in ("ely", "rest") for n, _ in LEVIES]
+                    + ["demand_charge_ely_eur_per_kw_month", "demand_charge_rest_eur_per_kw_month"], "levies")
         st.caption("Je Bestandteil: Höhe in ct/kWh und – falls zutreffend – die Befreiung. Befreite Bestandteile werden "
                    "nicht berechnet, ihr Wert erscheint als Privilegierung in den Ergebnissen.")
         h = st.columns([2.2, 1.4, 1.1, 1.4, 1.1])
@@ -372,6 +407,8 @@ with tab_cockpit:
                 st.markdown("#### Elektrolyseur & Projekt")
                 row(["electrolyzer_power_kw", "capex_electrolyzer_eur_per_kw", "electrolyzer_efficiency"])
                 row(["commissioning_year", "project_lifetime_years", "min_part_load"])
+                fill_button(["electrolyzer_power_kw", "capex_electrolyzer_eur_per_kw", "electrolyzer_efficiency",
+                             "commissioning_year", "project_lifetime_years", "min_part_load"], "cockpit_ely")
             with st.container(border=True):
                 bc0, bc1 = st.columns([0.14, 1.0], vertical_alignment="center")
                 with bc0:
@@ -425,6 +462,11 @@ GATE_OF.update({k: g for _, g, ks in REVENUE_PAGE for k in ks})
 
 def is_active(key: str) -> bool:
     """Eingabe ist sichtbar und ihr Abschnitt eingeschaltet."""
+    m = re.match(r"levy_(ely|rest)_(\w+)_ct_per_kwh$", key) or re.match(r"demand_charge_(ely|rest)()_eur_per_kw_month$", key)
+    if m:
+        ex = f"levy_{m.group(1)}_{m.group(2)}_exempt" if m.group(2) else f"demand_charge_{m.group(1)}_exempt"
+        if S.get(ex):
+            return False
     gate = GATE_OF.get(key)
     if gate is not None and not (GATES[gate](S) if gate in GATES else bool(S[gate])):
         return False
@@ -439,6 +481,9 @@ shown_keys |= {"demand_charge_ely_eur_per_kw_month", "demand_charge_rest_eur_per
 missing = [k for k in BLANK_KEYS if S[k] is None and k in shown_keys and defaults_dict[k] not in (0, 0.0)
            and is_active(k)]
 effective = {k: (defaults_dict[k] if v is None else v) for k, v in S.items()}
+for _k in list(effective):  # befreite Abgaben ohne Wert: keine Rechnung mit einem Standardwert
+    if S[_k] is None and BLANK_KEYS.count(_k) and not is_active(_k) and (_k.startswith("levy_") or _k.startswith("demand_charge_")):
+        effective[_k] = 0.0
 inp_eff = Inputs.from_dict(effective)
 errors = inp_eff.validate()
 if not any(S[k] for k in ("ppa_baseload_enabled", "ppa_pap_enabled", "section7_enabled", "section13k_enabled", "spot_enabled")):
@@ -716,7 +761,7 @@ with tab_res:
     rows_s = sensitivity(r, e, S["sensitivity_step"] if S["sensitivity_step"] is not None else 0.3)
     with sc2:
         st.caption("Jede Einflussgröße wird einzeln um die Schrittweite verringert bzw. erhöht; alle übrigen Kostenblöcke "
-                   "bleiben unverändert (Vorgehen wie in der Excel). Grün: Die Gestehungskosten sinken, rot: sie steigen.")
+                   "bleiben unverändert (Vorgehen wie in der Excel). Links: Einflussgröße −x %, rechts: +x %. Die Länge zeigt die Kostenänderung; grün: Die Gestehungskosten sinken, rot: sie steigen.")
     st.plotly_chart(sensitivity_figure(rows_s, S["sensitivity_step"] or 0.3), width="stretch")
     pct_txt = f"{de(S['sensitivity_step'] * 100 if S['sensitivity_step'] is not None else 30, 0)} %"
     sens_df = pd.DataFrame([(z.name, z.block, z.v_minus, z.v_base, z.v_plus, z.setting, z.lcoh_minus, z.lcoh_plus)
@@ -724,11 +769,17 @@ with tab_res:
                            columns=["Einflussgröße", "Betroffener Kostenblock", f"Wert −{pct_txt}", "Basis",
                                     f"Wert +{pct_txt}", "Einstellung (− | Basis | +)", "Gestehungskosten − [€/kg]",
                                     "Gestehungskosten + [€/kg]"])
-    sens_show = pd.DataFrame([(z.name, z.lcoh_minus, z.lcoh_minus - z.base, z.lcoh_plus, z.lcoh_plus - z.base)
+    def _unit(block: str) -> str:
+        return block[block.index("["):] if "[" in block else ""
+
+    def _setting(z) -> str:
+        return z.setting or f"{de(z.v_minus, 0)} | {de(z.v_base, 0)} | {de(z.v_plus, 0)} {_unit(z.block)}"
+    sens_show = pd.DataFrame([(z.name, z.lcoh_minus, z.lcoh_minus - z.base, z.lcoh_plus, z.lcoh_plus - z.base, _setting(z))
                               for z in rows_s],
                              columns=["Einflussgröße", f"Kosten −{pct_txt} [€/kg]", "Änderung [€/kg]",
-                                      f"Kosten +{pct_txt} [€/kg]", "Änderung  [€/kg]"])
-    fmt = {c: (lambda v: de(v, 2)) for c in sens_show.columns[1:]}
+                                      f"Kosten +{pct_txt} [€/kg]", "Änderung  [€/kg]",
+                                      f"Eingestellter Wert (−{pct_txt} | Basis | +{pct_txt})"])
+    fmt = {c: (lambda v: de(v, 2)) for c in sens_show.columns[1:5]}
     st.dataframe(sens_show.iloc[::-1].style.format(fmt), hide_index=True, width="stretch")
     st.caption("Reihenfolge wie im Diagramm (von oben nach unten). Die Excel-Datei zum Herunterladen enthält zusätzlich die "
                "veränderten Kostenblöcke in €.")
