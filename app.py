@@ -15,12 +15,13 @@ import streamlit.components.v1 as components
 
 from lcoh.economics import compute_economics
 from lcoh.help_texts import HELP
+from lcoh.tool_defaults import tool_defaults
 from lcoh.input_spec import SPEC_BY_KEY
 from lcoh.inputs import Inputs
 from lcoh.operation import run_operation
 from lcoh.sensitivity import sensitivity
 from lcoh.charts import COST_BLOCKS as COST_BLOCK_NAMES, battery_soc_figure, cost_structure_figure, load_duration_figure, sensitivity_figure, spot_price_figure
-from lcoh.ui_layout import (CHOICE_LABELS, COCKPIT, FINE_STEP, GATES, LABEL_OVERRIDES, LEVIES, PAGES, REVENUE_PAGE,
+from lcoh.ui_layout import (rename_label, CHOICE_LABELS, COCKPIT, FINE_STEP, GATES, LABEL_OVERRIDES, LEVIES, PAGES, REVENUE_PAGE,
                             VISIBLE)
 from lcoh.waterfall import (BLOCK_CAPEX, BLOCK_INTEREST, BLOCK_OPEX, BLOCK_POWER, BLOCK_REVENUE, BLOCK_STACK,
                             BLOCK_SUBSIDY, block_subtotal, net_power_items, waterfall_items)
@@ -60,7 +61,7 @@ SELECT_KEYS = [sp.key for sp in SPEC_BY_KEY.values()
 BLANK_KEYS = NUMERIC_KEYS + SELECT_KEYS
 
 
-DEFAULTS = Inputs().to_dict()
+DEFAULTS = tool_defaults()
 SOFT = {"Strompreiskompensation": "Strompreis&shy;kompensation", "Strompreisförderung": "Strompreis&shy;förderung",
         "Investitionskosten": "Investitions&shy;kosten", "Überschussstrom": "Überschuss&shy;strom",
         "Stromnebenkosten": "Stromneben&shy;kosten", "Wasserstoff-Aufbereitung": "Wasserstoff-&#8203;Aufbereitung",
@@ -91,18 +92,19 @@ def fill_button(keys: list[str], ident: str) -> None:
 
 TOGGLE_KEYS = {"waste_heat_enabled", "oxygen_enabled", "thg_enabled", "power_sale_enabled", "balancing_enabled",
                "other_revenue_enabled"}
-START_OFF = ["battery_enabled", "ppa_baseload_enabled", "ppa_pv_enabled", "ppa_wind_enabled", "spot_enabled", "section7_enabled",
+START_OFF = ["battery_enabled", "ppa_baseload_enabled", "ppa_pv_enabled", "ppa_wind_enabled", "section7_enabled",
              "section13k_enabled"] + sorted(TOGGLE_KEYS)
 
 
 def empty_state() -> dict:
     """Leerer Startzustand: Zahlenfelder ohne Wert; Schalter und Auswahlfelder stehen auf ihren Standardwerten."""
-    d = Inputs().to_dict()
+    d = dict(DEFAULTS)
     for k in BLANK_KEYS:
         if k != "sensitivity_step":
             d[k] = None
     for k in START_OFF:
         d[k] = False
+    d["spot_enabled"] = True
     return d
 
 
@@ -221,7 +223,7 @@ def field(key: str, label: str | None = None, hide_label: bool = False) -> None:
     spec = SPEC_BY_KEY[key]
     wk = f"w_{key}"
     unit = {"percent": "%"}.get(spec.kind, spec.unit)
-    base = label or LABEL_OVERRIDES.get(key) or spec.label
+    base = label or LABEL_OVERRIDES.get(key) or rename_label(spec.label)
     text = label or (base + (f" [{unit}]" if unit else ""))
     vis = "collapsed" if hide_label else "visible"
     use_text = uses_text_field(spec)
@@ -229,7 +231,7 @@ def field(key: str, label: str | None = None, hide_label: bool = False) -> None:
     if wk not in st.session_state:
         v0 = to_display(spec, S[key])
         st.session_state[wk] = fmt_de(v0, dec) if use_text else v0
-    helptext = HELP.get(key)
+    helptext = rename_label(HELP.get(key))
     if spec.kind == "bool":
         val = st.toggle(text, key=wk, help=helptext, label_visibility=vis)
     elif spec.kind == "choice":
@@ -376,7 +378,7 @@ with st.sidebar:
             st.error("Die Datei konnte nicht gelesen werden. Bitte eine mit diesem Tool gespeicherte Datei verwenden.")
     if st.button("Standardwerte laden", width="stretch",
                  help="Füllt alle Eingabefelder mit sinnvollen Beispielwerten. Diese können Sie anschließend anpassen."):
-        S.update(Inputs().to_dict())
+        S.update(DEFAULTS)
         st.session_state.pop("_loaded", None)
         reset_widgets()
         st.rerun()
@@ -422,7 +424,7 @@ with tab_cockpit:
                     row(["battery_capacity_hours", "battery_input_power_kw"])
             with st.container(border=True):
                 st.markdown("#### Strombezug")
-                st.caption("Grundlast-PPA: konstanter Bezug. Pay-as-Produced-PPA: Bezug folgt der PV- bzw. Windeinspeisung.")
+                st.caption("Grundlast-PPA: konstanter Bezug. Pay-as-Produced-PPAs (PPA 1 und PPA 2): Bezug folgt dem jeweiligen Erzeugungsprofil.")
                 row(["ppa_baseload_enabled", "ppa_baseload_kw", "ppa_baseload_price_eur_per_mwh"])
                 row(["ppa_pv_enabled", "ppa_pv_kw", "ppa_pv_price_eur_per_mwh"])
                 row(["ppa_wind_enabled", "ppa_wind_kw", "ppa_wind_price_eur_per_mwh"])
@@ -476,7 +478,7 @@ def is_active(key: str) -> bool:
     return visible(key)
 
 
-defaults_dict = Inputs().to_dict()
+defaults_dict = DEFAULTS
 shown_keys = set(GATE_OF) | {k for _, _, ks in COCKPIT for k in ks} | {f"levy_{sd}_{n}_ct_per_kwh" for sd in ("ely", "rest")
                                                                       for n, _ in LEVIES}
 shown_keys |= {"demand_charge_ely_eur_per_kw_month", "demand_charge_rest_eur_per_kw_month"}
@@ -514,7 +516,7 @@ def missing_links(keys: list[str]) -> None:
     items = []
     for k in keys:
         tab, sub, area = locate(k)
-        label = SPEC_BY_KEY[k].label
+        label = rename_label(SPEC_BY_KEY[k].label)
         ort = " › ".join(x for x in (tab, sub, area) if x)
         items.append(f'<li><a href="#" data-k="w_{k}" data-t="{html.escape(tab)}" data-s="{html.escape(sub or "")}">'
                      f'{html.escape(label)}</a> <span>· {html.escape(ort)}</span></li>')
@@ -545,7 +547,11 @@ def missing_links(keys: list[str]) -> None:
       setTimeout(() => { el.style.boxShadow = ''; }, 2500);
     }));
     </script>"""
-    components.html(page, height=min(28 * len(keys) + 12, 420), scrolling=True)
+    h = min(28 * len(keys) + 12, 420)
+    if hasattr(st, "iframe"):
+        st.iframe(page, height=h)
+    else:
+        components.html(page, height=h, scrolling=True)
 
 
 def footer() -> None:
@@ -640,7 +646,7 @@ ely_util = r.full_load_hours / 8760
 run_hours = int((r.hourly["consumption_kwh"] > 0).sum())
 full_hours = int((r.hourly["consumption_kwh"] >= r.power.total_kw * 0.99999).sum())
 part_hours = run_hours - full_hours
-HELP_GREEN = ("Anteil des bezogenen Stroms, der nicht aus dem Spotmarkt (Netzmix) stammt. PPA (PV, Wind, Grundlast), "
+HELP_GREEN = ("Anteil des bezogenen Stroms, der nicht aus dem Spotmarkt (Netzmix) stammt. PPA (PPA 1, PPA 2, Grundlast), "
               "§7 und §13k werden als erneuerbar gewertet. Vereinfachte Kennzahl; sie ersetzt keine Prüfung nach den "
               "RFNBO-Kriterien.")
 
@@ -714,7 +720,7 @@ section_sum(F, "CAPEX-Förderung", [("Fördersumme", eur(e.capex_subsidy))])
 section_sum(F, "OPEX-Förderung", per_year("Förderung", e.opex_subsidy))
 section_sum(F, "Strompreisförderung", per_year("Förderung", pc.power_subsidy))
 section_sum(F, "Strompreiskompensation", per_year("Förderung", e.spk))
-section_sum(R, "THG-Quote", per_year("Einnahmen", e.revenue_thg))
+section_sum(R, "THG-Minderungsmenge", per_year("Einnahmen", e.revenue_thg))
 section_sum(R, "Verkauf von Überschussstrom", per_year("Einnahmen", e.revenue_power_spot + e.revenue_power_ppa))
 section_sum(R, "Sauerstoff", per_year("Einnahmen", e.revenue_oxygen))
 section_sum(R, "Abwärme", per_year("Einnahmen", e.revenue_heat))
@@ -882,7 +888,7 @@ with tab_res:
 
     st.markdown("### Strombezug im Überblick")
     m = 1000.0
-    quellen = [("PPA PV", pc.ppa_pv_kwh, pc.price_pv), ("PPA Wind", pc.ppa_wind_kwh, pc.price_wind),
+    quellen = [("PPA 1", pc.ppa_pv_kwh, pc.price_pv), ("PPA 2", pc.ppa_wind_kwh, pc.price_wind),
                ("PPA Grundlast", pc.baseload_kwh, pc.price_baseload), ("§7 (37. BImSchV)", pc.section7_kwh, pc.price_s7),
                ("§13k EnWG", pc.section13k_kwh, pc.price_13k), ("Spotmarkt", pc.spot_kwh, pc.price_spot)]
     tab = pd.DataFrame([(n, q / m, q / pc.total_procurement_kwh * 100 if pc.total_procurement_kwh else 0, p, q / m * p)

@@ -50,8 +50,8 @@ def check_timeseries(df: pd.DataFrame) -> list[str]:
 
 
 SERIES_LABELS = {
-    "wind_kwh_per_kw": "Windprofil [kWh je kW und Stunde]",
-    "pv_kwh_per_kw": "PV-Profil [kWh je kW und Stunde]",
+    "wind_kwh_per_kw": "PPA 2: Erzeugungsprofil, Standard Wind [kWh je kW und Stunde]",
+    "pv_kwh_per_kw": "PPA 1: Erzeugungsprofil, Standard PV [kWh je kW und Stunde]",
     "day_ahead": "Börsenstrompreise Day-Ahead [€/MWh]",
     "co2_eur_per_t": "CO₂-Preis [€/t]",
     "section13k_kwh": "§13k-Energie [kWh je Stunde]",

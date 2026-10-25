@@ -8,7 +8,7 @@ from lcoh.zeitreihen import load_default_timeseries
 
 # Excel Blatt 7, E4:F10 (Schrittweite 30 %): (Wert bei -30 %, Wert bei +30 %)
 EXCEL = {
-    "THG-Quote": (8.280447569854974, 6.199358183628219),
+    "THG-Minderungsmenge": (8.280447569854974, 6.199358183628219),
     "Zinsen (FK + EK)": (6.459020422436603, 8.071507727050419),
     "OPEX": (6.847513567144259, 7.632292186338936),
     "Projektlaufzeit": (8.028491035598897, 6.718697254721033),

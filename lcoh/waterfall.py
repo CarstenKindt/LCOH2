@@ -78,8 +78,8 @@ def waterfall_items(r: OperationResult, e: Economics, power_view: str = "quelle"
         if pc.demand_charge_eur:
             add(BLOCK_POWER, "Leistungspreis", pc.demand_charge_eur)
     else:
-        add(BLOCK_POWER, "Strombezug PPA PV", pc.cost_pv)
-        add(BLOCK_POWER, "Strombezug PPA Wind", pc.cost_wind)
+        add(BLOCK_POWER, "Strombezug PPA 1", pc.cost_pv)
+        add(BLOCK_POWER, "Strombezug PPA 2", pc.cost_wind)
         add(BLOCK_POWER, "Strombezug PPA Grundlast", pc.cost_baseload)
         add(BLOCK_POWER, "Strombezug §7", pc.cost_s7)
         add(BLOCK_POWER, "Strombezug §13k", pc.cost_13k)
@@ -101,7 +101,7 @@ def waterfall_items(r: OperationResult, e: Economics, power_view: str = "quelle"
     add(BLOCK_REVENUE, "Abwärme", e.revenue_heat, -1)
     add(BLOCK_REVENUE, "Sauerstoff", e.revenue_oxygen, -1)
     add(BLOCK_REVENUE, "Stromverkauf", e.revenue_power_spot + e.revenue_power_ppa, -1)
-    add(BLOCK_REVENUE, "THG-Quote", e.revenue_thg, -1)
+    add(BLOCK_REVENUE, "THG-Minderungsmenge", e.revenue_thg, -1)
     add(BLOCK_REVENUE, "Regelenergie", e.revenue_balancing, -1)
     add(BLOCK_REVENUE, "Sonstige Einnahmen", e.revenue_other, -1)
     return items

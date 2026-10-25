@@ -67,7 +67,7 @@ PAGES = [
 ]
 
 REVENUE_PAGE = [
-    ("THG-Quote", None, [
+    ("THG-Minderungsmenge", None, [
         "thg_enabled", "thg_price_eur_per_t", "thg_mobility_share", "thg_producer_share",
         "thg_h2_intensity_kgco2_per_gj", "thg_adjustment_factor", "thg_price_escalation"]),
     ("Verkauf von Überschussstrom", None, [
@@ -142,11 +142,28 @@ LEVIES = [("grid_fee", "Netzentgelt"), ("electricity_tax", "Stromsteuer"), ("con
 
 CHOICE_LABELS = {
     "thg_adjustment_factor": {0.4: "0,4 – Brennstoffzellen-Elektroantrieb", 1.0: "1,0 – Verbrennungsmotor"},
-    "h2_processing_mode": {"direkt": "Direkt (ohne Verdichtung)", "Verdichtung": "Verdichtung"},
+    "h2_processing_mode": {"direkt": "Direkte Nutzung ohne Verdichtung", "Verdichtung": "Verdichtung"},
 }
 
 # Angepasste Feldbeschriftungen (ersetzen die Beschriftung aus der Eingabeliste)
+LABEL_SUBS = [("PPA Baseload", "PPA Grundlast"), ("Baseload-PPA", "Grundlast-PPA"), ("Baseload", "Grundlast"),
+              ("PPA PV", "PPA 1"), ("PPA Wind", "PPA 2"),
+              ("THG-Quote berücksichtigen", "THG-Minderungsmenge berücksichtigen"),
+              ("Preis THG-Quote", "Preis THG-Zertifikat"), ("Preis der THG-Quote", "Preis des THG-Zertifikats"),
+              ("Preissteigerung THG-Quote", "Preissteigerung THG-Zertifikat"),
+              ("Preissteigerung der THG-Quote", "Preissteigerung des THG-Zertifikats")]
+
+
+def rename_label(text):
+    if text is None:
+        return None
+    for a, b in LABEL_SUBS:
+        text = text.replace(a, b)
+    return text
+
+
 LABEL_OVERRIDES = {
+    "ppa_pv_enabled": "PPA 1 aktiv", "ppa_wind_enabled": "PPA 2 aktiv",
     "battery_enabled": "Batterie nutzen?",
     "min_part_load": "Minimale Teillast",
     "capex_custom_1_eur_per_kw": "Individuelle CAPEX",

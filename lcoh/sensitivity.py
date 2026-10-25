@@ -13,7 +13,7 @@ from lcoh.economics import Economics
 from lcoh.operation import OperationResult
 from lcoh.stack import annuity_factor
 
-PARAMETERS = ["THG-Quote", "Zinsen (FK + EK)", "OPEX", "Projektlaufzeit", "CAPEX", "Volllaststunden", "Strompreis"]
+PARAMETERS = ["THG-Minderungsmenge", "Zinsen (FK + EK)", "OPEX", "Projektlaufzeit", "CAPEX", "Volllaststunden", "Strompreis"]
 
 
 @dataclass(frozen=True)
@@ -103,7 +103,7 @@ def sensitivity(r: OperationResult, e: Economics, step: float) -> list[Sensitivi
     def fin_life(s):
         return financing(e.capex_net, inp.debt_interest_rate, inp.equity_interest_rate, life * (1 + s))
 
-    add("THG-Quote", lambda s: lcoh(thg=e.revenue_thg * (1 + s)), "THG-Erlöse [€/a]", lambda s: e.revenue_thg * (1 + s))
+    add("THG-Minderungsmenge", lambda s: lcoh(thg=e.revenue_thg * (1 + s)), "THG-Erlöse [€/a]", lambda s: e.revenue_thg * (1 + s))
     add("Zinsen (FK + EK)", lambda s: lcoh(fin=fin_zins(s), stack=stack(rate=inp.stack_interest_rate * (1 + s))),
         "Kapitalkosten [€/a]", fin_zins,
         lambda s: f"FK {de(inp.debt_interest_rate * (1 + s) * 100)} % / EK {de(inp.equity_interest_rate * (1 + s) * 100)} %")
