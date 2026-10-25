@@ -28,7 +28,7 @@ HELP: dict[str, str] = {
     # ---- Batterie
     "battery_enabled": "Schaltet ein Batteriesystem zu. Die Batterie nimmt überschüssigen Strom auf und gibt ihn ab, wenn der Strombezug nicht für die Auslastung reicht. Die Batterie ist ein vereinfachter Ansatz.",
     "battery_capacity_hours": "Speicherkapazität in Stunden Volllast: Die Kapazität in kWh ergibt sich aus der aufgerundeten Systemleistung multipliziert mit diesem Faktor.",
-    "battery_input_power_kw": "Maximale Lade- und Anschlussleistung der Batterie in kW. Sie begrenzt, wie viel Strom pro Stunde in die Batterie fließen kann.",
+    "battery_input_power_kw": "Gesamte Anschlussleistung des Standorts in kW. Die Anlage hat Vorrang und nimmt ihre Systemleistung; nur die Differenz (Anschlussleistung minus Systemleistung) steht für das Laden der Batterie zur Verfügung. Beispiel: 30 MW Systemleistung + 5 MW Batterieladung = 35.000 kW. Der Wert muss größer als die Systemleistung sein.",
     "battery_capex_eur_per_kwh": "Spezifische Investitionskosten der Batterie je kWh Speicherkapazität.",
     "battery_other_costs_eur": "Weitere einmalige Kosten für das Batteriesystem in Euro, zum Beispiel für den Anschluss.",
     # ---- PPA

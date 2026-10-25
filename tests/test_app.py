@@ -110,3 +110,16 @@ def test_bereichs_button_fuellt_nur_leere_felder():
     [b for b in at.button if b.key == "fill_cockpit_ely"][0].click().run()
     assert at.text_input(key="w_electrolyzer_power_kw").value == "10.000"
     assert at.text_input(key="w_capex_electrolyzer_eur_per_kw").value == "1.000,00"
+
+
+def test_batterie_anschlussleistung_zu_klein():
+    at = neue_app()
+    at.toggle(key="w_battery_enabled").set_value(True).run()
+    assert not at.error
+    at.text_input(key="w_battery_input_power_kw").set_value("20.000").run()
+    assert not at.exception
+    assert any("Anschlussleistung gesamt" in e.value for e in at.error)
+    assert not kpis(at, "Gestehungskosten")
+    at.text_input(key="w_battery_input_power_kw").set_value("35.000").run()
+    assert not at.error
+    assert kpis(at, "Gestehungskosten")

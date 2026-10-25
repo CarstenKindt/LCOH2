@@ -19,6 +19,7 @@ from lcoh.tool_defaults import tool_defaults
 from lcoh.input_spec import SPEC_BY_KEY
 from lcoh.inputs import Inputs
 from lcoh.operation import run_operation
+from lcoh.system import system_power
 from lcoh.sensitivity import sensitivity
 from lcoh.charts import COST_BLOCKS as COST_BLOCK_NAMES, battery_soc_figure, cost_structure_figure, load_duration_figure, sensitivity_figure, spot_price_figure
 from lcoh.ui_layout import (rename_label, CHOICE_LABELS, COCKPIT, FINE_STEP, GATES, LABEL_OVERRIDES, LEVIES, PAGES, REVENUE_PAGE,
@@ -496,6 +497,13 @@ for _k in list(effective):  # befreite Abgaben ohne Wert: keine Rechnung mit ein
         effective[_k] = 0.0
 inp_eff = Inputs.from_dict(effective)
 errors = inp_eff.validate()
+if inp_eff.battery_enabled:
+    _sys_kw = system_power(inp_eff, inp_eff.electrolyzer_efficiency).total_kw
+    if inp_eff.battery_input_power_kw <= _sys_kw:
+        errors = errors + [f"Batterie: Die Anschlussleistung gesamt ({de(inp_eff.battery_input_power_kw, 0)} kW) muss größer sein als "
+                           f"die Systemleistung der Anlage (ca. {de(_sys_kw, 0)} kW). Nur die Differenz steht zum Laden der Batterie "
+                           f"zur Verfügung; sonst kann die Batterie nicht geladen werden. Beispiel: {de(_sys_kw, 0)} kW Systemleistung "
+                           f"+ 5.000 kW Batterieladung = {de(_sys_kw + 5000, 0)} kW. Bitte den Wert erhöhen oder die Batterie ausschalten."]
 if not any(S[k] for k in ("ppa_baseload_enabled", "ppa_pv_enabled", "ppa_wind_enabled", "section7_enabled", "section13k_enabled", "spot_enabled")):
     errors = errors + ["Bitte mindestens eine Strombezugsquelle einschalten (PPA, §7, §13k oder Spotmarkt)."]
 
