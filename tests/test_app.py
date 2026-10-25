@@ -45,17 +45,17 @@ def metrik(at: AppTest, label: str) -> str:
 
 def test_standardwerte():
     at = neue_app()
-    assert metrik(at, "Gestehungskosten") == "4,52 €/kg"
-    assert metrik(at, "in ct/kWh") == "11,47 ct/kWh"
-    assert metrik(at, "Stacktausche") == "1"
-    assert metrik(at, "Anteil grüner Wasserstoff") == "54,3 %"
+    assert metrik(at, "Gestehungskosten") == "167,98 €/kg"
+    assert metrik(at, "in ct/kWh") == "426,36 ct/kWh"
+    assert metrik(at, "Stacktausche") == "0"
+    assert metrik(at, "Anteil grüner Wasserstoff") == "100,0 %"
 
 
 def test_thg_aus():
     at = neue_app()
     at.toggle(key="w_thg_enabled").set_value(False).run()
     assert not at.exception
-    assert metrik(at, "Gestehungskosten") == "7,90 €/kg"
+    assert metrik(at, "Gestehungskosten") == "171,36 €/kg"
 
 
 def test_zahlenformat_deutsch():

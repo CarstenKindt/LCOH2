@@ -20,7 +20,7 @@ from lcoh.input_spec import SPEC_BY_KEY
 from lcoh.inputs import Inputs
 from lcoh.operation import run_operation
 from lcoh.sensitivity import sensitivity
-from lcoh.charts import COST_BLOCKS as COST_BLOCK_NAMES, battery_soc_figure, cost_structure_figure, load_duration_figure, sensitivity_figure, spot_price_figure
+from lcoh.charts import COST_BLOCKS as COST_BLOCK_NAMES, battery_soc_figure, cost_donut_figure, cost_structure_figure, load_duration_figure, sensitivity_figure, spot_price_figure
 from lcoh.ui_layout import (rename_label, CHOICE_LABELS, COCKPIT, FINE_STEP, GATES, LABEL_OVERRIDES, LEVIES, PAGES, REVENUE_PAGE,
                             VISIBLE)
 from lcoh.waterfall import (BLOCK_CAPEX, BLOCK_INTEREST, BLOCK_OPEX, BLOCK_POWER, BLOCK_REVENUE, BLOCK_STACK,
@@ -92,7 +92,7 @@ def fill_button(keys: list[str], ident: str) -> None:
 
 TOGGLE_KEYS = {"waste_heat_enabled", "oxygen_enabled", "thg_enabled", "power_sale_enabled", "balancing_enabled",
                "other_revenue_enabled"}
-START_OFF = ["battery_enabled", "ppa_baseload_enabled", "ppa_pv_enabled", "ppa_wind_enabled", "section7_enabled",
+START_OFF = ["battery_enabled", "ppa_baseload_enabled", "ppa_pv_enabled", "ppa_wind_enabled", "spot_enabled", "section7_enabled",
              "section13k_enabled"] + sorted(TOGGLE_KEYS)
 
 
@@ -104,7 +104,6 @@ def empty_state() -> dict:
             d[k] = None
     for k in START_OFF:
         d[k] = False
-    d["spot_enabled"] = True
     return d
 
 
@@ -537,9 +536,12 @@ def missing_links(keys: list[str]) -> None:
       await tabTo(a.dataset.t); if (a.dataset.s) await tabTo(a.dataset.s);
       const el = P.querySelector('.st-key-' + a.dataset.k);
       if (!el) return;
-      let d = el.closest('details');
-      while (d) { d.open = true; d = d.parentElement.closest('details'); }
-      await wait(200);
+      let d = el.closest('details'), opened = false;
+      while (d) {
+        if (!d.open) { const sm = d.querySelector('summary'); if (sm) { sm.click(); opened = true; } }
+        d = d.parentElement.closest('details');
+      }
+      await wait(opened ? 600 : 100);
       el.scrollIntoView({block: 'center', behavior: 'smooth'});
       const inp = el.querySelector('input, textarea');
       if (inp) inp.focus({preventScroll: true});
@@ -771,25 +773,16 @@ with tab_res:
     o5.metric("Ø Auslastung (Ely)", f"{de(ely_util * 100, 1)} %")
 
     st.markdown("### Zusammensetzung der Gestehungskosten")
-    ctl1, ctl2 = st.columns(2)
-    with ctl1:
-        view = st.radio("Stromkosten aufteilen nach", ["Verbrauchern", "Bezugsquellen und Abgaben"], horizontal=True,
-                        key="power_view_radio",
-                        help="Verbrauchern: Wie viel Stromkosten entfallen auf Elektrolyseur, Peripherie und Verdichter? "
-                             "Bezugsquellen und Abgaben: Wie viel entfällt auf PPA, Spotmarkt usw. und auf Netzentgelt, "
-                             "Steuern und Umlagen? Die Summe der Stromkosten ist in beiden Fällen gleich.")
-    with ctl2:
-        mode = st.radio("Darstellung", ["Detailliert (Einzelposten)", "Gestapelt nach Bereichen",
-                                        "Strom netto (Befreiungen verrechnet)"], index=2, key="chart_mode",
-                        help="Gestapelt: ein Balken je Bereich, farbig nach Einzelposten unterteilt. Detailliert: jeder "
-                             "Einzelposten ein eigener Balken. Strom netto: Die Befreiungen von Stromnebenkosten werden "
-                             "direkt mit den Stromkosten verrechnet; unter „Förderungen“ stehen nur echte Förderungen.")
-    items = waterfall_items(r, e, "verbraucher" if view == "Verbrauchern" else "quelle")
+    mode = st.radio("Darstellung", ["Detailliert (Einzelposten)", "Gestapelt nach Bereichen",
+                                    "Strom netto (Befreiungen verrechnet)"], index=2, key="chart_mode", horizontal=True,
+                    help="Gestapelt: ein Balken je Bereich, farbig nach Einzelposten unterteilt. Detailliert: jeder "
+                         "Einzelposten ein eigener Balken. Strom netto: Die Befreiungen von Stromnebenkosten werden "
+                         "direkt mit den Stromkosten verrechnet; unter „Förderungen“ stehen nur echte Förderungen.")
+    items = waterfall_items(r, e, "verbraucher")
     detail = mode.startswith("Detailliert")
     sub_title = None
     if mode.startswith("Strom netto"):
-        items = (waterfall_items(r, e, "verbraucher", netto=True) if view == "Verbrauchern"
-                 else net_power_items(items))
+        items = waterfall_items(r, e, "verbraucher", netto=True)
         sub_title = "Förderungen"
     fig = cost_structure_figure(items, e.lcoh_eur_per_kg, detail=detail, height=640 if detail else 520,
                                 subsidy_title=sub_title)
@@ -799,6 +792,12 @@ with tab_res:
                   else "Gestehungskosten brutto (ohne Förderungen, Befreiungen und Zusatzeinnahmen)")
     st.caption(f"{gross_text}: {de(gross)} €/kg · "
                f"Gestehungskosten: {de(e.lcoh_eur_per_kg)} €/kg")
+
+    st.markdown("### Anteile an den Jahreskosten")
+    st.plotly_chart(cost_donut_figure(waterfall_items(r, e, "verbraucher", netto=True), e.lcoh_eur_per_kg),
+                    width="stretch")
+    st.caption("Anteile von CAPEX, OPEX, Zinsen, Stromkosten und Stacktausch an den Jahreskosten vor Förderungen und "
+               "Zusatzeinnahmen. In der Mitte stehen die Gestehungskosten nach Förderungen und Zusatzeinnahmen.")
 
     st.markdown("### Geordneter Lastverlauf")
     st.plotly_chart(load_duration_figure(r.hourly, r.power), width="stretch")
