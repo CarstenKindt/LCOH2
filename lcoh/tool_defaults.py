@@ -9,6 +9,7 @@ def tool_defaults() -> dict:
     d.update({
         "battery_enabled": False, "ppa_baseload_enabled": False, "section7_enabled": False,
         "waste_heat_enabled": False, "oxygen_enabled": False, "spot_enabled": False, "ppa_wind_enabled": True, "ppa_pv_enabled": True,
+        "balancing_enabled": False,
         "h2_processing_mode": "direkt",
         "capex_building_eur_per_kw": 500.0,
         "spot_max_price_eur_per_mwh": 100.0,
