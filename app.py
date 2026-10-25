@@ -399,7 +399,7 @@ tab_cockpit, tab_inputs, tab_rev, tab_res, tab_data = st.tabs(
 
 # ---------------------------------------------------------------- Cockpit (Eingaben links)
 def row(keys: list[str]) -> None:
-    cols = st.columns(len(keys))
+    cols = st.columns(len(keys), vertical_alignment="bottom")  # Eingabefelder bündig, auch bei mehrzeiligen Beschriftungen
     for col, key in zip(cols, keys):
         with col:
             if key is None:
