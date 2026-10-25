@@ -72,9 +72,9 @@ def waterfall_items(r: OperationResult, e: Economics, power_view: str = "quelle"
             return mwh * (avg + side_full)
         add(BLOCK_POWER, "Strom Elektrolyseur", cost_of(ely_mwh, "ely"))
         add(BLOCK_POWER, "Strom Peripherie", cost_of(per_mwh, "rest"))
-        add(BLOCK_POWER, "Strom O2-Verdichter", cost_of(o2_mwh, "rest"))
-        add(BLOCK_POWER, "Strom H2-Verdichter", cost_of(h2_mwh, "rest"))
-        add(BLOCK_POWER, "Strom für Überschussverkauf", (proc_mwh - total_mwh) * avg)
+        add(BLOCK_POWER, "Strom O₂-Verdichter", cost_of(o2_mwh, "rest"))
+        add(BLOCK_POWER, "Strom H₂-Verdichter", cost_of(h2_mwh, "rest"))
+        add(BLOCK_POWER, "Überschüssig bezogener Strom", (proc_mwh - total_mwh) * avg)
         if pc.demand_charge_eur:
             add(BLOCK_POWER, "Leistungspreis", pc.demand_charge_eur)
     else:

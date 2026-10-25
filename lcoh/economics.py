@@ -121,7 +121,7 @@ def compute_economics(r: OperationResult) -> Economics:
         "Gebäude und Tiefbau": (inp.capex_building_eur_per_kw + inp.capex_civil_eur_per_kw) * ely_kw,
         "Abwärmesystem": (inp.capex_waste_heat_eur_per_kw if inp.waste_heat_enabled else 0.0) * ely_kw,
         "Sauerstoffsystem": (inp.capex_oxygen_eur_per_kw if inp.oxygen_enabled else 0.0) * ely_kw,
-        "H2-Aufbereitung": (inp.capex_h2_compression_eur_per_kw if inp.h2_processing_mode == "Verdichtung"
+        "H₂-Aufbereitung": (inp.capex_h2_compression_eur_per_kw if inp.h2_processing_mode == "Verdichtung"
                             else inp.capex_h2_direct_eur_per_kw) * ely_kw,
         "Batteriesystem": battery,
         "Individuelle CAPEX": custom * ely_kw,

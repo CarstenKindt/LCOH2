@@ -4,7 +4,7 @@ Die mitgelieferte Datei lcoh/data/zeitreihen.csv stammt aus der Excel:
   wind_kwh_per_kw, pv_kwh_per_kw      Erzeugungsprofile je installiertem kW
                                       (Blatt "9. Energiedaten", Spalten P und AC)
   day_ahead_<Jahr>_eur_per_mwh        Börsenstrompreis-Szenarien (Blatt "8. Marktpreise")
-  co2_eur_per_t                       CO2-Preis (Blatt "8. Marktpreise", Spalte H)
+  co2_eur_per_t                       CO₂-Preis (Blatt "8. Marktpreise", Spalte H)
   section13k_kwh                      Redispatch-Energie nach §13k (Blatt "8. Marktpreise", Spalte Y)
 """
 from __future__ import annotations

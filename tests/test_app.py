@@ -22,7 +22,7 @@ def neue_app() -> AppTest:
 def test_start_ohne_werte():
     at = leere_app()
     assert at.text_input(key="w_electrolyzer_power_kw").value == ""
-    assert not [m for m in at.metric if m.label == "Gestehungskosten"]
+    assert not kpis(at, "Gestehungskosten")
     assert any("fehlen noch" in i.value for i in at.info)
 
 
@@ -36,17 +36,30 @@ def test_leeren_nach_standardwerten():
 def test_einzelnes_feld_leeren_blendet_ergebnis_aus():
     at = neue_app()
     at.text_input(key="w_electrolyzer_power_kw").set_value("").run()
-    assert not [m for m in at.metric if m.label == "Gestehungskosten"]
+    assert not kpis(at, "Gestehungskosten")
 
 
-def metrik(at: AppTest, label: str) -> str:
-    return [m.value for m in at.metric if m.label == label][0]
+def kpis(at: AppTest, label: str) -> list[str]:
+    import re
+    out = []
+    for md in at.markdown:
+        for m in re.finditer(r'data-kpi="([^"]*)" data-v="([^"]*)"', md.value):
+            if m.group(1) == label:
+                out.append(m.group(2))
+    return out
+
+
+def metrik(at: AppTest, label: str, unit: str | None = None) -> str:
+    werte = kpis(at, label)
+    if unit:
+        werte = [w for w in werte if w.endswith(unit)]
+    return werte[0]
 
 
 def test_standardwerte():
     at = neue_app()
-    assert metrik(at, "Gestehungskosten") == "167,98 €/kg"
-    assert metrik(at, "in ct/kWh") == "426,36 ct/kWh"
+    assert metrik(at, "Gestehungskosten", "€/kg") == "167,98 €/kg"
+    assert metrik(at, "Gestehungskosten", "ct/kWh") == "426,36 ct/kWh"
     assert metrik(at, "Stacktausche") == "0"
     assert metrik(at, "Anteil grüner Wasserstoff") == "100,0 %"
 
@@ -55,7 +68,7 @@ def test_thg_aus():
     at = neue_app()
     at.toggle(key="w_thg_enabled").set_value(False).run()
     assert not at.exception
-    assert metrik(at, "Gestehungskosten") == "171,36 €/kg"
+    assert metrik(at, "Gestehungskosten", "€/kg") == "171,36 €/kg"
 
 
 def test_zahlenformat_deutsch():
@@ -86,9 +99,9 @@ def test_befreite_abgabe_ohne_wert_ist_nicht_noetig():
     at = neue_app()
     at.toggle(key="w_levy_ely_grid_fee_exempt").set_value(True).run()
     at.text_input(key="w_levy_ely_grid_fee_ct_per_kwh").set_value("").run()
-    assert [m for m in at.metric if m.label == "Gestehungskosten"]
+    assert kpis(at, "Gestehungskosten")
     at.toggle(key="w_levy_ely_grid_fee_exempt").set_value(False).run()
-    assert not [m for m in at.metric if m.label == "Gestehungskosten"]
+    assert not kpis(at, "Gestehungskosten")
 
 
 def test_bereichs_button_fuellt_nur_leere_felder():

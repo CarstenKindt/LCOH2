@@ -1,4 +1,4 @@
-"""LCOH2-Rechner: Oberfläche.  Start:  streamlit run app.py"""
+"""LCOH₂-Rechner: Oberfläche.  Start:  streamlit run app.py"""
 from __future__ import annotations
 
 import html
@@ -20,7 +20,7 @@ from lcoh.input_spec import SPEC_BY_KEY
 from lcoh.inputs import Inputs
 from lcoh.operation import run_operation
 from lcoh.sensitivity import sensitivity
-from lcoh.charts import COST_BLOCKS as COST_BLOCK_NAMES, battery_soc_figure, cost_donut_figure, cost_structure_figure, load_duration_figure, sensitivity_figure, spot_price_figure
+from lcoh.charts import COST_BLOCKS as COST_BLOCK_NAMES, battery_soc_figure, cost_structure_figure, load_duration_figure, sensitivity_figure, spot_price_figure
 from lcoh.ui_layout import (rename_label, CHOICE_LABELS, COCKPIT, FINE_STEP, GATES, LABEL_OVERRIDES, LEVIES, PAGES, REVENUE_PAGE,
                             VISIBLE)
 from lcoh.waterfall import (BLOCK_CAPEX, BLOCK_INTEREST, BLOCK_OPEX, BLOCK_POWER, BLOCK_REVENUE, BLOCK_STACK,
@@ -41,6 +41,11 @@ div[data-testid="stVerticalBlockBorderWrapper"] h4 {margin-top: 0; font-size: 1.
 section[data-testid="stSidebar"] {width: 250px !important; min-width: 250px !important;}
 .st-key-cockpit_out [data-testid="stMetric"] {width: 100%; align-items: center;}
 .st-key-cockpit_out [data-testid="stMetric"] * {justify-content: center !important; text-align: center !important;}
+.kpi {margin-bottom: .6rem;}
+.kpi .kl {font-size: .85rem; color: #555; line-height: 1.2;}
+.kpi .kv {font-size: 1.6rem; line-height: 1.3; white-space: nowrap;}
+.kpi .ku {font-size: .8rem; color: #666; margin-left: .2rem;}
+.st-key-cockpit_out .kpi {text-align: center;}
 .sumbox.small {margin-bottom: 0; gap: 1.2rem;}
 .sumbox.small .v {font-size: 1rem;}
 .sumbox {display: flex; gap: 2rem; justify-content: flex-end; text-align: right; margin-bottom: .5rem;}
@@ -556,6 +561,15 @@ def missing_links(keys: list[str]) -> None:
         components.html(page, height=h, scrolling=True)
 
 
+def kmetric(col, label: str, value: str, unit: str = "", help: str | None = None) -> None:
+    """Kennzahl mit kleinerer Einheit hinter dem Wert."""
+    tip = f' title="{html.escape(help, quote=True)}"' if help else ""
+    u = f'<span class="ku">{html.escape(unit)}</span>' if unit else ""
+    col.markdown(f'<div class="kpi" data-kpi="{html.escape(label)}" data-v="{html.escape((value + " " + unit).strip())}"{tip}>'
+                 f'<div class="kl">{html.escape(label)}{" ⓘ" if help else ""}</div>'
+                 f'<div class="kv">{html.escape(value)}{u}</div></div>', unsafe_allow_html=True)
+
+
 def footer() -> None:
     st.divider()
     st.caption("Der Wasserstoff-Kostenrechner liefert eine Abschätzung auf Basis der eingegebenen Annahmen und der "
@@ -630,8 +644,8 @@ inp = r.inputs
 
 with st.sidebar:
     st.divider()
-    st.metric("Kosten pro kg Wasserstoff", f"{de(e.lcoh_eur_per_kg)} €/kg",
-              help="Wasserstoffgestehungskosten (LCOH2): alle Kosten über die Projektlaufzeit, abzüglich Förderungen und Zusatzeinnahmen, je kg Wasserstoff.")
+    kmetric(st, "Gestehungskosten", de(e.lcoh_eur_per_kg), "€/kg",
+              help="Wasserstoffgestehungskosten (LCOH₂): alle Kosten über die Projektlaufzeit, abzüglich Förderungen und Zusatzeinnahmen, je kg Wasserstoff.")
     st.caption(f"{de(e.lcoh_ct_per_kwh)} ct/kWh (Brennwert)  \n{de(e.h2_kg_per_year / 1000, 0)} t Wasserstoff pro Jahr  \n"
                f"{de(r.full_load_hours, 0)} h/a Ø Auslastung (Volllaststunden)  \n"
                f"{de(r.full_load_hours / 87.6, 1)} % Auslastung")
@@ -702,7 +716,7 @@ A, P, O, F, R = "Anlage & Investitionen", "Strombezug & Nebenkosten", "Betrieb (
 section_sum(A, "Investitionskosten (CAPEX)", capex_pair("EPC", "Balance of Plant", "Gebäude und Tiefbau"))
 section_sum(A, "Abwärme", capex_pair("Abwärmesystem"))
 section_sum(A, "Sauerstoff", capex_pair("Sauerstoffsystem"))
-section_sum(A, "Wasserstoff-Aufbereitung", capex_pair("H2-Aufbereitung"))
+section_sum(A, "Wasserstoff-Aufbereitung", capex_pair("H₂-Aufbereitung"))
 section_sum(A, "Peripherie", [("Leistung Peripherie", f"{de(r.power.peripherals_kw, 0)} kW")])
 section_sum(A, "Batteriesystem (Kosten)", capex_pair("Batteriesystem") if inp.battery_enabled else [("Kosten", eur(0))])
 section_sum(A, "Stacktausch", per_year("Kosten pro Jahr", e.stack_cost_per_year) + [("Tausche", f"{r.stack_replacements}")])
@@ -733,20 +747,20 @@ section_sum(R, "Sonstige Einnahmen", per_year("Einnahmen", e.revenue_other))
 with cockpit_slot:
     st.markdown("### **Ergebnis**")
     k1, k2, k3 = st.columns(3)
-    k1.metric("Gestehungskosten", f"{de(e.lcoh_eur_per_kg)} €/kg", help="Wasserstoffgestehungskosten (LCOH2) über die "
+    kmetric(k1, "Gestehungskosten", de(e.lcoh_eur_per_kg), "€/kg", help="Wasserstoffgestehungskosten (LCOH₂) über die "
               "Projektlaufzeit, inklusive Förderungen, Befreiungen und Zusatzeinnahmen.")
-    k2.metric("in ct/kWh", f"{de(e.lcoh_ct_per_kwh)} ct/kWh", help="Bezogen auf den Brennwert von 39,4 kWh/kg.")
-    k3.metric("Wasserstoff", f"{de(e.h2_kg_per_year / 1000, 0)} t/a")
+    kmetric(k2, "Gestehungskosten", de(e.lcoh_ct_per_kwh), "ct/kWh", help="Bezogen auf den Brennwert von 39,4 kWh/kg.")
+    kmetric(k3, "Wasserstoff", de(e.h2_kg_per_year / 1000, 0), "t/a")
     k4, k5, k6 = st.columns(3)
-    k4.metric("Anteil grüner Wasserstoff", f"{de(green_share * 100, 1)} %", help=HELP_GREEN)
-    k5.metric("Systemauslastung", f"{de(system_util * 100, 1)} %", help="Stromverbrauch des Gesamtsystems bezogen auf "
+    kmetric(k4, "Anteil grüner Wasserstoff", de(green_share * 100, 1), "%", help=HELP_GREEN)
+    kmetric(k5, "Systemauslastung", de(system_util * 100, 1), "%", help="Stromverbrauch des Gesamtsystems bezogen auf "
               "den Dauerbetrieb mit Nennleistung über 8.760 Stunden.")
-    k6.metric("Ø Effizienz", f"{de(r.avg_efficiency * 100, 1)} %", help="Mittlerer Wirkungsgrad des Elektrolyseurs über "
+    kmetric(k6, "Ø Effizienz", de(r.avg_efficiency * 100, 1), "%", help="Mittlerer Wirkungsgrad des Elektrolyseurs über "
               "die Projektlaufzeit (inklusive Degradation).")
     k7, k8, k9 = st.columns(3)
-    k7.metric("Volllaststunden", f"{de(r.full_load_hours, 0)} h/a")
-    k8.metric("Kapitalkostensatz (WACC)", f"{de(e.wacc * 100, 1)} %")
-    k9.metric("Stacktausche", f"{r.stack_replacements}", help=f"Anzahl der Stacktausche in der Projektlaufzeit "
+    kmetric(k7, "Volllaststunden", de(r.full_load_hours, 0), "h/a")
+    kmetric(k8, "Kapitalkostensatz (WACC)", de(e.wacc * 100, 1), "%")
+    kmetric(k9, "Stacktausche", str(r.stack_replacements), "", help=f"Anzahl der Stacktausche in der Projektlaufzeit "
               f"(alle {de(r.stack_interval_years, 1)} Jahre).")
     items = waterfall_items(r, e, "verbraucher", netto=True)
     st.markdown("#### Kostenstruktur")
@@ -759,18 +773,26 @@ with cockpit_slot:
 # ---------------------------------------------------------------- Ergebnisse
 with tab_res:
     c1, c2, c3, c4, c5 = st.columns(5)
-    c1.metric("Gestehungskosten", f"{de(e.lcoh_eur_per_kg)} €/kg", help="Wasserstoffgestehungskosten (LCOH2).")
-    c2.metric("ct/kWh (Brennwert)", f"{de(e.lcoh_ct_per_kwh)}")
-    c3.metric("Wasserstoff", f"{de(e.h2_kg_per_year / 1000, 0)} t/a")
-    c4.metric("Anlagenleistung gesamt", f"{de(r.power.total_kw / 1000, 1)} MW")
-    c5.metric("CAPEX nach Förderung", f"{de(e.capex_net / 1e6, 1)} Mio. €")
+    kmetric(c1, "Gestehungskosten", de(e.lcoh_eur_per_kg), "€/kg", help="Wasserstoffgestehungskosten (LCOH₂).")
+    kmetric(c2, "Gestehungskosten", de(e.lcoh_ct_per_kwh), "ct/kWh", help="Bezogen auf den Brennwert von 39,4 kWh/kg.")
+    kmetric(c3, "Wasserstoff", de(e.h2_kg_per_year / 1000, 0), "t/a")
+    kmetric(c4, "Anlagenleistung gesamt", de(r.power.total_kw / 1000, 1), "MW")
+    kmetric(c5, "CAPEX nach Förderung", de(e.capex_net / 1e6, 1), "Mio. €")
     o1, o2, o3, o4, o5 = st.columns(5)
-    o1.metric("Betriebsstunden", f"{de(run_hours, 0)} h/a", help="Stunden, in denen das System Strom verbraucht.")
-    o2.metric("davon Volllast", f"{de(full_hours, 0)} h/a")
-    o3.metric("davon Teillast", f"{de(part_hours, 0)} h/a")
-    o4.metric("Volllaststunden (Ely)", f"{de(r.full_load_hours, 0)} h/a", help="Jahresenergie des Elektrolyseurs geteilt "
+    kmetric(o1, "Betriebsstunden", de(run_hours, 0), "h/a", help="Stunden, in denen das System Strom verbraucht.")
+    kmetric(o2, "davon Volllast", de(full_hours, 0), "h/a")
+    kmetric(o3, "davon Teillast", de(part_hours, 0), "h/a")
+    kmetric(o4, "Volllaststunden (Ely)", de(r.full_load_hours, 0), "h/a", help="Jahresenergie des Elektrolyseurs geteilt "
               "durch seine Nennleistung.")
-    o5.metric("Ø Auslastung (Ely)", f"{de(ely_util * 100, 1)} %")
+    kmetric(o5, "Ø Auslastung (Ely)", de(ely_util * 100, 1), "%")
+    p1, p2, p3, p4, p5 = st.columns(5)
+    kmetric(p1, "Anzahl Stacktausche", str(r.stack_replacements), "", help=f"Anzahl der Stacktausche in der "
+            f"Projektlaufzeit (alle {de(r.stack_interval_years, 1)} Jahre).")
+    kmetric(p2, "Ø Effizienz", de(r.avg_efficiency * 100, 1), "%", help="Mittlerer Wirkungsgrad des Elektrolyseurs über "
+            "die Projektlaufzeit (inklusive Degradation).")
+    kmetric(p3, "Anteil grüner Wasserstoff", de(green_share * 100, 1), "%", help=HELP_GREEN)
+    kmetric(p4, "Systemauslastung", de(system_util * 100, 1), "%")
+    kmetric(p5, "Kapitalkostensatz (WACC)", de(e.wacc * 100, 1), "%")
 
     st.markdown("### Zusammensetzung der Gestehungskosten")
     mode = st.radio("Darstellung", ["Detailliert (Einzelposten)", "Gestapelt nach Bereichen",
@@ -778,6 +800,10 @@ with tab_res:
                     help="Gestapelt: ein Balken je Bereich, farbig nach Einzelposten unterteilt. Detailliert: jeder "
                          "Einzelposten ein eigener Balken. Strom netto: Die Befreiungen von Stromnebenkosten werden "
                          "direkt mit den Stromkosten verrechnet; unter „Förderungen“ stehen nur echte Förderungen.")
+    unit_mode = st.radio("Werte anzeigen als", ["€ pro kg Wasserstoff", "Anteil in %"], key="chart_unit", horizontal=True,
+                         help="Wechselt die Beschriftung der Balken zwischen Euro je kg Wasserstoff und dem prozentualen "
+                              "Anteil an den Gestehungskosten brutto.")
+    percent = unit_mode.startswith("Anteil")
     items = waterfall_items(r, e, "verbraucher")
     detail = mode.startswith("Detailliert")
     sub_title = None
@@ -785,19 +811,13 @@ with tab_res:
         items = waterfall_items(r, e, "verbraucher", netto=True)
         sub_title = "Förderungen"
     fig = cost_structure_figure(items, e.lcoh_eur_per_kg, detail=detail, height=640 if detail else 520,
-                                subsidy_title=sub_title)
+                                subsidy_title=sub_title, percent=percent)
     st.plotly_chart(fig, width="stretch")
     gross = sum(i.eur_per_kg for i in items if i.block in COST_BLOCK_NAMES)
     gross_text = ("Gestehungskosten brutto (ohne Förderungen und Zusatzeinnahmen)" if sub_title
                   else "Gestehungskosten brutto (ohne Förderungen, Befreiungen und Zusatzeinnahmen)")
     st.caption(f"{gross_text}: {de(gross)} €/kg · "
                f"Gestehungskosten: {de(e.lcoh_eur_per_kg)} €/kg")
-
-    st.markdown("### Anteile an den Jahreskosten")
-    st.plotly_chart(cost_donut_figure(waterfall_items(r, e, "verbraucher", netto=True), e.lcoh_eur_per_kg),
-                    width="stretch")
-    st.caption("Anteile von CAPEX, OPEX, Zinsen, Stromkosten und Stacktausch an den Jahreskosten vor Förderungen und "
-               "Zusatzeinnahmen. In der Mitte stehen die Gestehungskosten nach Förderungen und Zusatzeinnahmen.")
 
     st.markdown("### Geordneter Lastverlauf")
     st.plotly_chart(load_duration_figure(r.hourly, r.power), width="stretch")
@@ -897,6 +917,35 @@ with tab_res:
                                    "Preis [€/MWh]": lambda v: de(v, 2), "Kosten [€/a]": lambda v: de(v, 0)}),
                  hide_index=True, width="stretch")
 
+    # ---- Gesamttabelle
+    st.markdown("### Alle Ergebnisse im Überblick")
+    alle = [("Gestehungskosten", "Gestehungskosten", e.lcoh_eur_per_kg, "€/kg"),
+            ("Gestehungskosten", "Gestehungskosten", e.lcoh_ct_per_kwh, "ct/kWh"),
+            ("Gestehungskosten", "Gestehungskosten brutto", gross, "€/kg"),
+            ("Anlage", "Wasserstoff pro Jahr", e.h2_kg_per_year / 1000, "t/a"),
+            ("Anlage", "Anlagenleistung gesamt", r.power.total_kw / 1000, "MW"),
+            ("Anlage", "Anzahl Stacktausche", r.stack_replacements, ""),
+            ("Anlage", "Ø Effizienz", r.avg_efficiency * 100, "%"),
+            ("Anlage", "Anteil grüner Wasserstoff", green_share * 100, "%"),
+            ("Anlage", "Systemauslastung", system_util * 100, "%"),
+            ("Anlage", "Betriebsstunden", run_hours, "h/a"),
+            ("Anlage", "davon Volllast", full_hours, "h/a"),
+            ("Anlage", "davon Teillast", part_hours, "h/a"),
+            ("Anlage", "Volllaststunden (Ely)", r.full_load_hours, "h/a"),
+            ("Anlage", "Ø Auslastung (Ely)", ely_util * 100, "%"),
+            ("Finanzierung", "CAPEX nach Förderung", e.capex_net / 1e6, "Mio. €"),
+            ("Finanzierung", "Kapitalkostensatz (WACC)", e.wacc * 100, "%")]
+    alle += [("Kosten und Erlöse pro Jahr", n, v, "€/a") for n, v in rows]
+    alle += [("Kosten und Erlöse je kg", n, v / h2 if h2 else 0.0, "€/kg") for n, v in rows]
+    alle += [("Anlage und Betrieb", k, w.split(" ")[0], " ".join(w.split(" ")[1:])) for k, w in kennz]
+    alle += [("Strombezug", f"{n}: Menge", q / m, "MWh/a") for n, q, _ in quellen]
+    alle += [("Strombezug", f"{n}: Preis", p, "€/MWh") for n, _, p in quellen]
+    alle += [("Sensitivität", f"{z.name}: Kosten −{pct_txt}", z.lcoh_minus, "€/kg") for z in rows_s]
+    alle += [("Sensitivität", f"{z.name}: Kosten +{pct_txt}", z.lcoh_plus, "€/kg") for z in rows_s]
+    alle_df = pd.DataFrame([(b, k, (de(v, 2) if isinstance(v, float) else str(v)), u) for b, k, v, u in alle],
+                           columns=["Bereich", "Kennzahl", "Wert", "Einheit"])
+    st.dataframe(alle_df, hide_index=True, width="stretch", height=563)
+
     # ---- Download
     st.markdown("### Ergebnisse herunterladen")
     buf = io.BytesIO()
@@ -907,7 +956,7 @@ with tab_res:
                       ("CAPEX netto [€]", e.capex_net), ("OPEX [€/a]", e.opex_total), ("Stromkosten [€/a]", e.power_cost),
                       ("Finanzierung [€/a]", e.financing_total), ("Erlöse [€/a]", e.revenue_total)],
                      columns=["Kennzahl", "Wert"]).to_excel(xw, sheet_name="Ergebnis", index=False)
-        pd.DataFrame([(i.block, i.label, i.eur_per_kg) for i in items], columns=["Block", "Posten", "€ pro kg H2"]).to_excel(
+        pd.DataFrame([(i.block, i.label, i.eur_per_kg) for i in items], columns=["Block", "Posten", "€ pro kg H₂"]).to_excel(
             xw, sheet_name="Wasserfall", index=False)
         df.to_excel(xw, sheet_name="Kosten und Erlöse", index=False)
         tab.to_excel(xw, sheet_name="Strombezug", index=False)

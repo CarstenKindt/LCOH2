@@ -1,6 +1,8 @@
 """Diagramme: Kostenstruktur (gestapeltes Wasserfalldiagramm) und geordneter Lastverlauf."""
 from __future__ import annotations
 
+from dataclasses import replace
+
 import numpy as np
 import plotly.graph_objects as go
 
@@ -50,12 +52,19 @@ def _shades(block: str, n: int) -> list[str]:
 
 def cost_structure_figure(items: list[Item], lcoh: float, detail: bool, height: int = 420,
                           labels_in_bars: bool = True, subsidy_title: str | None = None,
-                          gross_label: str | None = None) -> go.Figure:
+                          gross_label: str | None = None, percent: bool = False) -> go.Figure:
     """Gestapeltes Wasserfalldiagramm.
 
     Übersicht (detail=False): ein Balken je Block, der Balken ist aus den Einzelposten zusammengesetzt.
     Detail (detail=True): ein Balken je Einzelposten, eingefärbt nach Block.
     """
+    unit = "€/kg"
+    if percent:  # alle Werte in % der Gestehungskosten brutto
+        gross0 = sum(i.eur_per_kg for i in items if i.block in COST_BLOCKS) or 1.0
+        f = 100.0 / gross0
+        items = [replace(i, eur_per_kg=i.eur_per_kg * f) for i in items]
+        lcoh = lcoh * f
+        unit = "%"
     used = [i for i in items if abs(i.eur_per_kg) > 1e-9]
     bars: list[dict] = []  # label, segments [(label, value, color)], total (bool)
 
@@ -101,7 +110,7 @@ def cost_structure_figure(items: list[Item], lcoh: float, detail: bool, height: 
                             pattern=dict(shape="/", fgcolor="white", size=6) if (val < 0 and bar["block"] in COST_BLOCKS) else None),
                 text=[label if (show and not detail) else ""], textposition="inside", insidetextanchor="middle",
                 textfont=dict(size=10, color="white" if _dark(col) else "#222"),
-                hovertemplate=f"{label}: {de(val)} €/kg<extra></extra>", showlegend=False, cliponaxis=False))
+                hovertemplate=f"{label}: {de(val)} {unit}<extra></extra>", showlegend=False, cliponaxis=False))
             cur += val
         end = cur if not bar["total"] else bar["segs"][0][1]
         tops.append(max(start, end))
@@ -109,7 +118,7 @@ def cost_structure_figure(items: list[Item], lcoh: float, detail: bool, height: 
         level = end if bar["total"] else cur
     # Verbindungslinien und Summenbeschriftung
     for x, (bar, (start, end)) in enumerate(zip(bars, levels)):
-        fig.add_annotation(x=x, y=tops[x], text=f"<b>{de(end - start if not bar['total'] else end)}</b>",
+        fig.add_annotation(x=x, y=tops[x], text=f"<b>{de(end - start if not bar['total'] else end, 1 if percent else 2)}{' %' if percent else ''}</b>",
                            showarrow=False, yshift=11, font=dict(size=11))
         if x < len(bars) - 1:
             fig.add_shape(type="line", x0=x + 0.33, x1=x + 1 - 0.33, y0=end, y1=end,
@@ -127,7 +136,7 @@ def cost_structure_figure(items: list[Item], lcoh: float, detail: bool, height: 
             pos += n
     fig.update_layout(
         barmode="overlay", height=height, margin=dict(l=0, r=0, t=34 if detail else 24, b=0), showlegend=False,
-        yaxis=dict(title="€ pro kg H₂", zeroline=True, zerolinecolor="#666"),
+        yaxis=dict(title="% der Gestehungskosten brutto" if percent else "€ pro kg H₂", zeroline=True, zerolinecolor="#666"),
         xaxis=dict(automargin=True, tickmode="array", tickvals=list(range(len(bars))), ticktext=[b["label"] for b in bars],
                    tickangle=-50 if detail else -25),
         plot_bgcolor="rgba(0,0,0,0)", uniformtext=dict(mode="hide", minsize=8), separators=",.")
@@ -230,19 +239,3 @@ def sensitivity_figure(rows, step: float, height: int = 460) -> go.Figure:
                                  ticktext=[de(abs(t), 1) for t in ticks], zeroline=False))
     return fig
 
-
-def cost_donut_figure(items, lcoh: float, height: int = 420) -> go.Figure:
-    """Ringdiagramm: Anteile von CAPEX, OPEX, Stacktausch, Stromkosten und Zinsen an den Jahreskosten (brutto);
-    in der Mitte stehen die Gestehungskosten."""
-    sums = {b: sum(i.eur_per_kg for i in items if i.block == b) for b in COST_BLOCKS}
-    labels = [b for b in COST_BLOCKS if sums[b] > 0]
-    values = [sums[b] for b in labels]
-    fig = go.Figure(go.Pie(
-        labels=labels, values=values, hole=0.62, sort=False, direction="clockwise",
-        marker=dict(colors=[BLOCK_COLORS[b] for b in labels], line=dict(color="white", width=2)),
-        texttemplate="%{label}<br>%{percent:.1%}", textposition="outside", textfont=dict(size=13),
-        hovertemplate="%{label}: %{percent:.1%} der Jahreskosten<br>%{value:.2f} €/kg<extra></extra>"))
-    fig.add_annotation(text=f"<b>{de(lcoh)} €/kg</b><br><span style='font-size:12px'>Gestehungskosten</span>",
-                       x=0.5, y=0.5, showarrow=False, font=dict(size=24, color=TOTAL_COLOR))
-    fig.update_layout(height=height, margin=dict(l=40, r=40, t=30, b=30), showlegend=False, separators=",.")
-    return fig
