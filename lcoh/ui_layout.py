@@ -72,8 +72,8 @@ REVENUE_PAGE = [
         "thg_h2_intensity_kgco2_per_gj", "thg_adjustment_factor", "thg_price_escalation"]),
     ("Verkauf von Überschussstrom", None, [
         "power_sale_enabled", "power_sale_mode", "power_sale_ppa_price_eur_per_mwh", "power_sale_ppa_escalation"]),
-    ("Sauerstoff", None, ["oxygen_price_eur_per_t", "oxygen_price_escalation"]),
-    ("Abwärme", None, ["heat_price_eur_per_mwh", "heat_usable_share", "heat_price_escalation"]),
+    ("Sauerstoff", "oxygen_enabled", ["oxygen_price_eur_per_t", "oxygen_price_escalation"]),
+    ("Abwärme", "waste_heat_enabled", ["heat_price_eur_per_mwh", "heat_usable_share", "heat_price_escalation"]),
     ("Regelenergie", None, ["balancing_enabled", "balancing_revenue_eur_per_year", "balancing_escalation"]),
     ("Sonstige Einnahmen", None, [
         "other_revenue_enabled", "other_revenue_1_eur_per_year", "other_revenue_1_escalation",

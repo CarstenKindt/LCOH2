@@ -200,28 +200,30 @@ def spot_price_figure(market, height: int = 340) -> go.Figure:
     return fig
 
 
-def sensitivity_figure(rows, step: float, height: int = 420) -> go.Figure:
-    """Tornado-Diagramm: Gestehungskosten, wenn die Einflussgröße um die Schrittweite sinkt bzw. steigt."""
-    rows = sorted(rows, key=lambda z: z.high - z.low)  # größte Wirkung oben
+def sensitivity_figure(rows, step: float, height: int = 460) -> go.Figure:
+    """Tornado-Diagramm wie Blatt 7 der Excel: Reihenfolge der Excel (erste Zeile unten), Balken von der Basis bis zu
+    den Gestehungskosten bei -x % und +x %. Grün: Kosten sinken, rot: Kosten steigen. Im Balken steht die Änderung in €/kg."""
     base = rows[0].base if rows else 0.0
     pct = f"{de(step * 100, 0)} %"
     fig = go.Figure()
-    for sign, attr in ((-1, "lcoh_minus"), (1, "lcoh_plus")):
+    for sign, attr, vattr in ((-1, "lcoh_minus", "v_minus"), (1, "lcoh_plus", "v_plus")):
         vals = [getattr(z, attr) for z in rows]
+        delta = [v - base for v in vals]
         fig.add_trace(go.Bar(
-            y=[z.name for z in rows], x=[v - base for v in vals], base=[base] * len(rows), orientation="h", width=0.38,
-            marker=dict(color=["#3f9b4f" if v < base else "#d1495b" for v in vals]),
-            text=[de(v) + " €/kg" for v in vals], textposition="outside", cliponaxis=False,
-            customdata=[[de(v), z.block, de(z.v_minus if sign < 0 else z.v_plus)] for z, v in zip(rows, vals)],
-            hovertemplate=("%{y}, " + ("−" if sign < 0 else "+") + pct + ": %{customdata[0]} €/kg<br>"
-                           "%{customdata[1]}: %{customdata[2]}<extra></extra>"),
+            y=[z.name for z in rows], x=delta, base=[base] * len(rows), orientation="h", width=0.55,
+            marker=dict(color=["#3f9b4f" if d < 0 else "#d1495b" for d in delta]),
+            text=[("−" if sign < 0 else "+") + pct + ": " + ("+" if d > 0 else "−" if d < 0 else "") + de(abs(d)) for d in delta],
+            textposition="inside", insidetextanchor="middle", textfont=dict(color="white", size=12),
+            customdata=[[de(v), z.block, de(getattr(z, vattr)), de(d)] for z, v, d in zip(rows, vals, delta)],
+            hovertemplate=("%{y}, " + ("−" if sign < 0 else "+") + pct + ": %{customdata[0]} €/kg "
+                           "(Änderung %{customdata[3]} €/kg)<br>%{customdata[1]}: %{customdata[2]}<extra></extra>"),
             showlegend=False))
     fig.add_vline(x=base, line=dict(color="#16324f", width=2))
-    fig.add_annotation(x=base, y=1.07, yref="paper", text=f"Basis: {de(base)} €/kg", showarrow=False,
+    fig.add_annotation(x=base, y=1.06, yref="paper", text=f"Basis: {de(base)} €/kg", showarrow=False,
                        font=dict(color="#16324f"))
     lo = min((z.low for z in rows), default=base)
     hi = max((z.high for z in rows), default=base)
-    pad = (hi - lo) * 0.12 or 0.5
+    pad = (hi - lo) * 0.05 or 0.5
     fig.update_layout(barmode="overlay", height=height, margin=dict(l=0, r=0, t=30, b=0), separators=",.",
                       xaxis=dict(title="Gestehungskosten [€/kg]", range=[lo - pad, hi + pad]))
     return fig

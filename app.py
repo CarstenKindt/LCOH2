@@ -58,12 +58,20 @@ SELECT_KEYS = [sp.key for sp in SPEC_BY_KEY.values()
 BLANK_KEYS = NUMERIC_KEYS + SELECT_KEYS
 
 
+TOGGLE_KEYS = {"waste_heat_enabled", "oxygen_enabled", "thg_enabled", "power_sale_enabled", "balancing_enabled",
+               "other_revenue_enabled"}
+START_OFF = ["battery_enabled", "ppa_baseload_enabled", "ppa_pap_enabled", "spot_enabled", "section7_enabled",
+             "section13k_enabled"] + sorted(TOGGLE_KEYS)
+
+
 def empty_state() -> dict:
     """Leerer Startzustand: Zahlenfelder ohne Wert; Schalter und Auswahlfelder stehen auf ihren Standardwerten."""
     d = Inputs().to_dict()
     for k in BLANK_KEYS:
         if k != "sensitivity_step":
             d[k] = None
+    for k in START_OFF:
+        d[k] = False
     return d
 
 
@@ -192,7 +200,7 @@ def field(key: str, label: str | None = None, hide_label: bool = False) -> None:
         st.session_state[wk] = fmt_de(v0, dec) if use_text else v0
     helptext = HELP.get(key)
     if spec.kind == "bool":
-        val = st.toggle(text, key=wk, help=helptext)
+        val = st.toggle(text, key=wk, help=helptext, label_visibility=vis)
     elif spec.kind == "choice":
         fmt = CHOICE_LABELS.get(key, {}).get
         if len(spec.choices) <= 3 and not isinstance(spec.choices[0], int):
@@ -221,18 +229,32 @@ SECTION_SLOTS: dict = {}
 def render_section(title: str, gate: str | None, keys: list[str], skip: set[str] | None = None,
                    scope: str = "") -> None:
     keys = [k for k in keys if not skip or k not in skip]
+    own = keys[0] if keys and keys[0] in TOGGLE_KEYS else None
+    rest = keys[1:] if own else keys
     with st.container(border=True):
-        h1, h2 = st.columns([1.1, 1.1])
-        h1.markdown(f"#### {title}")
+        if own:
+            c0, h1, h2 = st.columns([0.2, 1.0, 1.0], vertical_alignment="center")
+            with c0:
+                field(own, hide_label=True)
+            h1.markdown(f"#### {title}")
+        else:
+            h1, h2 = st.columns([1.1, 1.1])
+            h1.markdown(f"#### {title}")
         SECTION_SLOTS[f"{scope}|{title}"] = h2.container()
-        if gate is not None:
+        if own:
+            on = bool(S[own])
+        elif gate is not None:
             on = GATES[gate](S) if gate in GATES else bool(S[gate])
             if not on:
                 st.caption("Dieser Bereich ist ausgeschaltet. Der Schalter steht im Cockpit bzw. in einem anderen Bereich.")
-                return
-        for key in keys:
-            if visible(key):
-                field(key)
+        else:
+            on = True
+        if not on:
+            return
+        with st.expander("Eingaben anzeigen", expanded=False):
+            for key in rest:
+                if visible(key):
+                    field(key)
 
 
 def render_levies() -> None:
@@ -351,8 +373,12 @@ with tab_cockpit:
                 row(["electrolyzer_power_kw", "capex_electrolyzer_eur_per_kw", "electrolyzer_efficiency"])
                 row(["commissioning_year", "project_lifetime_years", "min_part_load"])
             with st.container(border=True):
-                st.markdown("#### Batterie")
-                row(["battery_enabled", "battery_capacity_hours", "battery_input_power_kw"])
+                bc0, bc1 = st.columns([0.14, 1.0], vertical_alignment="center")
+                with bc0:
+                    field("battery_enabled", hide_label=True)
+                bc1.markdown("#### Batterie")
+                if S["battery_enabled"]:
+                    row(["battery_capacity_hours", "battery_input_power_kw"])
             with st.container(border=True):
                 st.markdown("#### Strombezug")
                 st.caption("Grundlast-PPA: konstanter Bezug. Pay-as-Produced-PPA: Bezug folgt der PV- bzw. Windeinspeisung.")
@@ -361,7 +387,9 @@ with tab_cockpit:
                 row([None, "ppa_pv_kw", "ppa_pv_price_eur_per_mwh"])
                 row([None, "ppa_wind_kw", "ppa_wind_price_eur_per_mwh"])
                 st.caption("Weitere Bezugsquellen (Details unter „Eingaben“, Reiter „Strombezug & Nebenkosten“):")
-                row(["section7_enabled", "section13k_enabled", "spot_enabled"])
+                row(["section7_enabled"])
+                row(["section13k_enabled"])
+                row(["spot_enabled"])
     cockpit_slot = right.container(key="cockpit_out")
 
 # ---------------------------------------------------------------- Eingabeseiten
@@ -413,6 +441,8 @@ missing = [k for k in BLANK_KEYS if S[k] is None and k in shown_keys and default
 effective = {k: (defaults_dict[k] if v is None else v) for k, v in S.items()}
 inp_eff = Inputs.from_dict(effective)
 errors = inp_eff.validate()
+if not any(S[k] for k in ("ppa_baseload_enabled", "ppa_pap_enabled", "section7_enabled", "section13k_enabled", "spot_enabled")):
+    errors = errors + ["Bitte mindestens eine Strombezugsquelle einschalten (PPA, §7, §13k oder Spotmarkt)."]
 
 
 def footer() -> None:
@@ -610,7 +640,9 @@ with cockpit_slot:
     items = waterfall_items(r, e, "verbraucher", netto=True)
     st.markdown("#### Kostenstruktur")
     st.plotly_chart(cost_structure_figure(items, e.lcoh_eur_per_kg, detail=False, height=430,
-                                          subsidy_title="Förderungen", gross_label="Zwischensumme"), width="stretch")
+                                          subsidy_title="Förderungen"), width="stretch")
+    st.markdown("#### Geordneter Lastverlauf")
+    st.plotly_chart(load_duration_figure(r.hourly, r.power, height=340), width="stretch", key="cockpit_load")
     st.caption("Detaillierte Auswertung im Reiter „Ergebnisse“.")
 
 # ---------------------------------------------------------------- Ergebnisse
@@ -651,10 +683,10 @@ with tab_res:
                  else net_power_items(items))
         sub_title = "Förderungen"
     fig = cost_structure_figure(items, e.lcoh_eur_per_kg, detail=detail, height=640 if detail else 520,
-                                subsidy_title=sub_title, gross_label="Zwischensumme" if sub_title else None)
+                                subsidy_title=sub_title)
     st.plotly_chart(fig, width="stretch")
     gross = sum(i.eur_per_kg for i in items if i.block in COST_BLOCK_NAMES)
-    gross_text = ("Zwischensumme (ohne Förderungen und Zusatzeinnahmen)" if sub_title
+    gross_text = ("Gestehungskosten brutto (ohne Förderungen und Zusatzeinnahmen)" if sub_title
                   else "Gestehungskosten brutto (ohne Förderungen, Befreiungen und Zusatzeinnahmen)")
     st.caption(f"{gross_text}: {de(gross)} €/kg · "
                f"Gestehungskosten: {de(e.lcoh_eur_per_kg)} €/kg")
@@ -692,10 +724,14 @@ with tab_res:
                            columns=["Einflussgröße", "Betroffener Kostenblock", f"Wert −{pct_txt}", "Basis",
                                     f"Wert +{pct_txt}", "Einstellung (− | Basis | +)", "Gestehungskosten − [€/kg]",
                                     "Gestehungskosten + [€/kg]"])
-    fmt = {c: (lambda v: de(v, 2)) for c in sens_df.columns if c.startswith(("Wert", "Basis", "Gestehungs"))}
-    st.dataframe(sens_df.style.format(fmt), hide_index=True, width="stretch")
-    st.caption("Die Spalten „Wert“ zeigen den veränderten Kostenblock in € bzw. € pro Jahr, die letzten beiden Spalten "
-               "die daraus folgenden Gestehungskosten.")
+    sens_show = pd.DataFrame([(z.name, z.lcoh_minus, z.lcoh_minus - z.base, z.lcoh_plus, z.lcoh_plus - z.base)
+                              for z in rows_s],
+                             columns=["Einflussgröße", f"Kosten −{pct_txt} [€/kg]", "Änderung [€/kg]",
+                                      f"Kosten +{pct_txt} [€/kg]", "Änderung  [€/kg]"])
+    fmt = {c: (lambda v: de(v, 2)) for c in sens_show.columns[1:]}
+    st.dataframe(sens_show.iloc[::-1].style.format(fmt), hide_index=True, width="stretch")
+    st.caption("Reihenfolge wie im Diagramm (von oben nach unten). Die Excel-Datei zum Herunterladen enthält zusätzlich die "
+               "veränderten Kostenblöcke in €.")
 
     t1, t2 = st.columns(2)
     with t1:
