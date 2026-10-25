@@ -55,8 +55,8 @@ def simulate_dispatch(inp: Inputs, ts: pd.DataFrame, market: MarketSeries, power
     for t in range(n):
         first = t == 0
         D = baseload
-        H = pv_per_kw[t] * pv_kw if J4 else 0.0
-        J = wind_per_kw[t] * wind_kw if J4 else 0.0
+        H = pv_per_kw[t] * pv_kw if (J4 and inp.ppa_pv_enabled) else 0.0
+        J = wind_per_kw[t] * wind_kw if (J4 and inp.ppa_wind_enabled) else 0.0
         L = D + H + J                                            # L: Gesamt PPA-Bezug
         M = L / C5                                               # M: Auslastung System PPA
         N = min(V4, (M - 1.0) * C5 if M > 1.0 else 0.0) if J8 else 0.0   # N: Batterie-Beladung aus PPA

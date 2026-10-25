@@ -1,6 +1,7 @@
 """LCOH2-Rechner: Oberfläche.  Start:  streamlit run app.py"""
 from __future__ import annotations
 
+import html
 import io
 import json
 import re
@@ -10,6 +11,7 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+import streamlit.components.v1 as components
 
 from lcoh.economics import compute_economics
 from lcoh.help_texts import HELP
@@ -89,7 +91,7 @@ def fill_button(keys: list[str], ident: str) -> None:
 
 TOGGLE_KEYS = {"waste_heat_enabled", "oxygen_enabled", "thg_enabled", "power_sale_enabled", "balancing_enabled",
                "other_revenue_enabled"}
-START_OFF = ["battery_enabled", "ppa_baseload_enabled", "ppa_pap_enabled", "spot_enabled", "section7_enabled",
+START_OFF = ["battery_enabled", "ppa_baseload_enabled", "ppa_pv_enabled", "ppa_wind_enabled", "spot_enabled", "section7_enabled",
              "section13k_enabled"] + sorted(TOGGLE_KEYS)
 
 
@@ -360,6 +362,8 @@ with st.sidebar:
         try:
             raw = json.load(upload)
             filled = {k: v for k, v in raw.items() if v is not None}
+            if "ppa_pv_enabled" not in raw and "ppa_pap_enabled" in raw:  # ältere Dateien: ein gemeinsamer Schalter
+                filled["ppa_pv_enabled"] = filled["ppa_wind_enabled"] = bool(raw["ppa_pap_enabled"])
             loaded = Inputs.from_dict({**Inputs().to_dict(), **filled}).to_dict()
             for k in BLANK_KEYS:
                 if k in raw and raw[k] is None:
@@ -420,9 +424,8 @@ with tab_cockpit:
                 st.markdown("#### Strombezug")
                 st.caption("Grundlast-PPA: konstanter Bezug. Pay-as-Produced-PPA: Bezug folgt der PV- bzw. Windeinspeisung.")
                 row(["ppa_baseload_enabled", "ppa_baseload_kw", "ppa_baseload_price_eur_per_mwh"])
-                row(["ppa_pap_enabled", None, None])
-                row([None, "ppa_pv_kw", "ppa_pv_price_eur_per_mwh"])
-                row([None, "ppa_wind_kw", "ppa_wind_price_eur_per_mwh"])
+                row(["ppa_pv_enabled", "ppa_pv_kw", "ppa_pv_price_eur_per_mwh"])
+                row(["ppa_wind_enabled", "ppa_wind_kw", "ppa_wind_price_eur_per_mwh"])
                 st.caption("Weitere Bezugsquellen (Details unter „Eingaben“, Reiter „Strombezug & Nebenkosten“):")
                 row(["section7_enabled"])
                 row(["section13k_enabled"])
@@ -481,13 +484,65 @@ shown_keys |= {"demand_charge_ely_eur_per_kw_month", "demand_charge_rest_eur_per
 missing = [k for k in BLANK_KEYS if S[k] is None and k in shown_keys and defaults_dict[k] not in (0, 0.0)
            and is_active(k)]
 effective = {k: (defaults_dict[k] if v is None else v) for k, v in S.items()}
+effective["ppa_pap_enabled"] = bool(S["ppa_pv_enabled"] or S["ppa_wind_enabled"])
 for _k in list(effective):  # befreite Abgaben ohne Wert: keine Rechnung mit einem Standardwert
     if S[_k] is None and BLANK_KEYS.count(_k) and not is_active(_k) and (_k.startswith("levy_") or _k.startswith("demand_charge_")):
         effective[_k] = 0.0
 inp_eff = Inputs.from_dict(effective)
 errors = inp_eff.validate()
-if not any(S[k] for k in ("ppa_baseload_enabled", "ppa_pap_enabled", "section7_enabled", "section13k_enabled", "spot_enabled")):
+if not any(S[k] for k in ("ppa_baseload_enabled", "ppa_pv_enabled", "ppa_wind_enabled", "section7_enabled", "section13k_enabled", "spot_enabled")):
     errors = errors + ["Bitte mindestens eine Strombezugsquelle einschalten (PPA, §7, §13k oder Spotmarkt)."]
+
+
+def locate(key: str) -> tuple[str, str | None, str]:
+    """Reiter, Unterreiter und Bereich eines Eingabefelds (für die Sprungmarken bei fehlenden Angaben)."""
+    cockpit_keys_ = {k for _, _, ks in COCKPIT for k in ks}
+    if key in cockpit_keys_:
+        return "Cockpit", None, ""
+    for name, sections in PAGES:
+        for title, _, ks in sections:
+            if key in ks:
+                return "Eingaben", name, title
+    for title, _, ks in REVENUE_PAGE:
+        if key in ks:
+            return "Einnahmepotenziale", None, title
+    return "Eingaben", "Strombezug & Nebenkosten", "Stromnebenkosten und Befreiungen"
+
+
+def missing_links(keys: list[str]) -> None:
+    """Liste fehlender Eingaben; ein Klick öffnet den Reiter und Bereich und springt zum Feld."""
+    items = []
+    for k in keys:
+        tab, sub, area = locate(k)
+        label = SPEC_BY_KEY[k].label
+        ort = " › ".join(x for x in (tab, sub, area) if x)
+        items.append(f'<li><a href="#" data-k="w_{k}" data-t="{html.escape(tab)}" data-s="{html.escape(sub or "")}">'
+                     f'{html.escape(label)}</a> <span>{html.escape(ort)}</span></li>')
+    page = """<style>body{margin:0;font-family:"Source Sans",Arial,sans-serif;font-size:15px;color:#31333f}
+    ul{margin:0;padding-left:20px}li{margin:3px 0}a{color:#1f4e79;text-decoration:underline;cursor:pointer}
+    span{color:#808495;font-size:13px}</style><ul>""" + "".join(items) + """</ul><script>
+    const P = window.parent.document;
+    const wait = ms => new Promise(r => setTimeout(r, ms));
+    async function tabTo(name) {
+      const t = [...P.querySelectorAll('[data-testid="stTab"]')].find(e => e.innerText.trim() === name);
+      if (t) { t.click(); await wait(350); }
+    }
+    document.querySelectorAll('a').forEach(a => a.addEventListener('click', async ev => {
+      ev.preventDefault();
+      await tabTo(a.dataset.t); if (a.dataset.s) await tabTo(a.dataset.s);
+      const el = P.querySelector('.st-key-' + a.dataset.k);
+      if (!el) return;
+      let d = el.closest('details');
+      while (d) { d.open = true; d = d.parentElement.closest('details'); }
+      await wait(200);
+      el.scrollIntoView({block: 'center', behavior: 'smooth'});
+      const inp = el.querySelector('input, textarea');
+      if (inp) inp.focus({preventScroll: true});
+      el.style.transition = 'box-shadow .3s'; el.style.boxShadow = '0 0 0 3px #f0a500';
+      setTimeout(() => { el.style.boxShadow = ''; }, 2500);
+    }));
+    </script>"""
+    components.html(page, height=min(28 * len(keys) + 12, 420), scrolling=True)
 
 
 def footer() -> None:
@@ -541,9 +596,9 @@ if missing or errors:
         if missing:
             right.info(f"Es fehlen noch {len(missing)} Angaben. Tragen Sie die Werte ein oder klicken Sie links auf "
                        f"„Standardwerte laden“. Sobald alle Pflichtfelder gefüllt sind, erscheinen hier die Ergebnisse.")
-            with right.expander("Welche Angaben fehlen?"):
-                for k in missing:
-                    st.markdown(f"- {SPEC_BY_KEY[k].label}")
+            with right.expander("Welche Angaben fehlen?", expanded=True):
+                st.caption("Ein Klick auf den Namen springt zum Eingabefeld.")
+                missing_links(missing)
         else:
             right.error("Bitte Eingaben prüfen:\n\n" + "\n".join(f"- {m}" for m in errors))
     with tab_res:

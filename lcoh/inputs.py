@@ -46,6 +46,8 @@ class Inputs:
     ppa_baseload_price_eur_per_mwh: float = 85.0  # Blatt 2, C64 [€ / MWh]
     ppa_baseload_price_escalation: float = 0.03  # Blatt 2, C65 [%]
     ppa_pap_enabled: bool = True  # Blatt 2, C66
+    ppa_pv_enabled: bool = True  # Blatt 2, C66 (in der Excel gemeinsam mit Wind)
+    ppa_wind_enabled: bool = True  # Blatt 2, C66
     ppa_pv_kw: float = 10000.0  # Blatt 2, C67 [kWh / h]
     ppa_pv_price_eur_per_mwh: float = 40.0  # Blatt 2, C68 [€ / MWh]
     ppa_wind_kw: float = 30000.0  # Blatt 2, C69 [kWh / h]

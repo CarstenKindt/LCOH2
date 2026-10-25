@@ -9,7 +9,7 @@ COCKPIT = [
     ("Batterie", None, ["battery_enabled", "battery_capacity_hours", "battery_input_power_kw"]),
     ("Strombezug", None, [
         "ppa_baseload_enabled", "ppa_baseload_kw", "ppa_baseload_price_eur_per_mwh",
-        "ppa_pap_enabled", "ppa_pv_kw", "ppa_pv_price_eur_per_mwh", "ppa_wind_kw", "ppa_wind_price_eur_per_mwh",
+        "ppa_pv_enabled", "ppa_pv_kw", "ppa_pv_price_eur_per_mwh", "ppa_wind_enabled", "ppa_wind_kw", "ppa_wind_price_eur_per_mwh",
         "section7_enabled", "section13k_enabled", "spot_enabled"]),
 ]
 
@@ -87,9 +87,9 @@ VISIBLE = {
     "ppa_baseload_kw": lambda v: v["ppa_baseload_enabled"],
     "ppa_baseload_price_eur_per_mwh": lambda v: v["ppa_baseload_enabled"],
     "ppa_baseload_price_escalation": lambda v: v["ppa_baseload_enabled"],
-    "ppa_pv_kw": lambda v: v["ppa_pap_enabled"], "ppa_pv_price_eur_per_mwh": lambda v: v["ppa_pap_enabled"],
-    "ppa_wind_kw": lambda v: v["ppa_pap_enabled"], "ppa_wind_price_eur_per_mwh": lambda v: v["ppa_pap_enabled"],
-    "ppa_pap_price_escalation": lambda v: v["ppa_pap_enabled"],
+    "ppa_pv_kw": lambda v: v["ppa_pv_enabled"], "ppa_pv_price_eur_per_mwh": lambda v: v["ppa_pv_enabled"],
+    "ppa_wind_kw": lambda v: v["ppa_wind_enabled"], "ppa_wind_price_eur_per_mwh": lambda v: v["ppa_wind_enabled"],
+    "ppa_pap_price_escalation": lambda v: v["ppa_pv_enabled"] or v["ppa_wind_enabled"],
     "spot_price_source": lambda v: v["spot_enabled"],
     "spot_own_price_eur_per_mwh": lambda v: v["spot_enabled"] and v["spot_price_source"] == "Eigene Preise",
     "co2_own_price_eur_per_t": lambda v: v["co2_price_source"] == "Eigener Preis",

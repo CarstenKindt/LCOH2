@@ -55,6 +55,8 @@ SPECS: tuple[InputSpec, ...] = (
     InputSpec('ppa_baseload_price_eur_per_mwh', 'Strombezug: PPA', 'Strompreis Baseload-PPA', '€ / MWh', '', 'number', 85.0, None, 0.0, None, 'Blatt 2, C64'),
     InputSpec('ppa_baseload_price_escalation', 'Strombezug: PPA', 'Preisentwicklung Baseload-PPA pro Jahr', '%', '', 'percent', 0.03, None, -0.5, 0.5, 'Blatt 2, C65'),
     InputSpec('ppa_pap_enabled', 'Strombezug: PPA', 'PPA Pay-as-Produced aktiv', '', '', 'bool', True, None, None, None, 'Blatt 2, C66'),
+    InputSpec('ppa_pv_enabled', 'Strombezug: PPA', 'PPA Pay-as-Produced PV aktiv', '', '', 'bool', True, None, None, None, 'Blatt 2, C66'),
+    InputSpec('ppa_wind_enabled', 'Strombezug: PPA', 'PPA Pay-as-Produced Wind aktiv', '', '', 'bool', True, None, None, None, 'Blatt 2, C66'),
     InputSpec('ppa_pv_kw', 'Strombezug: PPA', 'Installierte Leistung PPA PV', 'kWh / h', '', 'number', 10000.0, None, 0.0, None, 'Blatt 2, C67'),
     InputSpec('ppa_pv_price_eur_per_mwh', 'Strombezug: PPA', 'Strompreis PPA PV', '€ / MWh', '', 'number', 40.0, None, 0.0, None, 'Blatt 2, C68'),
     InputSpec('ppa_wind_kw', 'Strombezug: PPA', 'Installierte Leistung PPA Wind', 'kWh / h', '', 'number', 30000.0, None, 0.0, None, 'Blatt 2, C69'),
