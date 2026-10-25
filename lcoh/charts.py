@@ -151,9 +151,10 @@ def load_duration_figure(hourly, power, height: int = 360) -> go.Figure:
                            ("Stromverbrauch Elektrolyseur", ely, "#16324f")]:
         fig.add_trace(go.Scatter(x=x, y=np.sort(arr)[::-1], name=name, mode="lines", line=dict(color=col, width=2),
                                  hovertemplate="Stunde %{x}: %{y:,.0f} kWh<extra>" + name + "</extra>"))
+    top = float(max(purchase.max(), system.max())) * 1.08 or 1.0
     fig.update_layout(height=height, margin=dict(l=0, r=0, t=10, b=0), xaxis_title="Stunden pro Jahr (nach Höhe geordnet)",
-                      yaxis_title="Energie pro Stunde [kWh]", legend=dict(orientation="h", y=1.1),
-                      yaxis_tickformat=",.0f", separators=",.")
+                      yaxis_title="Energie pro Stunde [kWh]", legend=dict(orientation="h", y=-0.28, yanchor="top"),
+                      yaxis=dict(range=[0, top], tickformat=",.0f"), separators=",.")
     return fig
 
 

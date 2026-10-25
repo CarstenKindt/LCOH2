@@ -517,11 +517,14 @@ def missing_links(keys: list[str]) -> None:
         label = SPEC_BY_KEY[k].label
         ort = " › ".join(x for x in (tab, sub, area) if x)
         items.append(f'<li><a href="#" data-k="w_{k}" data-t="{html.escape(tab)}" data-s="{html.escape(sub or "")}">'
-                     f'{html.escape(label)}</a> <span>{html.escape(ort)}</span></li>')
-    page = """<style>body{margin:0;font-family:"Source Sans",Arial,sans-serif;font-size:15px;color:#31333f}
-    ul{margin:0;padding-left:20px}li{margin:3px 0}a{color:#1f4e79;text-decoration:underline;cursor:pointer}
+                     f'{html.escape(label)}</a> <span>· {html.escape(ort)}</span></li>')
+    page = """<style>body{margin:0;color:#31333f;font-size:15px;line-height:1.35}
+    ul{margin:0;padding-left:20px}li{margin:3px 0}
+    a{color:#31333f;text-decoration:none;border-bottom:1px dotted #1f4e79;cursor:pointer;font-weight:400}
+    a:hover{color:#1f4e79;border-bottom:1px solid #1f4e79}
     span{color:#808495;font-size:13px}</style><ul>""" + "".join(items) + """</ul><script>
     const P = window.parent.document;
+    document.body.style.fontFamily = getComputedStyle(P.body).fontFamily;
     const wait = ms => new Promise(r => setTimeout(r, ms));
     async function tabTo(name) {
       const t = [...P.querySelectorAll('[data-testid="stTab"]')].find(e => e.innerText.trim() === name);
