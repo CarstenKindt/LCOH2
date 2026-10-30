@@ -622,10 +622,53 @@ def footer() -> None:
                "Genehmigungsplanung und erfolgen ohne Gewähr. Entwickelt an der Hochschule Flensburg im Norddeutschen Reallabor.")
 
 
+SERIES_HELP = {
+    "wind_kwh_per_kw": (
+        "Erzeugung einer Windanlage je installiertem kW und Stunde. Der Wert ist der Anteil der Nennleistung (0 = Flaute, 1 = "
+        "Volllast). Das Tool multipliziert ihn mit der installierten Leistung von PPA 2; daraus ergibt sich der stündliche Strombezug.",
+        "8.760 Werte, einer je Stunde, in kWh je kW (Werte zwischen 0 und 1). Aufbereitung: Stundenwerte der Einspeisung in kWh "
+        "durch die installierte Leistung in kW teilen."),
+    "pv_kwh_per_kw": (
+        "Erzeugung einer PV-Anlage je installiertem kW und Stunde. Der Wert ist der Anteil der Nennleistung (0 nachts, höchstens 1). "
+        "Das Tool multipliziert ihn mit der installierten Leistung von PPA 1; daraus ergibt sich der stündliche Strombezug.",
+        "8.760 Werte, einer je Stunde, in kWh je kW (Werte zwischen 0 und 1). Aufbereitung: Stundenwerte der Einspeisung in kWh "
+        "durch die installierte Leistung in kW teilen."),
+    "day_ahead": (
+        "Börsenstrompreis (Day-Ahead) je Stunde. Er bestimmt den Preis beim Strombezug am Spotmarkt und nach §7 der 37. BImSchV "
+        "sowie den Erlös beim Verkauf von Überschussstrom (negative Preise werden dort mit 0 angesetzt).",
+        "8.760 Werte in €/MWh, einer je Stunde; negative Preise sind erlaubt. Eine hochgeladene Reihe ersetzt alle hinterlegten "
+        "Preis-Szenarien (2024 bis 2045)."),
+    "co2_eur_per_t": (
+        "CO₂-Preis (Emissionshandel) je Stunde. Er legt die Preisgrenze für den Strombezug nach §7 fest: das 0,36-Fache des "
+        "CO₂-Preises, mindestens 20 €/MWh, höchstens der maximale Nachfragepreis. Wirkt nur, wenn §7 eingeschaltet ist und als Quelle "
+        "„Jahresdaten“ gewählt ist.",
+        "8.760 Werte in €/t CO₂, einer je Stunde. Liegt nur ein Tages- oder Wochenpreis vor, den Wert auf alle zugehörigen Stunden "
+        "wiederholen."),
+    "section13k_kwh": (
+        "Energiemenge je Stunde, die im Netz sonst abgeregelt würde und für „Nutzen statt Abregeln“ (§13k EnWG) bezogen werden "
+        "kann. Sie begrenzt den Bezug nach §13k je Stunde. Wirkt nur, wenn §13k eingeschaltet ist.",
+        "8.760 Werte in kWh je Stunde, nicht negativ. In Stunden ohne Abregelung 0 eintragen."),
+}
+
+
 def render_data_tab(inp) -> None:
     st.markdown("### Zeitreihen (Energiedaten und Preise)")
     st.caption("Im Standard rechnet das Tool mit den hinterlegten Zeitreihen. Eigene Reihen müssen genau 8.760 Stundenwerte "
                "enthalten (eine Zahl pro Zeile, als .csv oder .txt; Dezimalkomma ist erlaubt).")
+    with st.expander("Allgemein: So muss eine eigene Reihe aufgebaut sein"):
+        st.markdown(
+            "- **Anzahl:** genau 8.760 Werte (ein Jahr mit 24 Stunden je Tag; bei einem Schaltjahr den 29. Februar weglassen).\n"
+            "- **Reihenfolge:** zeitlich vom Jahresanfang bis zum Jahresende. Alle Reihen müssen dieselbe Stundenzuordnung haben, "
+            "damit z. B. Windprofil und Börsenpreis zeitlich zusammenpassen.\n"
+            "- **Dateiformat:** .csv oder .txt. Am einfachsten ist eine Spalte mit einer Zahl pro Zeile. Bei mehreren Spalten "
+            "(getrennt durch Semikolon, Tabulator oder Komma) wird die **letzte** Spalte gelesen.\n"
+            "- **Zahlen:** Dezimalkomma und Dezimalpunkt sind erlaubt, keine Tausendertrennzeichen. Eine Überschriftenzeile in der "
+            "ersten Zeile wird übersprungen.\n"
+            "- **Prüfung:** Das Tool prüft nur Anzahl und Lesbarkeit der Zahlen und nennt bei Fehlern die betroffene Zeile. "
+            "Ob die Werte sinnvoll sind (z. B. Wind zwischen 0 und 1), müssen Sie selbst sicherstellen.\n"
+            "- **Gültigkeit:** Hochgeladene Reihen gelten nur für die laufende Sitzung. Sie werden **nicht** in der gespeicherten "
+            "Eingabedatei (.json) abgelegt und müssen nach einem Neuladen der Seite erneut hochgeladen werden. Mit „Auf Standard "
+            "zurücksetzen“ nutzt das Tool wieder die hinterlegte Reihe.")
     defaults = load_default_timeseries()
     series_info = {
         "wind_kwh_per_kw": ("wind_kwh_per_kw", "kWh/kW"), "pv_kwh_per_kw": ("pv_kwh_per_kw", "kWh/kW"),
@@ -638,6 +681,8 @@ def render_data_tab(inp) -> None:
             values = np.array(st.session_state["series"][name] if custom else defaults[col], dtype=float)
             with c1:
                 st.markdown(f"**{SERIES_LABELS[name]}** · {'eigene Datei' if custom else 'Standardwerte'}")
+                meaning, fmt = SERIES_HELP[name]
+                st.caption(f"**Bedeutung:** {meaning}  \n**Aufbau für den Upload:** {fmt}")
                 fig = go.Figure(go.Scatter(y=values, mode="lines", line=dict(color="#1f4e79", width=1)))
                 fig.update_layout(height=160, margin=dict(l=0, r=0, t=5, b=0), yaxis_title=unit, xaxis_title="Stunde")
                 st.plotly_chart(fig, width="stretch", key=f"plot_{name}")
