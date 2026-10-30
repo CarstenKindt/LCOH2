@@ -37,6 +37,25 @@ def _logo_uri(name: str) -> str:
     return "data:image/png;base64," + base64.b64encode((ASSETS / name).read_bytes()).decode()
 
 
+@st.cache_data
+def _logo_cropped_uri(name: str) -> str:
+    """Logo ohne weiße Ränder (für die Kopfzeile), damit es bei kleiner Höhe größer wirkt."""
+    from PIL import Image, ImageChops
+    im = Image.open(ASSETS / name).convert("RGBA")
+    bg = Image.new("RGBA", im.size, (255, 255, 255, 255))
+    flat = Image.alpha_composite(bg, im).convert("RGB")
+    box = ImageChops.difference(flat, Image.new("RGB", im.size, (255, 255, 255))).point(lambda v: 255 if v > 12 else 0).getbbox()
+    if box:
+        pad = 6
+        box = (max(box[0] - pad, 0), max(box[1] - pad, 0), min(box[2] + pad, im.width), min(box[3] + pad, im.height))
+        im = flat.crop(box)
+    else:
+        im = flat
+    buf = io.BytesIO()
+    im.save(buf, format="PNG")
+    return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+
+
 def logo(name: str, width: int) -> None:
     """Zeigt ein Logo in Originalauflösung (die Anzeigebreite wird per CSS gesetzt, damit es auf hochauflösenden Bildschirmen scharf bleibt)."""
     st.markdown(f'<img src="{_logo_uri(name)}" style="width:{width}px;max-width:100%;height:auto;display:block;" alt="Logo">',
@@ -373,7 +392,7 @@ def rechnen(inputs_json: str, series_json: str):
 
 # ---------------------------------------------------------------- Seitenleiste (Laden/Speichern)
 with st.sidebar:
-    logo("logo_bmwe.png", 150)
+    logo("logo_hs_flensburg.png", 190)
     st.divider()
     st.markdown("**Eingaben speichern und laden**")
     upload = st.file_uploader("Gespeicherte Eingaben laden (.json)", type="json", key="up_inputs")
@@ -409,8 +428,8 @@ title_col, logo_col = st.columns([3, 2], vertical_alignment="center")
 title_col.markdown("# Wasserstoff-Kostenrechner")
 logo_col.markdown(
     '<div style="display:flex;justify-content:flex-end;align-items:center;gap:1.5rem;">'
-    f'<img src="{_logo_uri("logo_hs_flensburg.png")}" style="height:70px;width:auto;" alt="Hochschule Flensburg">'
-    f'<img src="{_logo_uri("logo_nrl.png")}" style="height:70px;width:auto;" alt="Norddeutsches Reallabor"></div>',
+    f'<img src="{_logo_cropped_uri("logo_nrl.png")}" style="height:64px;width:auto;" alt="Norddeutsches Reallabor">'
+    f'<img src="{_logo_cropped_uri("logo_bmwe.png")}" style="height:84px;width:auto;" alt="Gefördert durch das Bundesministerium für Wirtschaft und Energie"></div>',
     unsafe_allow_html=True)
 st.caption("Was kostet ein Kilogramm grüner Wasserstoff aus Ihrem Elektrolyseprojekt?")
 tab_cockpit, tab_inputs, tab_rev, tab_res, tab_data = st.tabs(
