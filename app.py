@@ -1,6 +1,7 @@
 """LCOH₂-Rechner: Oberfläche.  Start:  streamlit run app.py"""
 from __future__ import annotations
 
+import base64
 import html
 import io
 import json
@@ -29,6 +30,17 @@ from lcoh.waterfall import (BLOCK_CAPEX, BLOCK_INTEREST, BLOCK_OPEX, BLOCK_POWER
 from lcoh.zeitreihen import SERIES_LABELS, load_default_timeseries, parse_series
 
 ASSETS = Path(__file__).resolve().parent / "assets"
+
+
+@st.cache_data
+def _logo_uri(name: str) -> str:
+    return "data:image/png;base64," + base64.b64encode((ASSETS / name).read_bytes()).decode()
+
+
+def logo(name: str, width: int) -> None:
+    """Zeigt ein Logo in Originalauflösung (die Anzeigebreite wird per CSS gesetzt, damit es auf hochauflösenden Bildschirmen scharf bleibt)."""
+    st.markdown(f'<img src="{_logo_uri(name)}" style="width:{width}px;max-width:100%;height:auto;display:block;" alt="Logo">',
+                unsafe_allow_html=True)
 st.set_page_config(page_title="Wasserstoff-Kostenrechner", page_icon="💧", layout="wide")
 st.markdown("""
 <style>
@@ -361,8 +373,8 @@ def rechnen(inputs_json: str, series_json: str):
 
 # ---------------------------------------------------------------- Seitenleiste (Laden/Speichern)
 with st.sidebar:
-    st.image(str(ASSETS / "logo_hs_flensburg.png"), width=170)
-    st.image(str(ASSETS / "logo_nrl.png"), width=190)
+    logo("logo_hs_flensburg.png", 170)
+    logo("logo_nrl.png", 190)
     st.markdown("**Eingaben speichern und laden**")
     upload = st.file_uploader("Gespeicherte Eingaben laden (.json)", type="json", key="up_inputs")
     if upload is not None and st.session_state.get("_loaded") != (upload.name, upload.size):
@@ -642,7 +654,7 @@ if missing or errors:
         st.divider()
         st.caption("Noch keine Ergebnisse. Bitte Eingaben ergänzen oder Standardwerte laden.")
         st.divider()
-        st.image(str(ASSETS / "logo_bmwe.png"), width=150)
+        logo("logo_bmwe.png", 150)
     footer()
     st.stop()
 
@@ -660,7 +672,7 @@ with st.sidebar:
     st.download_button("Eingaben speichern (.json)", json.dumps(S, ensure_ascii=False, indent=1, default=float),
                        "eingaben_lcoh2.json", "application/json", width="stretch")
     st.divider()
-    st.image(str(ASSETS / "logo_bmwe.png"), width=150)
+    logo("logo_bmwe.png", 150)
 
 # ---------------------------------------------------------------- Kennzahlen
 pc = e.power
