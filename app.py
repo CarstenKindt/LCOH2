@@ -373,8 +373,8 @@ def rechnen(inputs_json: str, series_json: str):
 
 # ---------------------------------------------------------------- Seitenleiste (Laden/Speichern)
 with st.sidebar:
-    logo("logo_hs_flensburg.png", 170)
-    logo("logo_nrl.png", 190)
+    logo("logo_bmwe.png", 150)
+    st.divider()
     st.markdown("**Eingaben speichern und laden**")
     upload = st.file_uploader("Gespeicherte Eingaben laden (.json)", type="json", key="up_inputs")
     if upload is not None and st.session_state.get("_loaded") != (upload.name, upload.size):
@@ -405,7 +405,13 @@ with st.sidebar:
         reset_widgets()
         st.rerun()
 
-st.markdown("# Wasserstoff-Kostenrechner")
+title_col, logo_col = st.columns([3, 2], vertical_alignment="center")
+title_col.markdown("# Wasserstoff-Kostenrechner")
+logo_col.markdown(
+    '<div style="display:flex;justify-content:flex-end;align-items:center;gap:1.5rem;">'
+    f'<img src="{_logo_uri("logo_hs_flensburg.png")}" style="height:70px;width:auto;" alt="Hochschule Flensburg">'
+    f'<img src="{_logo_uri("logo_nrl.png")}" style="height:70px;width:auto;" alt="Norddeutsches Reallabor"></div>',
+    unsafe_allow_html=True)
 st.caption("Was kostet ein Kilogramm grüner Wasserstoff aus Ihrem Elektrolyseprojekt?")
 tab_cockpit, tab_inputs, tab_rev, tab_res, tab_data = st.tabs(
     ["Cockpit", "Eingaben", "Einnahmepotenziale", "Ergebnisse", "Daten"])
@@ -653,8 +659,6 @@ if missing or errors:
     with st.sidebar:
         st.divider()
         st.caption("Noch keine Ergebnisse. Bitte Eingaben ergänzen oder Standardwerte laden.")
-        st.divider()
-        logo("logo_bmwe.png", 150)
     footer()
     st.stop()
 
@@ -671,8 +675,6 @@ with st.sidebar:
                f"{de(r.full_load_hours / 87.6, 1)} % Auslastung")
     st.download_button("Eingaben speichern (.json)", json.dumps(S, ensure_ascii=False, indent=1, default=float),
                        "eingaben_lcoh2.json", "application/json", width="stretch")
-    st.divider()
-    logo("logo_bmwe.png", 150)
 
 # ---------------------------------------------------------------- Kennzahlen
 pc = e.power
