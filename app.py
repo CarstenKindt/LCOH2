@@ -60,7 +60,7 @@ def logo(name: str, width: int) -> None:
     """Zeigt ein Logo in Originalauflösung (die Anzeigebreite wird per CSS gesetzt, damit es auf hochauflösenden Bildschirmen scharf bleibt)."""
     st.markdown(f'<img src="{_logo_uri(name)}" style="width:{width}px;max-width:100%;height:auto;display:block;" alt="Logo">',
                 unsafe_allow_html=True)
-st.set_page_config(page_title="Wasserstoff-Kostenrechner", page_icon="💧", layout="wide")
+st.set_page_config(page_title="Wasserstoffkostenrechner", page_icon="💧", layout="wide")
 st.markdown("""
 <style>
 div[data-testid="stVerticalBlockBorderWrapper"] h4 {margin-top: 0; font-size: 1.05rem;}
@@ -425,7 +425,7 @@ with st.sidebar:
         st.rerun()
 
 title_col, logo_col = st.columns([3, 2], vertical_alignment="center")
-title_col.markdown("# Wasserstoff-Kostenrechner")
+title_col.markdown("# Wasserstoffkostenrechner")
 logo_col.markdown(
     '<div style="display:flex;justify-content:flex-end;align-items:center;gap:1.5rem;">'
     f'<img src="{_logo_cropped_uri("logo_nrl.png")}" style="height:64px;width:auto;" alt="Norddeutsches Reallabor">'
@@ -617,7 +617,7 @@ def kmetric(col, label: str, value: str, unit: str = "", help: str | None = None
 
 def footer() -> None:
     st.divider()
-    st.caption("Der Wasserstoff-Kostenrechner liefert eine Abschätzung auf Basis der eingegebenen Annahmen und der "
+    st.caption("Der Wasserstoffkostenrechner liefert eine Abschätzung auf Basis der eingegebenen Annahmen und der "
                "hinterlegten Beispiel-Zeitreihen. Die Ergebnisse ersetzen keine Wirtschaftlichkeitsprüfung oder "
                "Genehmigungsplanung und erfolgen ohne Gewähr. Entwickelt an der Hochschule Flensburg im Norddeutschen Reallabor.")
 
