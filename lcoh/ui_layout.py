@@ -35,7 +35,7 @@ PAGES = [
     ("Strombezug & Nebenkosten", [
         ("Preisentwicklung PPA", None, ["ppa_baseload_price_escalation", "ppa_pap_price_escalation"]),
         ("Spotmarkt und Börsenpreise", None, [
-            "spot_max_price_eur_per_mwh", "spot_price_escalation", "day_ahead_scenario_year",
+            "spot_max_price_eur_per_mwh", "spot_price_escalation",
             "spot_price_source", "spot_own_price_eur_per_mwh"]),
         ("Strombezug nach §7 der 37. BImSchV", "section7_enabled", [
             "section7_negative_prices", "co2_price_source", "co2_own_price_eur_per_t", "co2_price_escalation"]),
@@ -162,7 +162,6 @@ LABEL_OVERRIDES = {
     "min_part_load": "Minimale Teillast",
     "capex_custom_1_eur_per_kw": "Individuelle CAPEX",
     "thg_adjustment_factor": "Anpassungsfaktor",
-    "day_ahead_scenario_year": "Börsenpreis-Szenario (Jahr)",
 }
 # Prozentfelder mit feinerer Schrittweite (0,01 statt 0,1)
 FINE_STEP = {"stack_degradation_per_year"}

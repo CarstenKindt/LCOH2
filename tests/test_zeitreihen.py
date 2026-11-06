@@ -37,7 +37,7 @@ def test_pv_matches_excel_ppa1(ts, excel_hours):
 
 def test_day_ahead_2024_matches_excel(ts, excel_hours):
     # Blatt 4, Spalte P = Strompreis nach §7 (mit negativen Preisen) = Börsenpreis 2024
-    np.testing.assert_allclose(ts["day_ahead_2024_eur_per_mwh"], excel_hours["P"], rtol=1e-12, atol=1e-12)
+    np.testing.assert_allclose(ts["day_ahead_eur_per_mwh"], excel_hours["P"], rtol=1e-12, atol=1e-12)
 
 
 def test_check_finds_missing_columns_and_length():

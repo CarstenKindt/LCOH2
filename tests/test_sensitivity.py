@@ -2,7 +2,7 @@ import pytest
 
 from lcoh.economics import compute_economics
 from lcoh.inputs import Inputs
-from lcoh.operation import run_operation
+from tests.helpers import run_operation
 from lcoh.sensitivity import sensitivity
 from lcoh.zeitreihen import load_default_timeseries
 

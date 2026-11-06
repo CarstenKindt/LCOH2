@@ -67,7 +67,6 @@ Diese Datei wird automatisch erzeugt (`python tools/build_docs.py`). Alle Standa
 | Spotmarkt generell / unspezifisch | `spot_enabled` |  | nein | Blatt 2, C79 |
 | Strompreis Spotmarkt | `spot_price_source` |  | Marktpreise | Blatt 2, C80 |
 | Strompreis Spotmarkt (eigener Wert) | `spot_own_price_eur_per_mwh` | € / MWh | 0 | Blatt 2, C81 |
-| Börsenpreis-Szenario (Jahr) | `day_ahead_scenario_year` |  | 2024 | Blatt 8, G6 |
 
 ## Strombezug: §7 37. BImSchV
 

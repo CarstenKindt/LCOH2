@@ -3,7 +3,7 @@
 Die mitgelieferte Datei lcoh/data/zeitreihen.csv stammt aus der Excel:
   wind_kwh_per_kw, pv_kwh_per_kw      Erzeugungsprofile je installiertem kW
                                       (Blatt "9. Energiedaten", Spalten P und AC)
-  day_ahead_<Jahr>_eur_per_mwh        Börsenstrompreis-Szenarien (Blatt "8. Marktpreise")
+  day_ahead_eur_per_mwh               Börsenstrompreis, Preisreihe 2024 (Blatt "8. Marktpreise", Spalte B)
   co2_eur_per_t                       CO₂-Preis (Blatt "8. Marktpreise", Spalte H)
   section13k_kwh                      Redispatch-Energie nach §13k (Blatt "8. Marktpreise", Spalte Y)
 """
@@ -20,11 +20,7 @@ COLUMNS = (
     "hour",
     "wind_kwh_per_kw",
     "pv_kwh_per_kw",
-    "day_ahead_2024_eur_per_mwh",
-    "day_ahead_2030_eur_per_mwh",
-    "day_ahead_2035_eur_per_mwh",
-    "day_ahead_2040_eur_per_mwh",
-    "day_ahead_2045_eur_per_mwh",
+    "day_ahead_eur_per_mwh",
     "co2_eur_per_t",
     "section13k_kwh",
 )
@@ -273,9 +269,5 @@ def build_timeseries(series: dict, steps_per_hour: int = 1) -> pd.DataFrame:
         ts = pd.DataFrame({c: np.repeat(ts[c].to_numpy(), 4) for c in ts.columns if c != "hour"})
     for name, values in series.items():
         grid = to_grid(np.asarray(values, dtype=float), steps_per_hour)
-        if name == "day_ahead":
-            for col in [c for c in ts.columns if c.startswith("day_ahead_")]:
-                ts[col] = grid
-        else:
-            ts[name] = grid
+        ts["day_ahead_eur_per_mwh" if name == "day_ahead" else name] = grid
     return ts

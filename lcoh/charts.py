@@ -154,11 +154,14 @@ def load_duration_figure(hourly, power, height: int = 360, steps_per_hour: int =
     system = hourly["consumption_kwh"].to_numpy(dtype=float) * steps_per_hour
     ely = system * power.ely_kw / power.total_kw
     purchase = hourly["purchase_kwh"].to_numpy(dtype=float) * steps_per_hour
-    x = np.arange(1, len(system) + 1) / steps_per_hour
+    n = len(system)
+    # Die geordneten Kurven sind glatt: ca. 2.000 Stützstellen (inkl. Anfang und Ende) genügen für die Darstellung.
+    keep = np.unique(np.linspace(0, n - 1, min(n, 2000)).astype(int))
+    x = (np.arange(1, n + 1) / steps_per_hour)[keep]
     fig = go.Figure()
     for name, arr, col in [("Gesamtstrombezug", purchase, "#e07a1f"), ("Stromverbrauch Gesamtsystem", system, "#2f6db5"),
                            ("Stromverbrauch Elektrolyseur", ely, "#16324f")]:
-        fig.add_trace(go.Scatter(x=x, y=np.sort(arr)[::-1], name=name, mode="lines", line=dict(color=col, width=2),
+        fig.add_trace(go.Scatter(x=x, y=np.sort(arr)[::-1][keep], name=name, mode="lines", line=dict(color=col, width=2),
                                  hovertemplate="Stunde %{x:,.2f}: %{y:,.0f} kWh/h<extra>" + name + "</extra>"))
     top = float(max(purchase.max(), system.max())) * 1.08 or 1.0
     fig.update_layout(height=height, margin=dict(l=0, r=0, t=10, b=0), xaxis_title="Stunden pro Jahr (nach Höhe geordnet)",
@@ -170,6 +173,7 @@ def load_duration_figure(hourly, power, height: int = 360, steps_per_hour: int =
 def battery_soc_figure(hourly, power, height: int = 300, steps_per_hour: int = 1) -> go.Figure:
     soc = hourly["battery_soc_kwh"].to_numpy(dtype=float)
     x, xaxis = year_axis(len(soc), steps_per_hour)
+    x, soc = x[::steps_per_hour], soc[::steps_per_hour]    # Ladezustand stündlich darstellen (genau genug)
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=x, y=soc, mode="lines", fill="tozeroy", line=dict(color="#7b5ea7", width=1),
                              name="Ladezustand", hovertemplate="%{x|%d.%m. %H:%M} Uhr: %{y:,.0f} kWh<extra></extra>"))

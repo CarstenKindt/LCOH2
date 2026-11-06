@@ -33,8 +33,7 @@ class MarketSeries:
 
 def build_market_series(inp: Inputs, ts: pd.DataFrame) -> MarketSeries:
     years = inp.project_lifetime_years
-    scenario_column = f"day_ahead_{inp.day_ahead_scenario_year}_eur_per_mwh"
-    base = ts[scenario_column].to_numpy(dtype=float)
+    base = ts["day_ahead_eur_per_mwh"].to_numpy(dtype=float)
     price_raw = base * average_escalation_factor(inp.spot_price_escalation, years)
 
     price_s7 = price_raw if inp.section7_negative_prices else np.maximum(price_raw, 0.0)

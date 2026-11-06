@@ -65,7 +65,8 @@ class OperationResult:
 
 
 def run_operation(inp: Inputs, ts: pd.DataFrame, max_iter: int = 20,
-                  fixed_interval_years: float | None = None, steps_per_hour: int = 1) -> OperationResult:
+                  fixed_interval_years: float | None = None, steps_per_hour: int = 1,
+                  excel_shift: bool = False) -> OperationResult:
     """fixed_interval_years: nur für Vergleiche mit Excel-Dateien, deren Hilfszelle F129 nicht nachgeführt wurde."""
     market = build_market_series(inp, ts)
     interval = 0.0 if fixed_interval_years is None else fixed_interval_years
@@ -73,7 +74,7 @@ def run_operation(inp: Inputs, ts: pd.DataFrame, max_iter: int = 20,
     for i in range(1, max_iter + 1):
         eff = average_efficiency(inp, interval)
         power = system_power(inp, eff)
-        hourly = simulate_dispatch(inp, ts, market, power, steps_per_hour)
+        hourly = simulate_dispatch(inp, ts, market, power, steps_per_hour, excel_shift)
         ely_kwh = float(hourly["consumption_kwh"].sum() * power.ely_kw / power.total_kw)
         flh = ely_kwh / power.ely_kw
         new_interval = stack_interval_years(inp, stack_replacements(inp, flh))
@@ -83,7 +84,7 @@ def run_operation(inp: Inputs, ts: pd.DataFrame, max_iter: int = 20,
             interval = max(interval, new_interval)
             eff = average_efficiency(inp, interval)
             power = system_power(inp, eff)
-            hourly = simulate_dispatch(inp, ts, market, power, steps_per_hour)
+            hourly = simulate_dispatch(inp, ts, market, power, steps_per_hour, excel_shift)
             ely_kwh = float(hourly["consumption_kwh"].sum() * power.ely_kw / power.total_kw)
             flh = ely_kwh / power.ely_kw
             break

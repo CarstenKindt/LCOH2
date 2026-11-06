@@ -16,8 +16,8 @@ def test_defaults_are_valid():
 
 
 def test_number_of_inputs():
-    # 119 Eingaben aus Blatt 2 (ohne Strompreiskompensation) + 26 Stromnebenkosten aus Blatt 5 + 1 Marktpreis-Szenario aus Blatt 8 + 2 getrennte PPA-Schalter
-    assert len(SPECS) == 148  # + je ein Schalter für PV- und Wind-PPA (Excel: ein gemeinsamer Schalter)
+    # 119 Eingaben aus Blatt 2 (ohne Strompreiskompensation) + 26 Stromnebenkosten aus Blatt 5 + 2 getrennte PPA-Schalter
+    assert len(SPECS) == 147  # + je ein Schalter für PV- und Wind-PPA (Excel: ein gemeinsamer Schalter)
 
 
 @pytest.mark.parametrize("spec", [s for s in SPECS if s.excel.startswith(("Blatt 2", "Blatt 5"))], ids=lambda s: s.key)

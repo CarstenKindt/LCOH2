@@ -1,7 +1,7 @@
 import pytest
 
 from lcoh.economics import compute_economics
-from lcoh.operation import run_operation
+from tests.helpers import run_operation
 from lcoh.zeitreihen import load_default_timeseries
 from tests.test_power_costs import FAELLE, lade
 

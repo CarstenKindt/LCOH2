@@ -37,8 +37,7 @@ def main(path: str) -> None:
         "wind_kwh_per_kw": column(ws9, "P", 6),
         "pv_kwh_per_kw": column(ws9, "AC", 6),
     }
-    for year, col in ((2024, "B"), (2030, "C"), (2035, "D"), (2040, "E"), (2045, "F")):
-        data[f"day_ahead_{year}_eur_per_mwh"] = column(ws8, col, 7)
+    data["day_ahead_eur_per_mwh"] = column(ws8, "B", 7)   # Preisreihe 2024 (weitere Szenarien 2030-2045 entfallen)
     data["co2_eur_per_t"] = column(ws8, "H", 7)
     data["section13k_kwh"] = column(ws8, "Y", 7)
     df = pd.DataFrame(data)

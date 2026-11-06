@@ -368,18 +368,8 @@ def render_levies() -> None:
 
 
 # ---------------------------------------------------------------- Zeitreihen
-RES_AUTO, RES_HOUR, RES_QUARTER = "Automatisch (nach den Daten)", "Stunde (wie Excel)", "Viertelstunde"
-
-
-def calc_steps() -> int:
-    """Rechenschritte je Stunde: 1 (Stunde) oder 4 (Viertelstunde). Automatisch: Viertelstunde, sobald eine eigene Reihe
-    Viertelstunden- oder gemischte Werte enthält."""
-    mode = st.session_state.get("res_mode", RES_AUTO)
-    if mode == RES_HOUR:
-        return 1
-    if mode == RES_QUARTER:
-        return 4
-    return 4 if any(i[0] != "Stunde" for i in st.session_state["series_info"].values()) else 1
+STEPS = 4          # Die Berechnung läuft immer in Viertelstunden (35.040 Schritte), egal wie die Daten aufgelöst sind
+DT = 1.0 / STEPS
 
 
 @st.cache_data(show_spinner="Berechnung läuft ...", max_entries=8)
@@ -657,7 +647,7 @@ SERIES_HELP = {
     "day_ahead": (
         "Börsenstrompreis (Day-Ahead) je Stunde bzw. Viertelstunde. Er bestimmt den Preis beim Strombezug am Spotmarkt und nach §7 der 37. BImSchV "
         "sowie den Erlös beim Verkauf von Überschussstrom (negative Preise werden dort mit 0 angesetzt). Eine hochgeladene Reihe "
-        "ersetzt alle hinterlegten Preis-Szenarien."),
+        "ersetzt die hinterlegte Preisreihe (Standard: Preise des Jahres 2024)."),
     "co2_eur_per_t": (
         "CO₂-Preis (Emissionshandel) je Stunde bzw. Viertelstunde. Er legt die Preisgrenze für den Strombezug nach §7 fest: das 0,36-Fache des "
         "CO₂-Preises, mindestens 20 €/MWh, höchstens der maximale Nachfragepreis. Wirkt nur, wenn §7 eingeschaltet ist und als Quelle "
@@ -687,14 +677,10 @@ def render_data_tab(inp) -> None:
     st.markdown("### Zeitreihen (Energiedaten und Preise)")
     st.caption("Im Standard rechnet das Tool mit den hinterlegten Stundenreihen. Eigene Reihen dürfen als Stunden-, "
                "Viertelstunden- oder gemischte Werte (z. B. das Jahr 2025) hochgeladen werden (.csv oder .txt).")
-    st.radio("Rechenauflösung", [RES_AUTO, RES_HOUR, RES_QUARTER], key="res_mode", horizontal=True,
-             help="Stunde: Das Tool rechnet wie die Excel mit 8.760 Stundenwerten; Viertelstundenreihen werden dafür gemittelt "
-                  "(Preise) bzw. summiert (Energie). Viertelstunde: Das Tool rechnet mit 35.040 Viertelstunden; Stundenreihen werden "
-                  "dazu auf vier Viertelstunden gelegt (Preis und Leistung bleiben gleich, Energie je Viertelstunde ein Viertel). "
-                  "Automatisch: Viertelstunde, sobald eine hochgeladene Reihe Viertelstundenwerte enthält.")
-    st.caption(f"Aktuell gerechnet in: **{'Viertelstunden (35.040 Schritte)' if calc_steps() == 4 else 'Stunden (8.760 Schritte)'}**. "
-               "Die Viertelstundenrechnung geht über die Excel hinaus (die Excel kennt nur Stundenwerte); mit reinen Stundendaten "
-               "liefert sie praktisch dasselbe Ergebnis wie die Stundenrechnung.")
+    st.caption("Das Tool rechnet immer in Viertelstunden (35.040 Schritte pro Jahr), unabhängig von der Auflösung Ihrer Daten. "
+               "Stundenwerte werden dazu auf vier Viertelstunden gelegt (Preise und Leistungen bleiben gleich, Energie je Viertelstunde "
+               "ein Viertel). Das geht über die Excel hinaus, die nur Stundenwerte kennt; mit reinen Stundendaten ergibt sich "
+               "praktisch dasselbe Ergebnis wie in der Excel-Rechnung.")
     with st.expander("Allgemein: So muss eine eigene Reihe aufgebaut sein"):
         st.markdown(
             "- **Zeitraum:** ein Jahr ohne 29. Februar. Bei einem Schaltjahr wird der 29. Februar automatisch entfernt.\n"
@@ -721,7 +707,7 @@ def render_data_tab(inp) -> None:
     defaults = load_default_timeseries()
     series_info = {
         "pv_kwh_per_kw": "pv_kwh_per_kw", "wind_kwh_per_kw": "wind_kwh_per_kw",
-        "day_ahead": f"day_ahead_{inp.day_ahead_scenario_year}_eur_per_mwh",
+        "day_ahead": "day_ahead_eur_per_mwh",
         "co2_eur_per_t": "co2_eur_per_t", "section13k_kwh": "section13k_kwh"}
     for name, col in series_info.items():
         unit, sum_unit = SERIES_UNITS[name]
@@ -766,7 +752,7 @@ def render_data_tab(inp) -> None:
                     st.session_state["series_info"].pop(name, None)
                     st.session_state.pop(f"_up_{name}", None)
                     st.rerun()
-    st.info("Hinweis: Eine hochgeladene Preisreihe ersetzt alle hinterlegten Börsenpreis-Szenarien. Die Reihen gelten "
+    st.info("Hinweis: Eine hochgeladene Preisreihe ersetzt die hinterlegte Börsenpreisreihe (Standard: Jahr 2024). Die Reihen gelten "
             "für die gesamte Projektlaufzeit; die jährlichen Preisentwicklungen werden wie bisher darauf angewendet.")
 
 
@@ -791,8 +777,6 @@ if missing or errors:
     st.stop()
 
 series_json = json.dumps(st.session_state["series"])
-STEPS = calc_steps()
-DT = 1.0 / STEPS
 r, e = rechnen(json.dumps(effective, sort_keys=True, default=float), series_json, STEPS)
 inp = r.inputs
 
@@ -922,8 +906,6 @@ with cockpit_slot:
     st.markdown("#### Kostenstruktur")
     st.plotly_chart(cost_structure_figure(items, e.lcoh_eur_per_kg, detail=False, height=430,
                                           subsidy_title="Förderungen"), width="stretch")
-    st.markdown("#### Geordneter Lastverlauf")
-    st.plotly_chart(load_duration_figure(r.hourly, r.power, height=340, steps_per_hour=STEPS), width="stretch", key="cockpit_load")
     st.caption("Detaillierte Auswertung im Reiter „Ergebnisse“.")
 
 # ---------------------------------------------------------------- Ergebnisse
@@ -952,9 +934,7 @@ with tab_res:
     kmetric(r4[1], "Anteil grüner Wasserstoff", de(green_share * 100, 1), "%", help=HELP_GREEN)
     kmetric(r4[2], "Kapitalkostensatz (WACC)", de(e.wacc * 100, 1), "%")
     kmetric(r4[3], "Durchschnittlicher Strompreis (inkl. Abgaben)", de(avg_power_price), "€/MWh", help=HELP_AVG_PRICE)
-    if STEPS == 4:
-        st.caption("Die Berechnung erfolgte in Viertelstunden (35.040 Schritte) und geht damit über die Excel hinaus. Die "
-                   "Rechenauflösung lässt sich im Reiter „Daten“ ändern.")
+    st.caption("Die Berechnung erfolgt in Viertelstunden (35.040 Schritte pro Jahr) und geht damit über die Excel hinaus.")
 
     st.markdown("### Zusammensetzung der Gestehungskosten")
     mode = st.radio("Darstellung", ["Detailliert (Einzelposten)", "Gestapelt nach Bereichen",
@@ -1052,7 +1032,7 @@ with tab_res:
         st.markdown("### Anlage und Betrieb")
         pc = e.power
         kennz = [
-            ("Rechenauflösung", "Viertelstunde" if STEPS == 4 else "Stunde"),
+            ("Rechenauflösung", "Viertelstunde"),
             ("Elektrolyseurleistung", f"{de(r.power.ely_kw, 0)} kW"), ("Gesamtleistung System", f"{de(r.power.total_kw, 0)} kW"),
             ("Batteriekapazität", f"{de(r.power.battery_capacity_kwh, 0)} kWh"),
             ("Stromverbrauch gesamt", f"{de(pc.consumption_total_kwh / 1e6, 2)} GWh/a"),
@@ -1060,7 +1040,7 @@ with tab_res:
             ("Überschussstrom", f"{de(pc.surplus_kwh / 1e6, 2)} GWh/a"),
             ("Mittlerer Wirkungsgrad", f"{de(r.avg_efficiency * 100, 1)} %"),
             ("Stacktausche in der Laufzeit", f"{r.stack_replacements} (alle {de(r.stack_interval_years, 1)} Jahre)"),
-            ("Stunden mit §7-Bezug", de(r.section7_hours, 2 if STEPS == 4 else 0)), ("Stunden mit §13k-Bezug", de(r.section13k_hours, 2 if STEPS == 4 else 0)),
+            ("Stunden mit §7-Bezug", de(r.section7_hours, 2)), ("Stunden mit §13k-Bezug", de(r.section13k_hours, 2)),
             ("Ladezyklen Batterie", f"{r.battery_cycles}"),
             ("CAPEX brutto", f"{de(e.capex_gross / 1e6, 2)} Mio. €"),
             ("CAPEX-Förderung", f"{de(e.capex_subsidy / 1e6, 2)} Mio. €"),
@@ -1127,12 +1107,11 @@ with tab_res:
         sens_df.to_excel(xw, sheet_name="Sensitivität", index=False)
         pd.DataFrame([(SPEC_BY_KEY[k].label, SPEC_BY_KEY[k].unit, v) for k, v in S.items() if k in SPEC_BY_KEY],
                      columns=["Eingabe", "Einheit", "Wert (Anteile als Dezimalzahl)"]).to_excel(xw, sheet_name="Eingaben", index=False)
-        r.hourly.to_excel(xw, sheet_name="Viertelstundenwerte" if STEPS == 4 else "Stundenwerte", index=False)
     d1, d2, d3 = st.columns(3)
     d1.download_button("Ergebnisse als Excel (.xlsx)", buf.getvalue(), "ergebnisse_lcoh2.xlsx",
                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", width="stretch")
-    d2.download_button("Viertelstundenwerte (.csv)" if STEPS == 4 else "Stundenwerte (.csv)", r.hourly.to_csv(index=False),
-                       "viertelstundenwerte_lcoh2.csv" if STEPS == 4 else "stundenwerte_lcoh2.csv", "text/csv",
+    d2.download_button("Viertelstundenwerte (.csv)", r.hourly.to_csv(index=False),
+                       "viertelstundenwerte_lcoh2.csv", "text/csv",
                        width="stretch")
     d3.download_button("Eingaben (.json)", json.dumps(S, ensure_ascii=False, indent=1, default=float),
                        "eingaben_lcoh2.json", "application/json", width="stretch")

@@ -175,7 +175,6 @@ class Inputs:
     demand_charge_ely_exempt: bool = True  # Blatt 5, J17
     demand_charge_rest_exempt: bool = True  # Blatt 5, O17
     # ---- Strombezug: Spotmarkt
-    day_ahead_scenario_year: int = 2024  # Blatt 8, G6
 
     def to_dict(self) -> dict:
         return asdict(self)

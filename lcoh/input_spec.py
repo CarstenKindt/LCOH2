@@ -171,7 +171,6 @@ SPECS: tuple[InputSpec, ...] = (
     InputSpec('levy_rest_offshore_levy_exempt', 'Stromnebenkosten', 'Offshore-Netzumlage übrige Verbraucher: befreit?', '', '', 'bool', True, None, None, None, 'Blatt 5, O16'),
     InputSpec('demand_charge_ely_exempt', 'Stromnebenkosten', 'Leistungspreis Elektrolyseur: befreit?', '', '', 'bool', True, None, None, None, 'Blatt 5, J17'),
     InputSpec('demand_charge_rest_exempt', 'Stromnebenkosten', 'Leistungspreis übrige Verbraucher: befreit?', '', '', 'bool', True, None, None, None, 'Blatt 5, O17'),
-    InputSpec('day_ahead_scenario_year', 'Strombezug: Spotmarkt', 'Börsenpreis-Szenario (Jahr)', '', '', 'choice', 2024, (2024, 2030, 2035, 2040, 2045), None, None, 'Blatt 8, G6'),
 )
 
 SPEC_BY_KEY = {s.key: s for s in SPECS}

@@ -1,6 +1,6 @@
 import pytest
 
-from lcoh.operation import run_operation
+from tests.helpers import run_operation
 from lcoh.stack import stack_costs
 from lcoh.zeitreihen import load_default_timeseries
 from tests.test_power_costs import FAELLE, lade

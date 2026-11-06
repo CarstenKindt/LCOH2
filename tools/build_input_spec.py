@@ -114,11 +114,6 @@ def main(excel_path: str) -> None:
     add("demand_charge_rest_exempt", "Stromnebenkosten", "Leistungspreis übrige Verbraucher: befreit?", "", "", "bool",
         bool(ws5["O17"].value), None, "Blatt 5, O17")
 
-    # Börsenpreis-Szenario (Blatt 8)
-    ws8 = wb["8. Marktpreise"]
-    add("day_ahead_scenario_year", "Strombezug: Spotmarkt", "Börsenpreis-Szenario (Jahr)", "", "", "choice",
-        int(ws8["G6"].value), [2024, 2030, 2035, 2040, 2045], "Blatt 8, G6")
-
     # ---- input_spec.py schreiben
     lines = ['"""AUTOMATISCH ERZEUGT von tools/build_input_spec.py - nicht von Hand ändern.',
              "",

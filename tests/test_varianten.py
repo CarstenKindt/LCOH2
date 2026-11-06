@@ -6,9 +6,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from lcoh.dispatch import simulate_dispatch
+from tests.helpers import simulate_dispatch
 from lcoh.inputs import Inputs
-from lcoh.operation import run_operation
+from tests.helpers import run_operation
 from lcoh.prices import build_market_series
 from lcoh.system import system_power
 from lcoh.zeitreihen import load_default_timeseries

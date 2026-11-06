@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from lcoh.inputs import Inputs
-from lcoh.operation import run_operation
+from tests.helpers import run_operation
 from lcoh.power_costs import power_costs
 from lcoh.zeitreihen import load_default_timeseries
 

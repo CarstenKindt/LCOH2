@@ -79,7 +79,7 @@ def test_raster_stunde_und_viertelstunde():
     ts4 = build_timeseries({"day_ahead": p.rate_quarter.tolist()}, 4)
     ts1 = build_timeseries({"day_ahead": p.rate_quarter.tolist()}, 1)
     assert len(ts4) == QUARTERS_PER_YEAR and len(ts1) == 8760
-    assert ts4["day_ahead_2024_eur_per_mwh"].iloc[-1] == 60.0 and ts1["day_ahead_2045_eur_per_mwh"].iloc[0] == 50.0
+    assert ts4["day_ahead_eur_per_mwh"].iloc[-1] == 60.0 and ts1["day_ahead_eur_per_mwh"].iloc[0] == 50.0
 
 
 def _rechne(over: dict, steps: int, series: dict | None = None):

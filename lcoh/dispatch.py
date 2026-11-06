@@ -5,8 +5,9 @@ nächste Stunde ein. Die Rechenschritte stehen hier in derselben Reihenfolge wie
 die Excel-Spalte steht jeweils als Kommentar dabei.
 
 Hinweis zur Preisgrenze §7: Die Excel vergleicht den Preis der Stunde t mit der Preisgrenze der
-Stunde t+1 (Spalte Q verweist auf Zeile R n+1). Das Tool übernimmt das, damit die Ergebnisse mit
-der Excel übereinstimmen. Für die letzte Stunde wird die eigene Grenze verwendet.
+Stunde t+1 (Spalte Q verweist auf Zeile R n+1, während der Preis P aus Zeile n stammt). Das ist
+ein Versehen (Zeilenversatz in der Formel). Das Tool vergleicht Preis und Grenze desselben
+Zeitschritts. Nur mit excel_shift=True wird der Versatz nachgebildet (für den Vergleich mit der Excel).
 """
 from __future__ import annotations
 
@@ -29,7 +30,7 @@ OUTPUT_COLUMNS = (
 
 
 def simulate_dispatch(inp: Inputs, ts: pd.DataFrame, market: MarketSeries, power: SystemPower,
-                      steps_per_hour: int = 1) -> pd.DataFrame:
+                      steps_per_hour: int = 1, excel_shift: bool = False) -> pd.DataFrame:
     """Rechnet jeden Zeitschritt nacheinander. Bei steps_per_hour = 1 ist der Schritt eine Stunde (wie die Excel),
     bei 4 eine Viertelstunde. Alle Leistungen werden dazu in Energie je Schritt umgerechnet (kW x Schrittlänge);
     die Zeitreihen enthalten Raten (kWh je kW und Stunde, kWh je Stunde, €/MWh). Alle Ausgaben sind Energie bzw. Kosten je Schritt."""
@@ -53,6 +54,7 @@ def simulate_dispatch(inp: Inputs, ts: pd.DataFrame, market: MarketSeries, power
     s13k_in = market.section13k_kwh * dt
     spot_max = market.spot_max_price
 
+    shift = steps_per_hour if excel_shift else 0   # Excel vergleicht mit der Grenze der Folgestunde (Versehen)
     out = {c: np.zeros(n) for c in OUTPUT_COLUMNS}
     soc_prev = 0.0      # Excel AA (Vorstunde)
     soc_pct_prev = 0.0  # Excel AB (Vorstunde)
@@ -67,7 +69,7 @@ def simulate_dispatch(inp: Inputs, ts: pd.DataFrame, market: MarketSeries, power
         N = min(V4, (M - 1.0) * C5 if M > 1.0 else 0.0) if J8 else 0.0   # N: Batterie-Beladung aus PPA
         O = (min(L / V4, 1.0) if J8 else min(L / C5, 1.0))       # O: Auslastung (PPA neu)
         P = price_s7[t]                                          # P: Preis §7
-        thr = limit[min(t + steps_per_hour, n - 1)]              # R der Folgestunde (Excel-Verhalten)
+        thr = limit[min(t + shift, n - 1)]                       # Preisgrenze §7 (Excel: Folgestunde, siehe Kopf)
 
         # Q: Strom nach §7
         if J5:

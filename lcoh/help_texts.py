@@ -50,7 +50,6 @@ HELP: dict[str, str] = {
     "spot_enabled": "Erlaubt den Zukauf von Strom am Spotmarkt, wenn die Anlage mit den übrigen Quellen nicht ausgelastet ist und der Börsenpreis unter dem Höchstpreis liegt.",
     "spot_price_source": "„Marktpreise“: stündliche Börsenpreise aus den hinterlegten Daten. „Eigene Preise“: ein fester Preis für die Kostenrechnung (die Auswahl der Bezugsstunden richtet sich weiter nach den Marktpreisen).",
     "spot_own_price_eur_per_mwh": "Eigener, konstanter Spotmarktpreis in Euro je MWh für die Kostenrechnung.",
-    "day_ahead_scenario_year": "Szenario der stündlichen Börsenpreise (Day-Ahead). Das Jahr gibt an, auf welches Preisjahr die hinterlegte Reihe sich bezieht.",
     # ---- §7
     "section7_enabled": "Strombezug nach §7 Abs. 3 der 37. BImSchV: Die Anlage bezieht zusätzlichen Strom in Stunden, in denen der Börsenpreis die Preisgrenze nicht überschreitet. Die Preisgrenze beträgt 0,36 × CO₂-Preis, mindestens 20 €/MWh und höchstens den maximalen Nachfragepreis.",
     "section7_negative_prices": "Ist die Option aktiv, werden negative Börsenpreise als solche berücksichtigt (der Bezug senkt die Kosten). Ist sie aus, werden negative Preise mit 0 angesetzt.",
