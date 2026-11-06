@@ -40,6 +40,8 @@ def simulate_dispatch(inp: Inputs, ts: pd.DataFrame, market: MarketSeries, power
     V3 = power.battery_capacity_kwh
     V4 = power.battery_power_kw * dt
     F5 = inp.min_part_load
+    eta_rt = min(max(inp.battery_efficiency, 1e-6), 1.0)
+    ec = ed = float(np.sqrt(eta_rt))               # Rundlaufwirkungsgrad je zur Hälfte beim Laden und Entladen (1 = Excel)
     J3, J4, J5 = inp.ppa_baseload_enabled, inp.ppa_pap_enabled, inp.section7_enabled
     J6, J7, J8 = inp.section13k_enabled, inp.spot_enabled, inp.battery_enabled
 
@@ -61,6 +63,7 @@ def simulate_dispatch(inp: Inputs, ts: pd.DataFrame, market: MarketSeries, power
 
     for t in range(n):
         first = t == 0
+        room_in = (V3 - soc_prev) / ec                           # Ladeenergie, die der Speicher noch aufnehmen kann
         D = baseload
         H = pv_per_kw[t] * pv_kw if (J4 and inp.ppa_pv_enabled) else 0.0
         J = wind_per_kw[t] * wind_kw if (J4 and inp.ppa_wind_enabled) else 0.0
@@ -76,7 +79,7 @@ def simulate_dispatch(inp: Inputs, ts: pd.DataFrame, market: MarketSeries, power
             if J8:
                 if P <= thr:
                     room = min(max((1.0 - O) * V4, 0.0), V4)
-                    second = (V4 - L) if first else max(C5 + (1.0 - soc_pct_prev) * V3 - L, 0.0)
+                    second = (V4 - L) if first else max(C5 + (1.0 - soc_pct_prev) * V3 / ec - L, 0.0)
                     Q = min(max(room, 0.0), second)
                 else:
                     Q = 0.0
@@ -94,8 +97,8 @@ def simulate_dispatch(inp: Inputs, ts: pd.DataFrame, market: MarketSeries, power
             if first:
                 V = min(max(s13k_in[t], 0.0), V4) if J8 else min(max(s13k_in[t], 0.0), max(C5 - S, 0.0))
             elif J8:
-                V = min(s13k_in[t], max(V4 - S, 0.0), max(S + V4 + V3 - soc_prev, 0.0),
-                        max(C5 - S + V3 - soc_prev, 0.0))
+                V = min(s13k_in[t], max(V4 - S, 0.0), max(S + V4 + room_in, 0.0),
+                        max(C5 - S + room_in, 0.0))
             else:
                 V = min(s13k_in[t], max(C5 - S, 0.0))
         else:
@@ -104,17 +107,17 @@ def simulate_dispatch(inp: Inputs, ts: pd.DataFrame, market: MarketSeries, power
         if first:                                                # X: Beladung aus §13k
             X = max(0.0, 0.0 if V == 0 else W - C5)
         else:
-            X = 0.0 if soc_pct_prev >= 1.0 else min(max(0.0, 0.0 if V < dt else W - C5), V3 - soc_prev)
+            X = 0.0 if soc_pct_prev >= 1.0 else min(max(0.0, 0.0 if V < dt else W - C5), room_in)
 
         # Z: Batterie-Entladung
         if first:
             Z = 0.0
         elif J7:
-            Z = min(max(0.0, C5 - W), soc_prev, C5)
+            Z = min(max(0.0, C5 - W), soc_prev * ed, C5)
         elif soc_prev < F5 * C5 and W < F5 * C5:
             Z = 0.0
         else:
-            Z = min(max(0.0, C5 - W), soc_prev, C5)
+            Z = min(max(0.0, C5 - W), soc_prev * ed, C5)
 
         AC = min((L + Z + Q + V) / C5, 1.0)                      # AC: Auslastung vor Spotmarkt
         AD = (1.0 - AC) * C5 if (J7 and price_raw[t] < spot_max) else 0.0   # AD: Spotmarkt-Strom
@@ -132,8 +135,8 @@ def simulate_dispatch(inp: Inputs, ts: pd.DataFrame, market: MarketSeries, power
                 Y = L
             else:
                 candidate = (L + N + T + X) if AG == 0 else min(V4 - C5, N + T + X)
-                Y = (V3 - soc_prev) if candidate > V3 - soc_prev else min(V4 - C5, N + T + X)
-        AA = Y if first else min(soc_prev + Y - Z, V3)           # AA: Ladezustand kWh
+                Y = (room_in) if candidate > room_in else min(V4 - C5, N + T + X)
+        AA = Y * ec if first else min(soc_prev + Y * ec - Z / ed, V3)           # AA: Ladezustand kWh
         AB = 0.0 if V3 == 0 else AA / V3                         # AB: Ladezustand %
         AH = max(AF - AG - Y, 0.0)                               # AH: Stromüberschuss
         AI = AH * price_sale[t] / k.KWH_PER_MWH if inp.power_sale_enabled else 0.0  # AI: Erlös Verkauf

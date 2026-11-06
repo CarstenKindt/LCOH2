@@ -795,7 +795,6 @@ with st.sidebar:
 pc = e.power
 green_share = 1 - pc.spot_kwh / pc.total_procurement_kwh if pc.total_procurement_kwh else 0.0
 system_util = pc.consumption_total_kwh / (r.power.total_kw * 8760) if r.power.total_kw else 0.0
-ely_util = r.full_load_hours / 8760
 run_hours = int((r.hourly["consumption_kwh"] > 0).sum()) * DT
 full_hours = int((r.hourly["consumption_kwh"] >= r.power.total_kw * DT * 0.99999).sum()) * DT
 part_hours = run_hours - full_hours
@@ -911,30 +910,26 @@ with cockpit_slot:
 
 # ---------------------------------------------------------------- Ergebnisse
 with tab_res:
-    r1 = st.columns(4)
+    r1, r2, r3 = st.columns(5), st.columns(5), st.columns(5)
     kmetric(r1[0], "Gestehungskosten", de(e.lcoh_eur_per_kg), "€/kg", help="Wasserstoffgestehungskosten (LCOH₂).")
     kmetric(r1[1], "Gestehungskosten", de(e.lcoh_ct_per_kwh), "ct/kWh", help="Bezogen auf den Brennwert von 39,4 kWh/kg.")
     kmetric(r1[2], "Wasserstoff", de(e.h2_kg_per_year / 1000, 0), "t/a")
     kmetric(r1[3], "CAPEX nach Förderung", de(e.capex_net / 1e6, 1), "Mio. €")
-    r2 = st.columns(4)
+    kmetric(r1[4], "Kapitalkostensatz (WACC)", de(e.wacc * 100, 1), "%")
     kmetric(r2[0], "Anlagenleistung gesamt", de(r.power.total_kw / 1000, 1), "MW")
     kmetric(r2[1], "Betriebsstunden", de(run_hours, 0), "h/a", help="Stunden, in denen das System Strom verbraucht.")
     kmetric(r2[2], "davon Volllast", de(full_hours, 0), "h/a")
     kmetric(r2[3], "davon Teillast", de(part_hours, 0), "h/a")
-    r3 = st.columns(4)
-    kmetric(r3[0], "Volllaststunden (Ely)", de(r.full_load_hours, 0), "h/a", help="Jahresenergie des Elektrolyseurs geteilt "
+    kmetric(r2[4], "Volllaststunden (Ely)", de(r.full_load_hours, 0), "h/a", help="Jahresenergie des Elektrolyseurs geteilt "
               "durch seine Nennleistung.")
-    kmetric(r3[1], "Ø Auslastung (Ely)", de(ely_util * 100, 1), "%")
-    kmetric(r3[2], "Systemauslastung", de(system_util * 100, 1), "%", help="Stromverbrauch des Gesamtsystems bezogen auf "
+    kmetric(r3[0], "Systemauslastung", de(system_util * 100, 1), "%", help="Stromverbrauch des Gesamtsystems bezogen auf "
               "den Dauerbetrieb mit Nennleistung über 8.760 Stunden.")
-    kmetric(r3[3], "Ø Effizienz", de(r.avg_efficiency * 100, 1), "%", help="Mittlerer Wirkungsgrad des Elektrolyseurs über "
+    kmetric(r3[1], "Ø Effizienz", de(r.avg_efficiency * 100, 1), "%", help="Mittlerer Wirkungsgrad des Elektrolyseurs über "
               "die Projektlaufzeit (inklusive Degradation).")
-    r4 = st.columns(4)
-    kmetric(r4[0], "Anzahl Stacktausche", str(r.stack_replacements), "", help=f"Anzahl der Stacktausche in der "
+    kmetric(r3[2], "Anzahl Stacktausche", str(r.stack_replacements), "", help=f"Anzahl der Stacktausche in der "
             f"Projektlaufzeit (alle {de(r.stack_interval_years, 1)} Jahre).")
-    kmetric(r4[1], "Anteil grüner Wasserstoff", de(green_share * 100, 1), "%", help=HELP_GREEN)
-    kmetric(r4[2], "Kapitalkostensatz (WACC)", de(e.wacc * 100, 1), "%")
-    kmetric(r4[3], "Durchschnittlicher Strompreis (inkl. Abgaben)", de(avg_power_price), "€/MWh", help=HELP_AVG_PRICE)
+    kmetric(r3[3], "Anteil grüner Wasserstoff", de(green_share * 100, 1), "%", help=HELP_GREEN)
+    kmetric(r3[4], "Durchschnittlicher Strompreis (inkl. Abgaben)", de(avg_power_price), "€/MWh", help=HELP_AVG_PRICE)
     st.caption("Die Berechnung erfolgt in Viertelstunden (35.040 Schritte pro Jahr) und geht damit über die Excel hinaus.")
 
     st.markdown("### Zusammensetzung der Gestehungskosten")
@@ -1092,7 +1087,6 @@ with tab_res:
             ("Anlage", "davon Volllast", full_hours, "h/a"),
             ("Anlage", "davon Teillast", part_hours, "h/a"),
             ("Anlage", "Volllaststunden (Ely)", r.full_load_hours, "h/a"),
-            ("Anlage", "Ø Auslastung (Ely)", ely_util * 100, "%"),
             ("Finanzierung", "CAPEX nach Förderung", e.capex_net / 1e6, "Mio. €"),
             ("Finanzierung", "Kapitalkostensatz (WACC)", e.wacc * 100, "%")]
     alle += [("Kosten und Erlöse pro Jahr", n, v, "€/a") for n, v in rows]

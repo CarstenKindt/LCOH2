@@ -83,7 +83,7 @@ VISIBLE = {
     "battery_capacity_hours": lambda v: v["battery_enabled"],
     "battery_input_power_kw": lambda v: v["battery_enabled"],
     "battery_optimize": lambda v: v["battery_enabled"],
-    "battery_efficiency": lambda v: v["battery_enabled"] and v["battery_optimize"],
+    "battery_efficiency": lambda v: v["battery_enabled"],
     "ppa_baseload_kw": lambda v: v["ppa_baseload_enabled"],
     "ppa_baseload_price_eur_per_mwh": lambda v: v["ppa_baseload_enabled"],
     "ppa_baseload_price_escalation": lambda v: v["ppa_baseload_enabled"],

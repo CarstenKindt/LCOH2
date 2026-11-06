@@ -35,10 +35,11 @@ LOOKAHEAD_HOURS = 12             # Vorlauf über das Tagesende hinaus
 ELY, CH, DIS, SELL, S7, S13, SPOT, SOC = range(8)
 
 
-def _structure(h: int, eta_c: float, eta_d: float):
+def _structure(h: int, eta_c: float, eta_d: float, a):
     """Nebenbedingungen eines Fensters mit h Schritten (hängen nur von h und den Wirkungsgraden ab)."""
     I = sparse.identity(h, format="csr")
     Z = sparse.csr_matrix((h, h))
+    A = sparse.diags(a, format="csr")
     sub = sparse.diags([-np.ones(h - 1)], [-1], shape=(h, h), format="csr") if h > 1 else Z
     eq = sparse.vstack([
         sparse.hstack([-I, -I, I, -I, I, I, I, Z]),                       # Energiebilanz
@@ -47,7 +48,7 @@ def _structure(h: int, eta_c: float, eta_d: float):
     ub = sparse.vstack([
         sparse.hstack([Z, I, Z, Z, -I, -I, Z, Z]),                        # Laden <= PAP + §7 + §13k
         sparse.hstack([-I, Z, Z, Z, Z, Z, I, Z]),                         # Spot <= Verbrauch
-        sparse.hstack([Z, Z, -I, I, Z, Z, Z, Z]),                         # Verkauf <= PPA-Überschuss + Entladung
+        sparse.hstack([Z, Z, -I, I, A, A, A, Z]),                         # Verkauf + Netzbezug <= PPA-Überschuss + Entladung
         sparse.hstack([Z, Z, Z, Z, I, I, I, Z]),                          # Netzbezug (§7 + §13k + Spot) <= Restleistung
     ], format="csr")
     return eq, ub
@@ -92,7 +93,8 @@ def simulate_dispatch_optimized(inp: Inputs, ts: pd.DataFrame, market: MarketSer
     # Netzstrom füllt nur auf und nur bis zur Batterieeingangsleistung (Bezug insgesamt <= P_in); ist die PPA allein
     # bereits ausreichend, gibt es keinen Netzbezug, damit kein PPA-Strom gegen Netzstrom getauscht wird.
     surplus = np.maximum(L - C5, 0.0)
-    gridcap = np.where(L >= C5 - 1e-9, 0.0, np.maximum(C5 + Pb - L, 0.0))
+    gridcap = np.maximum(C5 + Pb - L, 0.0)
+    grid_in_sale_row = np.where(L >= C5 - 1e-9, 1.0, 0.0)    # reicht die PPA allein, mindert Netzbezug den verkaufbaren Überschuss
 
     steps_day = 24 * steps_per_hour
     look = LOOKAHEAD_HOURS * steps_per_hour
@@ -100,14 +102,11 @@ def simulate_dispatch_optimized(inp: Inputs, ts: pd.DataFrame, market: MarketSer
     ely = np.zeros(n); ch = np.zeros(n); dis = np.zeros(n); sell = np.zeros(n)
     s7 = np.zeros(n); s13 = np.zeros(n); spot = np.zeros(n); soc = np.zeros(n)
     soc0 = 0.0
-    cache: dict[int, tuple] = {}
 
     for start in range(0, n, steps_day):
         keep = min(steps_day, n - start)
         h = min(steps_day + look, n - start)
-        if h not in cache:
-            cache[h] = _structure(h, eta_c, eta_d)
-        A_eq, A_ub = cache[h]
+        A_eq, A_ub = _structure(h, eta_c, eta_d, grid_in_sale_row[start:start + h])
         w = slice(start, start + h)
         nv = 8 * h
         c = np.zeros(nv)

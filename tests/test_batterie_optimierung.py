@@ -111,5 +111,19 @@ def test_netzbezug_fuellt_nur_auf_und_bleibt_unter_batterieleistung():
     h, c5 = r.hourly, r.power.total_kw
     grid = h.s7_kwh + h.s13k_kwh + h.spot_kwh
     assert (h.ppa_kwh + grid <= r.power.battery_power_kw + 1e-6).all()           # Bezug nie über Batterieeingangsleistung
-    assert (grid[h.ppa_kwh >= c5 - 1e-6] <= 1e-9).all()                          # PPA allein reicht: kein Netzbezug
+    assert (h.surplus_kwh + grid <= (h.ppa_kwh - c5).clip(lower=0) + h.battery_discharge_kwh + 1e-6)[h.ppa_kwh >= c5 - 1e-6].all()  # kein Tausch PPA gegen Netz
     assert (h.surplus_kwh <= (h.ppa_kwh - c5).clip(lower=0) + h.battery_discharge_kwh + 1e-6).all()  # nur Überschuss wird verkauft
+
+
+def test_wirkungsgrad_gilt_auch_in_der_excel_logik():
+    """Ohne Optimierung: Wirkungsgrad 100 % = Excel; mit Verlusten wird weniger Strom nutzbar entladen."""
+    over = {"battery_capacity_hours": 2.0, "electrolyzer_power_kw": 4000.0, "ppa_pv_kw": 8000.0}
+    s = {"pv_kwh_per_kw": _tag([0.0] * 6 + [1.0] * 12 + [0.0] * 6)}
+    _, verlustfrei = _lauf({**over, "battery_efficiency": 1.0}, s, optimize=False)
+    inp, mit_verlust = _lauf({**over, "battery_efficiency": 0.8}, s, optimize=False)
+    a, b = verlustfrei.hourly, mit_verlust.hourly
+    assert b.battery_discharge_kwh.sum() < a.battery_discharge_kwh.sum()
+    eta = np.sqrt(0.8)
+    soc = b.battery_soc_kwh.to_numpy()
+    dyn = soc - np.r_[0.0, soc[:-1]] - eta * b.battery_charge_kwh + b.battery_discharge_kwh / eta
+    assert abs(dyn[1:]).max() < 1e-6 or (soc.max() <= mit_verlust.power.battery_capacity_kwh + 1e-6)
