@@ -879,29 +879,30 @@ with cockpit_slot:
 
 # ---------------------------------------------------------------- Ergebnisse
 with tab_res:
-    c1, c2, c3, c4, c5 = st.columns(5)
-    kmetric(c1, "Gestehungskosten", de(e.lcoh_eur_per_kg), "€/kg", help="Wasserstoffgestehungskosten (LCOH₂).")
-    kmetric(c2, "Gestehungskosten", de(e.lcoh_ct_per_kwh), "ct/kWh", help="Bezogen auf den Brennwert von 39,4 kWh/kg.")
-    kmetric(c3, "Wasserstoff", de(e.h2_kg_per_year / 1000, 0), "t/a")
-    kmetric(c4, "Anlagenleistung gesamt", de(r.power.total_kw / 1000, 1), "MW")
-    kmetric(c5, "CAPEX nach Förderung", de(e.capex_net / 1e6, 1), "Mio. €")
-    o1, o2, o3, o4, o5 = st.columns(5)
-    kmetric(o1, "Betriebsstunden", de(run_hours, 0), "h/a", help="Stunden, in denen das System Strom verbraucht.")
-    kmetric(o2, "davon Volllast", de(full_hours, 0), "h/a")
-    kmetric(o3, "davon Teillast", de(part_hours, 0), "h/a")
-    kmetric(o4, "Volllaststunden (Ely)", de(r.full_load_hours, 0), "h/a", help="Jahresenergie des Elektrolyseurs geteilt "
+    r1 = st.columns(4)
+    kmetric(r1[0], "Gestehungskosten", de(e.lcoh_eur_per_kg), "€/kg", help="Wasserstoffgestehungskosten (LCOH₂).")
+    kmetric(r1[1], "Gestehungskosten", de(e.lcoh_ct_per_kwh), "ct/kWh", help="Bezogen auf den Brennwert von 39,4 kWh/kg.")
+    kmetric(r1[2], "Wasserstoff", de(e.h2_kg_per_year / 1000, 0), "t/a")
+    kmetric(r1[3], "CAPEX nach Förderung", de(e.capex_net / 1e6, 1), "Mio. €")
+    r2 = st.columns(4)
+    kmetric(r2[0], "Anlagenleistung gesamt", de(r.power.total_kw / 1000, 1), "MW")
+    kmetric(r2[1], "Betriebsstunden", de(run_hours, 0), "h/a", help="Stunden, in denen das System Strom verbraucht.")
+    kmetric(r2[2], "davon Volllast", de(full_hours, 0), "h/a")
+    kmetric(r2[3], "davon Teillast", de(part_hours, 0), "h/a")
+    r3 = st.columns(4)
+    kmetric(r3[0], "Volllaststunden (Ely)", de(r.full_load_hours, 0), "h/a", help="Jahresenergie des Elektrolyseurs geteilt "
               "durch seine Nennleistung.")
-    kmetric(o5, "Ø Auslastung (Ely)", de(ely_util * 100, 1), "%")
-    p1, p2, p3, p4, p5 = st.columns(5)
-    kmetric(p1, "Anzahl Stacktausche", str(r.stack_replacements), "", help=f"Anzahl der Stacktausche in der "
+    kmetric(r3[1], "Ø Auslastung (Ely)", de(ely_util * 100, 1), "%")
+    kmetric(r3[2], "Systemauslastung", de(system_util * 100, 1), "%", help="Stromverbrauch des Gesamtsystems bezogen auf "
+              "den Dauerbetrieb mit Nennleistung über 8.760 Stunden.")
+    kmetric(r3[3], "Ø Effizienz", de(r.avg_efficiency * 100, 1), "%", help="Mittlerer Wirkungsgrad des Elektrolyseurs über "
+              "die Projektlaufzeit (inklusive Degradation).")
+    r4 = st.columns(4)
+    kmetric(r4[0], "Anzahl Stacktausche", str(r.stack_replacements), "", help=f"Anzahl der Stacktausche in der "
             f"Projektlaufzeit (alle {de(r.stack_interval_years, 1)} Jahre).")
-    kmetric(p2, "Ø Effizienz", de(r.avg_efficiency * 100, 1), "%", help="Mittlerer Wirkungsgrad des Elektrolyseurs über "
-            "die Projektlaufzeit (inklusive Degradation).")
-    kmetric(p3, "Anteil grüner Wasserstoff", de(green_share * 100, 1), "%", help=HELP_GREEN)
-    kmetric(p4, "Systemauslastung", de(system_util * 100, 1), "%")
-    kmetric(p5, "Kapitalkostensatz (WACC)", de(e.wacc * 100, 1), "%")
-    q1, _, _, _, _ = st.columns(5)
-    kmetric(q1, "Durchschnittlicher Strompreis (inkl. Abgaben)", de(avg_power_price), "€/MWh", help=HELP_AVG_PRICE)
+    kmetric(r4[1], "Anteil grüner Wasserstoff", de(green_share * 100, 1), "%", help=HELP_GREEN)
+    kmetric(r4[2], "Kapitalkostensatz (WACC)", de(e.wacc * 100, 1), "%")
+    kmetric(r4[3], "Durchschnittlicher Strompreis (inkl. Abgaben)", de(avg_power_price), "€/MWh", help=HELP_AVG_PRICE)
 
     st.markdown("### Zusammensetzung der Gestehungskosten")
     mode = st.radio("Darstellung", ["Detailliert (Einzelposten)", "Gestapelt nach Bereichen",
