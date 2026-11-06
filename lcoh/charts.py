@@ -22,10 +22,10 @@ NET_LABEL = "Gestehungskosten"
 MONTHS = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"]
 
 
-def year_axis(n: int = 8760) -> tuple[np.ndarray, dict]:
+def year_axis(n: int = 8760, steps_per_hour: int = 1) -> tuple[np.ndarray, dict]:
     """Zeitachse 1.1. bis 31.12. (Nicht-Schaltjahr) mit Monatsbeschriftung."""
     t0 = np.datetime64("2025-01-01T00:00")
-    x = (t0 + np.arange(n) * np.timedelta64(1, "h")).astype("datetime64[ns]")
+    x = (t0 + np.arange(n) * np.timedelta64(60 // steps_per_hour, "m")).astype("datetime64[ns]")
     starts = [np.datetime64(f"2025-{m:02d}-01T00:00") for m in range(1, 13)]
     axis = dict(tickmode="array", tickvals=starts, ticktext=MONTHS, range=[str(x[0]), str(x[-1])],
                 ticks="outside", showgrid=True, gridcolor="rgba(128,128,128,0.15)")
@@ -149,17 +149,17 @@ def _dark(color: str) -> bool:
     return (0.299 * r + 0.587 * g + 0.114 * b) < 150
 
 
-def load_duration_figure(hourly, power, height: int = 360) -> go.Figure:
-    """Geordnete Jahresdauerlinien (kWh pro Stunde): Gesamtsystem, Elektrolyseur und gesamter Strombezug."""
-    system = hourly["consumption_kwh"].to_numpy(dtype=float)
+def load_duration_figure(hourly, power, height: int = 360, steps_per_hour: int = 1) -> go.Figure:
+    """Geordnete Jahresdauerlinien (Energie je Stunde, also Leistung in kW): Gesamtsystem, Elektrolyseur und Strombezug."""
+    system = hourly["consumption_kwh"].to_numpy(dtype=float) * steps_per_hour
     ely = system * power.ely_kw / power.total_kw
-    purchase = hourly["purchase_kwh"].to_numpy(dtype=float)
-    x = np.arange(1, len(system) + 1)
+    purchase = hourly["purchase_kwh"].to_numpy(dtype=float) * steps_per_hour
+    x = np.arange(1, len(system) + 1) / steps_per_hour
     fig = go.Figure()
     for name, arr, col in [("Gesamtstrombezug", purchase, "#e07a1f"), ("Stromverbrauch Gesamtsystem", system, "#2f6db5"),
                            ("Stromverbrauch Elektrolyseur", ely, "#16324f")]:
         fig.add_trace(go.Scatter(x=x, y=np.sort(arr)[::-1], name=name, mode="lines", line=dict(color=col, width=2),
-                                 hovertemplate="Stunde %{x}: %{y:,.0f} kWh<extra>" + name + "</extra>"))
+                                 hovertemplate="Stunde %{x:,.2f}: %{y:,.0f} kWh/h<extra>" + name + "</extra>"))
     top = float(max(purchase.max(), system.max())) * 1.08 or 1.0
     fig.update_layout(height=height, margin=dict(l=0, r=0, t=10, b=0), xaxis_title="Stunden pro Jahr (nach Höhe geordnet)",
                       yaxis_title="Energie pro Stunde [kWh]", legend=dict(orientation="h", y=-0.28, yanchor="top"),
@@ -167,9 +167,9 @@ def load_duration_figure(hourly, power, height: int = 360) -> go.Figure:
     return fig
 
 
-def battery_soc_figure(hourly, power, height: int = 300) -> go.Figure:
+def battery_soc_figure(hourly, power, height: int = 300, steps_per_hour: int = 1) -> go.Figure:
     soc = hourly["battery_soc_kwh"].to_numpy(dtype=float)
-    x, xaxis = year_axis(len(soc))
+    x, xaxis = year_axis(len(soc), steps_per_hour)
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=x, y=soc, mode="lines", fill="tozeroy", line=dict(color="#7b5ea7", width=1),
                              name="Ladezustand", hovertemplate="%{x|%d.%m. %H:%M} Uhr: %{y:,.0f} kWh<extra></extra>"))
@@ -180,7 +180,7 @@ def battery_soc_figure(hourly, power, height: int = 300) -> go.Figure:
     return fig
 
 
-def spot_price_figure(market, height: int = 340) -> go.Figure:
+def spot_price_figure(market, height: int = 340, steps_per_hour: int = 1) -> go.Figure:
     """Börsenpreis über das Jahr (Excel Blatt 8): Die Linie ist grün, solange der Preis unter der §7-Grenze liegt,
     gelb bis zum eigenen Maximalpreis und rot darüber."""
     raw = np.asarray(market.price_raw, dtype=float)
@@ -188,7 +188,7 @@ def spot_price_figure(market, height: int = 340) -> go.Figure:
     smax = float(market.spot_max_price)
     regime = np.where(raw < lim7, 0, np.where(raw <= smax, 1, 2))
     n = len(raw)
-    xt, xaxis = year_axis(n)
+    xt, xaxis = year_axis(n, steps_per_hour)
     fig = go.Figure()
     for k, name, col in [(0, "Preis unter der §7-Grenze", "#3f9b4f"),
                          (1, "Preis zwischen §7-Grenze und eigenem Maximalpreis", "#ffc000"),

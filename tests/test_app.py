@@ -123,3 +123,12 @@ def test_batterie_anschlussleistung_zu_klein():
     at.text_input(key="w_battery_input_power_kw").set_value("35.000").run()
     assert not at.error
     assert kpis(at, "Gestehungskosten")
+
+
+def test_rechenaufloesung_viertelstunde_mit_stundendaten_gleiches_ergebnis():
+    at = neue_app()
+    basis = kpis(at, "Gestehungskosten")
+    at.radio(key="res_mode").set_value("Viertelstunde").run()
+    assert not at.exception
+    assert kpis(at, "Gestehungskosten") == basis
+    assert any("Viertelstunden" in c.value for c in at.caption)

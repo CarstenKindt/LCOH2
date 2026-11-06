@@ -28,24 +28,29 @@ OUTPUT_COLUMNS = (
 )
 
 
-def simulate_dispatch(inp: Inputs, ts: pd.DataFrame, market: MarketSeries, power: SystemPower) -> pd.DataFrame:
+def simulate_dispatch(inp: Inputs, ts: pd.DataFrame, market: MarketSeries, power: SystemPower,
+                      steps_per_hour: int = 1) -> pd.DataFrame:
+    """Rechnet jeden Zeitschritt nacheinander. Bei steps_per_hour = 1 ist der Schritt eine Stunde (wie die Excel),
+    bei 4 eine Viertelstunde. Alle Leistungen werden dazu in Energie je Schritt umgerechnet (kW x Schrittlänge);
+    die Zeitreihen enthalten Raten (kWh je kW und Stunde, kWh je Stunde, €/MWh). Alle Ausgaben sind Energie bzw. Kosten je Schritt."""
     n = len(ts)
-    C5 = power.total_kw
+    dt = 1.0 / steps_per_hour
+    C5 = power.total_kw * dt
     V3 = power.battery_capacity_kwh
-    V4 = power.battery_power_kw
+    V4 = power.battery_power_kw * dt
     F5 = inp.min_part_load
     J3, J4, J5 = inp.ppa_baseload_enabled, inp.ppa_pap_enabled, inp.section7_enabled
     J6, J7, J8 = inp.section13k_enabled, inp.spot_enabled, inp.battery_enabled
 
     pv_kw = 1e-7 if inp.ppa_pv_kw == 0 else inp.ppa_pv_kw  # Excel M4
     wind_kw = inp.ppa_wind_kw  # Excel M5
-    baseload = inp.ppa_baseload_kw if J3 else 0.0  # Excel D
+    baseload = inp.ppa_baseload_kw * dt if J3 else 0.0  # Excel D
 
-    pv_per_kw = ts["pv_kwh_per_kw"].to_numpy(dtype=float)
-    wind_per_kw = ts["wind_kwh_per_kw"].to_numpy(dtype=float)
+    pv_per_kw = ts["pv_kwh_per_kw"].to_numpy(dtype=float) * dt
+    wind_per_kw = ts["wind_kwh_per_kw"].to_numpy(dtype=float) * dt
     price_s7, price_raw, price_sale = market.price_s7, market.price_raw, market.price_sale
     limit = market.section7_limit
-    s13k_in = market.section13k_kwh
+    s13k_in = market.section13k_kwh * dt
     spot_max = market.spot_max_price
 
     out = {c: np.zeros(n) for c in OUTPUT_COLUMNS}
@@ -62,7 +67,7 @@ def simulate_dispatch(inp: Inputs, ts: pd.DataFrame, market: MarketSeries, power
         N = min(V4, (M - 1.0) * C5 if M > 1.0 else 0.0) if J8 else 0.0   # N: Batterie-Beladung aus PPA
         O = (min(L / V4, 1.0) if J8 else min(L / C5, 1.0))       # O: Auslastung (PPA neu)
         P = price_s7[t]                                          # P: Preis §7
-        thr = limit[min(t + 1, n - 1)]                           # R der Folgestunde (Excel-Verhalten)
+        thr = limit[min(t + steps_per_hour, n - 1)]              # R der Folgestunde (Excel-Verhalten)
 
         # Q: Strom nach §7
         if J5:
@@ -97,7 +102,7 @@ def simulate_dispatch(inp: Inputs, ts: pd.DataFrame, market: MarketSeries, power
         if first:                                                # X: Beladung aus §13k
             X = max(0.0, 0.0 if V == 0 else W - C5)
         else:
-            X = 0.0 if soc_pct_prev >= 1.0 else min(max(0.0, 0.0 if V < 1 else W - C5), V3 - soc_prev)
+            X = 0.0 if soc_pct_prev >= 1.0 else min(max(0.0, 0.0 if V < dt else W - C5), V3 - soc_prev)
 
         # Z: Batterie-Entladung
         if first:

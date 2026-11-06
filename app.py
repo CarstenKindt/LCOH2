@@ -27,7 +27,7 @@ from lcoh.ui_layout import (rename_label, CHOICE_LABELS, COCKPIT, FINE_STEP, GAT
                             VISIBLE)
 from lcoh.waterfall import (BLOCK_CAPEX, BLOCK_INTEREST, BLOCK_OPEX, BLOCK_POWER, BLOCK_REVENUE, BLOCK_STACK,
                             BLOCK_SUBSIDY, block_subtotal, net_power_items, waterfall_items)
-from lcoh.zeitreihen import SERIES_LABELS, load_default_timeseries, parse_series
+from lcoh.zeitreihen import SERIES_KIND, SERIES_LABELS, build_timeseries, load_default_timeseries, read_series, to_grid
 
 ASSETS = Path(__file__).resolve().parent / "assets"
 
@@ -148,7 +148,9 @@ def empty_state() -> dict:
 if "S" not in st.session_state:
     st.session_state["S"] = empty_state()
 if "series" not in st.session_state:
-    st.session_state["series"] = {}
+    st.session_state["series"] = {}       # eigene Reihen: Name -> Rate je Viertelstunde (35.040 Werte)
+if "series_info" not in st.session_state:
+    st.session_state["series_info"] = {}  # Name -> (ursprüngliche Auflösung, Hinweis, Dateiname)
 S: dict = st.session_state["S"]
 
 
@@ -366,28 +368,25 @@ def render_levies() -> None:
 
 
 # ---------------------------------------------------------------- Zeitreihen
-def build_timeseries() -> pd.DataFrame:
-    ts = load_default_timeseries().copy()
-    for name, values in st.session_state["series"].items():
-        if name == "day_ahead":
-            for col in [c for c in ts.columns if c.startswith("day_ahead_")]:
-                ts[col] = values
-        else:
-            ts[name] = values
-    return ts
+RES_AUTO, RES_HOUR, RES_QUARTER = "Automatisch (nach den Daten)", "Stunde (wie Excel)", "Viertelstunde"
+
+
+def calc_steps() -> int:
+    """Rechenschritte je Stunde: 1 (Stunde) oder 4 (Viertelstunde). Automatisch: Viertelstunde, sobald eine eigene Reihe
+    Viertelstunden- oder gemischte Werte enthält."""
+    mode = st.session_state.get("res_mode", RES_AUTO)
+    if mode == RES_HOUR:
+        return 1
+    if mode == RES_QUARTER:
+        return 4
+    return 4 if any(i[0] != "Stunde" for i in st.session_state["series_info"].values()) else 1
 
 
 @st.cache_data(show_spinner="Berechnung läuft ...", max_entries=8)
-def rechnen(inputs_json: str, series_json: str):
+def rechnen(inputs_json: str, series_json: str, steps: int):
     inp = Inputs.from_dict(json.loads(inputs_json))
-    ts = load_default_timeseries().copy()
-    for name, values in json.loads(series_json).items():
-        if name == "day_ahead":
-            for col in [c for c in ts.columns if c.startswith("day_ahead_")]:
-                ts[col] = values
-        else:
-            ts[name] = values
-    r = run_operation(inp, ts)
+    ts = build_timeseries(json.loads(series_json), steps)
+    r = run_operation(inp, ts, steps_per_hour=steps)
     return r, compute_economics(r)
 
 
@@ -648,75 +647,123 @@ def footer() -> None:
 
 SERIES_HELP = {
     "pv_kwh_per_kw": (
-        "Stündliches Erzeugungsprofil der Anlage hinter PPA 1, angegeben als Erzeugung je installiertem kW (z. B. Photovoltaik). "
+        "Stündliches Erzeugungsprofil der Anlage hinter PPA 1, angegeben als Erzeugung je installiertem kW und Zeitintervall (Stunde oder Viertelstunde; z. B. Photovoltaik). "
         "Das Tool multipliziert es mit der installierten Leistung von PPA 1; daraus ergibt sich der stündliche Strombezug. "
         "Hinterlegt ist ein Beispielprofil."),
     "wind_kwh_per_kw": (
-        "Stündliches Erzeugungsprofil der Anlage hinter PPA 2, angegeben als Erzeugung je installiertem kW (z. B. Windkraft). "
+        "Stündliches Erzeugungsprofil der Anlage hinter PPA 2, angegeben als Erzeugung je installiertem kW und Zeitintervall (Stunde oder Viertelstunde; z. B. Windkraft). "
         "Das Tool multipliziert es mit der installierten Leistung von PPA 2; daraus ergibt sich der stündliche Strombezug. "
         "Hinterlegt ist ein Beispielprofil."),
     "day_ahead": (
-        "Börsenstrompreis (Day-Ahead) je Stunde. Er bestimmt den Preis beim Strombezug am Spotmarkt und nach §7 der 37. BImSchV "
+        "Börsenstrompreis (Day-Ahead) je Stunde bzw. Viertelstunde. Er bestimmt den Preis beim Strombezug am Spotmarkt und nach §7 der 37. BImSchV "
         "sowie den Erlös beim Verkauf von Überschussstrom (negative Preise werden dort mit 0 angesetzt). Eine hochgeladene Reihe "
         "ersetzt alle hinterlegten Preis-Szenarien."),
     "co2_eur_per_t": (
-        "CO₂-Preis (Emissionshandel) je Stunde. Er legt die Preisgrenze für den Strombezug nach §7 fest: das 0,36-Fache des "
+        "CO₂-Preis (Emissionshandel) je Stunde bzw. Viertelstunde. Er legt die Preisgrenze für den Strombezug nach §7 fest: das 0,36-Fache des "
         "CO₂-Preises, mindestens 20 €/MWh, höchstens der maximale Nachfragepreis. Wirkt nur, wenn §7 eingeschaltet ist und als Quelle "
         "„Jahresdaten“ gewählt ist."),
     "section13k_kwh": (
-        "Energiemenge je Stunde, die im Netz sonst abgeregelt würde und für „Nutzen statt Abregeln“ (§13k EnWG) bezogen werden "
+        "Energiemenge je Zeitintervall (Stunde oder Viertelstunde), die im Netz sonst abgeregelt würde und für „Nutzen statt Abregeln“ (§13k EnWG) bezogen werden "
         "kann. Sie begrenzt den Bezug nach §13k je Stunde. Wirkt nur, wenn §13k eingeschaltet ist."),
 }
 
 
+SERIES_UNITS = {"pv_kwh_per_kw": ("kWh/kW je h", "kWh/kW"), "wind_kwh_per_kw": ("kWh/kW je h", "kWh/kW"),
+                "day_ahead": ("€/MWh", ""), "co2_eur_per_t": ("€/t", ""), "section13k_kwh": ("kWh je h", "kWh")}
+
+
+def series_download(name: str, rate_q: np.ndarray | None, res: str, default_col: str, defaults) -> str:
+    """CSV-Text der aktuellen Reihe in ihrer ursprünglichen Auflösung (Energie je Intervall, Preise unverändert)."""
+    if rate_q is None:
+        return "\n".join(f"{v:.6g}" for v in defaults[default_col])
+    if res == "Stunde":
+        vals = to_grid(rate_q, 1)
+    else:
+        vals = rate_q / 4.0 if SERIES_KIND[name] == "energie" else rate_q
+    return "\n".join(f"{v:.6g}" for v in vals)
+
+
 def render_data_tab(inp) -> None:
     st.markdown("### Zeitreihen (Energiedaten und Preise)")
-    st.caption("Im Standard rechnet das Tool mit den hinterlegten Zeitreihen. Eigene Reihen müssen genau 8.760 Stundenwerte "
-               "enthalten (eine Zahl pro Zeile, als .csv oder .txt; Dezimalkomma ist erlaubt).")
+    st.caption("Im Standard rechnet das Tool mit den hinterlegten Stundenreihen. Eigene Reihen dürfen als Stunden-, "
+               "Viertelstunden- oder gemischte Werte (z. B. das Jahr 2025) hochgeladen werden (.csv oder .txt).")
+    st.radio("Rechenauflösung", [RES_AUTO, RES_HOUR, RES_QUARTER], key="res_mode", horizontal=True,
+             help="Stunde: Das Tool rechnet wie die Excel mit 8.760 Stundenwerten; Viertelstundenreihen werden dafür gemittelt "
+                  "(Preise) bzw. summiert (Energie). Viertelstunde: Das Tool rechnet mit 35.040 Viertelstunden; Stundenreihen werden "
+                  "dazu auf vier Viertelstunden gelegt (Preis und Leistung bleiben gleich, Energie je Viertelstunde ein Viertel). "
+                  "Automatisch: Viertelstunde, sobald eine hochgeladene Reihe Viertelstundenwerte enthält.")
+    st.caption(f"Aktuell gerechnet in: **{'Viertelstunden (35.040 Schritte)' if calc_steps() == 4 else 'Stunden (8.760 Schritte)'}**. "
+               "Die Viertelstundenrechnung geht über die Excel hinaus (die Excel kennt nur Stundenwerte); mit reinen Stundendaten "
+               "liefert sie praktisch dasselbe Ergebnis wie die Stundenrechnung.")
     with st.expander("Allgemein: So muss eine eigene Reihe aufgebaut sein"):
         st.markdown(
-            "- **Anzahl:** genau 8.760 Werte (ein Jahr mit 24 Stunden je Tag; bei einem Schaltjahr den 29. Februar weglassen).\n"
-            "- **Reihenfolge:** zeitlich vom Jahresanfang bis zum Jahresende. Alle Reihen müssen dieselbe Stundenzuordnung haben, "
-            "damit z. B. Erzeugungsprofil und Börsenpreis zeitlich zusammenpassen.\n"
+            "- **Zeitraum:** ein Jahr ohne 29. Februar. Bei einem Schaltjahr wird der 29. Februar automatisch entfernt.\n"
+            "- **Stundenwerte:** genau 8.760 Werte, einer je Stunde.\n"
+            "- **Viertelstundenwerte:** genau 35.040 Werte, einer je Viertelstunde (seit dem 01.10.2025 am Day-Ahead-Markt üblich).\n"
+            "- **Gemischte Auflösung** (z. B. 2025: bis 30.09. Stundenwerte, danach Viertelstundenwerte): Die Datei braucht eine Spalte "
+            "mit dem Zeitstempel (Datum und Uhrzeit, z. B. „01.10.2025 00:15“ oder „2025-10-01 00:15“) vor dem Wert; Datum und "
+            "Uhrzeit dürfen auch in zwei Spalten stehen. Aus dem Abstand zum nächsten Zeitstempel erkennt das Tool, ob der Wert "
+            "eine Stunde oder eine Viertelstunde gilt.\n"
+            "- **Einheiten:** Preise (Day-Ahead, CO₂) bleiben in €/MWh bzw. €/t, egal in welcher Auflösung. Energiewerte beziehen "
+            "sich auf das jeweilige Intervall: Erzeugungsprofile in kWh je kW und Stunde bzw. je Viertelstunde (Viertelstunde: "
+            "höchstens 0,25), §13k-Energie in kWh je Stunde bzw. je Viertelstunde.\n"
+            "- **Reihenfolge:** zeitlich vom Jahresanfang bis zum Jahresende. Alle Reihen müssen dieselbe Zuordnung haben, damit z. B. "
+            "Erzeugungsprofil und Börsenpreis zeitlich zusammenpassen.\n"
             "- **Dateiformat:** .csv oder .txt. Am einfachsten ist eine Spalte mit einer Zahl pro Zeile. Bei mehreren Spalten "
-            "(getrennt durch Semikolon, Tabulator oder Komma) wird die **letzte** Spalte gelesen.\n"
+            "(getrennt durch Semikolon, Tabulator oder Komma) wird die **letzte** Spalte als Wert gelesen.\n"
             "- **Zahlen:** Dezimalkomma und Dezimalpunkt sind erlaubt, keine Tausendertrennzeichen. Eine Überschriftenzeile in der "
             "ersten Zeile wird übersprungen.\n"
-            "- **Prüfung:** Das Tool prüft nur Anzahl und Lesbarkeit der Zahlen und nennt bei Fehlern die betroffene Zeile. "
-            "Ob die Werte sinnvoll sind (z. B. Erzeugungsprofile zwischen 0 und 1), müssen Sie selbst sicherstellen.\n"
+            "- **Prüfung:** Das Tool prüft Anzahl, Zeitabstände und Lesbarkeit der Zahlen und nennt bei Fehlern die betroffene Zeile. "
+            "Ob die Werte sinnvoll sind, müssen Sie selbst sicherstellen.\n"
             "- **Gültigkeit:** Hochgeladene Reihen gelten nur für die laufende Sitzung. Sie werden **nicht** in der gespeicherten "
             "Eingabedatei (.json) abgelegt und müssen nach einem Neuladen der Seite erneut hochgeladen werden. Mit „Auf Standard "
             "zurücksetzen“ nutzt das Tool wieder die hinterlegte Reihe.")
     defaults = load_default_timeseries()
     series_info = {
-        "pv_kwh_per_kw": ("pv_kwh_per_kw", "kWh/kW"), "wind_kwh_per_kw": ("wind_kwh_per_kw", "kWh/kW"),
-        "day_ahead": (f"day_ahead_{inp.day_ahead_scenario_year}_eur_per_mwh", "€/MWh"),
-        "co2_eur_per_t": ("co2_eur_per_t", "€/t"), "section13k_kwh": ("section13k_kwh", "kWh")}
-    for name, (col, unit) in series_info.items():
+        "pv_kwh_per_kw": "pv_kwh_per_kw", "wind_kwh_per_kw": "wind_kwh_per_kw",
+        "day_ahead": f"day_ahead_{inp.day_ahead_scenario_year}_eur_per_mwh",
+        "co2_eur_per_t": "co2_eur_per_t", "section13k_kwh": "section13k_kwh"}
+    for name, col in series_info.items():
+        unit, sum_unit = SERIES_UNITS[name]
         with st.container(border=True):
             c1, c2 = st.columns([1.2, 1])
             custom = name in st.session_state["series"]
-            values = np.array(st.session_state["series"][name] if custom else defaults[col], dtype=float)
+            rate_q = np.array(st.session_state["series"][name], dtype=float) if custom else None
+            res, note, fname = st.session_state["series_info"].get(name, ("Stunde", "", ""))
+            values = rate_q if custom else np.array(defaults[col], dtype=float)
+            per_year = values.sum() / (4 if custom else 1)       # Jahresenergie je kW bzw. in kWh
             with c1:
-                st.markdown(f"**{SERIES_LABELS[name]}** · {'eigene Datei' if custom else 'Standardwerte'}")
+                herkunft = (f"eigene Datei ({ {'Stunde': 'Stundenwerte', 'Viertelstunde': 'Viertelstundenwerte'}.get(res, 'gemischte Auflösung') })"
+                            if custom else "Standardwerte (Stunde)")
+                st.markdown(f"**{SERIES_LABELS[name]}** · {herkunft}")
                 st.caption(f"**Bedeutung:** {SERIES_HELP[name]}")
+                if custom and note:
+                    st.caption(f"Hinweis zur Datei: {note}")
                 fig = go.Figure(go.Scatter(y=values, mode="lines", line=dict(color="#1f4e79", width=1)))
-                fig.update_layout(height=160, margin=dict(l=0, r=0, t=5, b=0), yaxis_title=unit, xaxis_title="Stunde")
+                fig.update_layout(height=160, margin=dict(l=0, r=0, t=5, b=0), yaxis_title=unit,
+                                  xaxis_title="Viertelstunde" if custom else "Stunde")
                 st.plotly_chart(fig, width="stretch", key=f"plot_{name}")
-                st.caption(f"Summe {de(values.sum(), 0)} · Mittelwert {de(values.mean(), 3)} · Maximum {de(values.max(), 2)} {unit}")
+                stats = [f"Summe {de(per_year, 0)} {sum_unit} pro Jahr"] if sum_unit else []
+                stats += [f"Mittelwert {de(values.mean(), 3)}", f"Maximum {de(values.max(), 2)}"]
+                if not sum_unit:
+                    stats.insert(1, f"Minimum {de(values.min(), 2)}")
+                st.caption(" · ".join(stats) + f" {unit}")
             with c2:
                 up = st.file_uploader("Eigene Zeitreihe hochladen", type=["csv", "txt"], key=f"up_{name}")
                 if up is not None and st.session_state.get(f"_up_{name}") != (up.name, up.size):
                     try:
-                        st.session_state["series"][name] = parse_series(up.getvalue())
+                        parsed = read_series(up.getvalue(), SERIES_KIND[name])
+                        st.session_state["series"][name] = parsed.rate_quarter.tolist()
+                        st.session_state["series_info"][name] = (parsed.resolution, parsed.note, up.name)
                         st.session_state[f"_up_{name}"] = (up.name, up.size)
                         st.rerun()
                     except ValueError as err:
                         st.error(str(err))
-                st.download_button("Aktuelle Reihe herunterladen (.csv)", "\n".join(f"{v:.6g}" for v in values),
+                st.download_button("Aktuelle Reihe herunterladen (.csv)", series_download(name, rate_q, res, col, defaults),
                                    f"{name}.csv", "text/csv", key=f"dl_{name}", width="stretch")
                 if custom and st.button("Auf Standard zurücksetzen", key=f"rs_{name}", width="stretch"):
                     del st.session_state["series"][name]
+                    st.session_state["series_info"].pop(name, None)
                     st.session_state.pop(f"_up_{name}", None)
                     st.rerun()
     st.info("Hinweis: Eine hochgeladene Preisreihe ersetzt alle hinterlegten Börsenpreis-Szenarien. Die Reihen gelten "
@@ -744,7 +791,9 @@ if missing or errors:
     st.stop()
 
 series_json = json.dumps(st.session_state["series"])
-r, e = rechnen(json.dumps(effective, sort_keys=True, default=float), series_json)
+STEPS = calc_steps()
+DT = 1.0 / STEPS
+r, e = rechnen(json.dumps(effective, sort_keys=True, default=float), series_json, STEPS)
 inp = r.inputs
 
 with st.sidebar:
@@ -762,8 +811,8 @@ pc = e.power
 green_share = 1 - pc.spot_kwh / pc.total_procurement_kwh if pc.total_procurement_kwh else 0.0
 system_util = pc.consumption_total_kwh / (r.power.total_kw * 8760) if r.power.total_kw else 0.0
 ely_util = r.full_load_hours / 8760
-run_hours = int((r.hourly["consumption_kwh"] > 0).sum())
-full_hours = int((r.hourly["consumption_kwh"] >= r.power.total_kw * 0.99999).sum())
+run_hours = int((r.hourly["consumption_kwh"] > 0).sum()) * DT
+full_hours = int((r.hourly["consumption_kwh"] >= r.power.total_kw * DT * 0.99999).sum()) * DT
 part_hours = run_hours - full_hours
 avg_power_price = e.power_cost / (pc.total_procurement_kwh / 1000) if pc.total_procurement_kwh else 0.0
 HELP_AVG_PRICE = ("Jährliche Stromkosten einschließlich Netzentgelten, Umlagen und Abgaben (nach Befreiungen), geteilt durch die "
@@ -874,7 +923,7 @@ with cockpit_slot:
     st.plotly_chart(cost_structure_figure(items, e.lcoh_eur_per_kg, detail=False, height=430,
                                           subsidy_title="Förderungen"), width="stretch")
     st.markdown("#### Geordneter Lastverlauf")
-    st.plotly_chart(load_duration_figure(r.hourly, r.power, height=340), width="stretch", key="cockpit_load")
+    st.plotly_chart(load_duration_figure(r.hourly, r.power, height=340, steps_per_hour=STEPS), width="stretch", key="cockpit_load")
     st.caption("Detaillierte Auswertung im Reiter „Ergebnisse“.")
 
 # ---------------------------------------------------------------- Ergebnisse
@@ -903,6 +952,9 @@ with tab_res:
     kmetric(r4[1], "Anteil grüner Wasserstoff", de(green_share * 100, 1), "%", help=HELP_GREEN)
     kmetric(r4[2], "Kapitalkostensatz (WACC)", de(e.wacc * 100, 1), "%")
     kmetric(r4[3], "Durchschnittlicher Strompreis (inkl. Abgaben)", de(avg_power_price), "€/MWh", help=HELP_AVG_PRICE)
+    if STEPS == 4:
+        st.caption("Die Berechnung erfolgte in Viertelstunden (35.040 Schritte) und geht damit über die Excel hinaus. Die "
+                   "Rechenauflösung lässt sich im Reiter „Daten“ ändern.")
 
     st.markdown("### Zusammensetzung der Gestehungskosten")
     mode = st.radio("Darstellung", ["Detailliert (Einzelposten)", "Gestapelt nach Bereichen",
@@ -930,19 +982,19 @@ with tab_res:
                f"Gestehungskosten: {de(e.lcoh_eur_per_kg)} €/kg")
 
     st.markdown("### Geordneter Lastverlauf")
-    st.plotly_chart(load_duration_figure(r.hourly, r.power), width="stretch")
+    st.plotly_chart(load_duration_figure(r.hourly, r.power, steps_per_hour=STEPS), width="stretch")
     st.caption("Jede Linie zeigt die Energie je Stunde, der Größe nach geordnet (höchste Stunde links). Der "
                "Gesamtstrombezug liegt über dem Verbrauch, wenn Strom in die Batterie geladen oder als Überschuss verkauft wird.")
 
     st.markdown("### Ladezustand der Batterie")
     if inp.battery_enabled and r.power.battery_capacity_kwh > 0:
-        st.plotly_chart(battery_soc_figure(r.hourly, r.power), width="stretch")
+        st.plotly_chart(battery_soc_figure(r.hourly, r.power, steps_per_hour=STEPS), width="stretch")
         st.caption(f"Ladezyklen pro Jahr: {r.battery_cycles}")
     else:
         st.info("Die Batterie ist ausgeschaltet.")
 
     st.markdown("### Spotmarktpreise")
-    st.plotly_chart(spot_price_figure(r.market), width="stretch")
+    st.plotly_chart(spot_price_figure(r.market, steps_per_hour=STEPS), width="stretch")
     st.caption(f"Die Linie ist grün, solange der Preis unter der §7-Grenze liegt. Gelb: zwischen der §7-Grenze und Ihrem Maximalpreis "
                f"({de(inp.spot_max_price_eur_per_mwh)} €/MWh). Rot: darüber. Einzelne extreme Preisspitzen sind zugunsten der "
                f"Lesbarkeit abgeschnitten; Sie können im Diagramm hineinzoomen.")
@@ -1000,6 +1052,7 @@ with tab_res:
         st.markdown("### Anlage und Betrieb")
         pc = e.power
         kennz = [
+            ("Rechenauflösung", "Viertelstunde" if STEPS == 4 else "Stunde"),
             ("Elektrolyseurleistung", f"{de(r.power.ely_kw, 0)} kW"), ("Gesamtleistung System", f"{de(r.power.total_kw, 0)} kW"),
             ("Batteriekapazität", f"{de(r.power.battery_capacity_kwh, 0)} kWh"),
             ("Stromverbrauch gesamt", f"{de(pc.consumption_total_kwh / 1e6, 2)} GWh/a"),
@@ -1007,7 +1060,7 @@ with tab_res:
             ("Überschussstrom", f"{de(pc.surplus_kwh / 1e6, 2)} GWh/a"),
             ("Mittlerer Wirkungsgrad", f"{de(r.avg_efficiency * 100, 1)} %"),
             ("Stacktausche in der Laufzeit", f"{r.stack_replacements} (alle {de(r.stack_interval_years, 1)} Jahre)"),
-            ("Stunden mit §7-Bezug", f"{r.section7_hours}"), ("Stunden mit §13k-Bezug", f"{r.section13k_hours}"),
+            ("Stunden mit §7-Bezug", de(r.section7_hours, 2 if STEPS == 4 else 0)), ("Stunden mit §13k-Bezug", de(r.section13k_hours, 2 if STEPS == 4 else 0)),
             ("Ladezyklen Batterie", f"{r.battery_cycles}"),
             ("CAPEX brutto", f"{de(e.capex_gross / 1e6, 2)} Mio. €"),
             ("CAPEX-Förderung", f"{de(e.capex_subsidy / 1e6, 2)} Mio. €"),
@@ -1074,11 +1127,12 @@ with tab_res:
         sens_df.to_excel(xw, sheet_name="Sensitivität", index=False)
         pd.DataFrame([(SPEC_BY_KEY[k].label, SPEC_BY_KEY[k].unit, v) for k, v in S.items() if k in SPEC_BY_KEY],
                      columns=["Eingabe", "Einheit", "Wert (Anteile als Dezimalzahl)"]).to_excel(xw, sheet_name="Eingaben", index=False)
-        r.hourly.to_excel(xw, sheet_name="Stundenwerte", index=False)
+        r.hourly.to_excel(xw, sheet_name="Viertelstundenwerte" if STEPS == 4 else "Stundenwerte", index=False)
     d1, d2, d3 = st.columns(3)
     d1.download_button("Ergebnisse als Excel (.xlsx)", buf.getvalue(), "ergebnisse_lcoh2.xlsx",
                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", width="stretch")
-    d2.download_button("Stundenwerte (.csv)", r.hourly.to_csv(index=False), "stundenwerte_lcoh2.csv", "text/csv",
+    d2.download_button("Viertelstundenwerte (.csv)" if STEPS == 4 else "Stundenwerte (.csv)", r.hourly.to_csv(index=False),
+                       "viertelstundenwerte_lcoh2.csv" if STEPS == 4 else "stundenwerte_lcoh2.csv", "text/csv",
                        width="stretch")
     d3.download_button("Eingaben (.json)", json.dumps(S, ensure_ascii=False, indent=1, default=float),
                        "eingaben_lcoh2.json", "application/json", width="stretch")
