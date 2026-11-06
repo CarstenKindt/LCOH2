@@ -96,7 +96,6 @@ def waterfall_items(r: OperationResult, e: Economics, power_view: str = "quelle"
     for name, label in LEVY_LABELS.items():
         if not (netto and power_view == "verbraucher"):
             add(BLOCK_SUBSIDY, f"Befreiung {label}", pc.levy_privilege_eur[name], -1)
-    add(BLOCK_SUBSIDY, "Strompreiskompensation", e.spk, -1)
 
     add(BLOCK_REVENUE, "Abwärme", e.revenue_heat, -1)
     add(BLOCK_REVENUE, "Sauerstoff", e.revenue_oxygen, -1)

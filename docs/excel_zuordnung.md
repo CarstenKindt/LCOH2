@@ -189,16 +189,6 @@ Diese Datei wird automatisch erzeugt (`python tools/build_docs.py`). Alle Standa
 | Strompreisförderung pro produziertem kg H2 | `power_subsidy_eur_per_kg` | € / kg_H2 | 0 | Blatt 2, C180 |
 | Strompreisförderung pro verbrauchter MWh | `power_subsidy_eur_per_mwh` | € / MWh | 10 | Blatt 2, C181 |
 
-## Strompreiskompensation
-
-| Bezeichnung | Schlüssel | Einheit | Standardwert | Excel |
-|---|---|---|---|---|
-| Strompreiskompensation | `spk_mode` |  | Ohne | Blatt 2, C189 |
-| EUA-Preis | `spk_eua_price_eur_per_t` | € / t_CO2 | 89 | Blatt 2, C190 |
-| Faktor zum Stromverbrauch | `spk_consumption_factor` | % | 80 % | Blatt 2, C191 |
-| Jährliche Preisentwicklung SPK | `spk_escalation` | % | 0 % | Blatt 2, C192 |
-| Separat kalkulierter Ertrag durch SPK | `spk_separate_revenue_eur` | € / a | 0 | Blatt 2, C193 |
-
 ## THG-Quote
 
 | Bezeichnung | Schlüssel | Einheit | Standardwert | Excel |

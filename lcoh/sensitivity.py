@@ -69,12 +69,12 @@ def sensitivity(r: OperationResult, e: Economics, step: float) -> list[Sensitivi
     spot = e.revenue_power_spot + e.revenue_power_ppa
     bal = e.revenue_balancing + e.revenue_other
     base = dict(fin=e.financing_total, opex=e.opex_total, power=e.power_cost, stack=e.stack_cost_per_year,
-                o2=e.revenue_oxygen, heat=e.revenue_heat, spot=spot, thg=e.revenue_thg, bal=bal, spk=e.spk, h2=h2)
+                o2=e.revenue_oxygen, heat=e.revenue_heat, spot=spot, thg=e.revenue_thg, bal=bal, h2=h2)
 
     def lcoh(**ch) -> float:
         v = {**base, **ch}
         cost = v["fin"] + v["opex"] + v["power"] + v["stack"]
-        rev = v["o2"] + v["heat"] + v["spot"] + v["thg"] + v["bal"] + v["spk"]
+        rev = v["o2"] + v["heat"] + v["spot"] + v["thg"] + v["bal"]
         return (cost - rev) / v["h2"]
 
     def financing(capex_net: float, rate_d: float, rate_e: float, years: float) -> float:
@@ -121,11 +121,11 @@ def sensitivity(r: OperationResult, e: Economics, step: float) -> list[Sensitivi
         flh = flh_of(s)
         f = flh / r.full_load_hours
         return lcoh(power=e.power_cost * f, stack=stack(flh=flh), o2=e.revenue_oxygen * f, heat=e.revenue_heat * f,
-                    spot=spot * f, thg=e.revenue_thg * f, spk=e.spk * f, h2=h2 * f)
+                    spot=spot * f, thg=e.revenue_thg * f, h2=h2 * f)
 
     add("Volllaststunden", full_load, "Stromkosten [€/a]", lambda s: e.power_cost * flh_of(s) / r.full_load_hours,
         lambda s: f"{de(flh_of(s), 0)} h/a")
     avg_price = e.power_cost / (e.power.total_procurement_kwh / 1000) if e.power.total_procurement_kwh else 0.0
-    add("Strompreis", lambda s: lcoh(power=e.power_cost * (1 + s), spk=e.spk * (1 + s)),
+    add("Strompreis", lambda s: lcoh(power=e.power_cost * (1 + s)),
         "Stromkosten [€/a]", lambda s: e.power_cost * (1 + s), lambda s: f"{de(avg_price * (1 + s), 2)} €/MWh")
     return rows

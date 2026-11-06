@@ -121,12 +121,6 @@ class Inputs:
     power_subsidy_mode: str = 'Ohne'  # Blatt 2, C179
     power_subsidy_eur_per_kg: float = 0.0  # Blatt 2, C180 [€ / kg_H2]
     power_subsidy_eur_per_mwh: float = 10.0  # Blatt 2, C181 [€ / MWh]
-    # ---- Strompreiskompensation
-    spk_mode: str = 'Ohne'  # Blatt 2, C189
-    spk_eua_price_eur_per_t: float = 89.0  # Blatt 2, C190 [€ / t_CO2]
-    spk_consumption_factor: float = 0.8  # Blatt 2, C191 [%]
-    spk_escalation: float = 0.0  # Blatt 2, C192 [%]
-    spk_separate_revenue_eur: float = 0.0  # Blatt 2, C193 [€ / a]
     # ---- THG-Quote
     thg_enabled: bool = True  # Blatt 2, C198
     thg_price_eur_per_t: float = 300.0  # Blatt 2, C199 [€ / t_CO2]

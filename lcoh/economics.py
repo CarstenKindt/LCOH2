@@ -80,7 +80,6 @@ class Economics:
     revenue_balancing: float
     revenue_other: float
     revenue_total: float        # Blatt 2, G196
-    spk: float                  # Blatt 2, F189
     # Ergebnis
     h2_kg_per_year: float
     lcoh_eur_per_kg: float      # Blatt 2, F3
@@ -189,22 +188,10 @@ def compute_economics(r: OperationResult) -> Economics:
                  + esc(inp.other_revenue_2_eur_per_year, inp.other_revenue_2_escalation)) if inp.other_revenue_enabled else 0.0
     revenue = thg + pc.sale_revenue_spot + pc.sale_revenue_ppa + oxygen + heat + balancing + other_rev
 
-    # ---- Strompreiskompensation (Blatt 3, L39)
-    smode = inp.spk_mode.lower()
-    if smode == "separat":
-        spk = esc(inp.spk_separate_revenue_eur, inp.spk_escalation)
-    elif smode == "rechner":
-        eua = esc(inp.spk_eua_price_eur_per_t, inp.spk_escalation)
-        fallback = (0.8 + (0.8 - 0.0109 * life)) / 2
-        consumption_mwh = pc.consumption_total_kwh * inp.spk_consumption_factor / k.KWH_PER_MWH
-        spk = 0.75 * 0.72 * eua * fallback * consumption_mwh
-    else:
-        spk = 0.0
-
-    lcoh = 0.0 if h2 == 0 else (sc.annual_cost + opex + pc.cost_total + financing - spk - revenue) / h2
+    lcoh = 0.0 if h2 == 0 else (sc.annual_cost + opex + pc.cost_total + financing - revenue) / h2
     return Economics(
         capex, subsidy, capex_net, capex_per_kw, battery,
         maintenance, personnel, provisions, water, other, opex_subsidy, opex,
         pc.cost_total, sc.annual_cost, debt, a_debt, equity, a_equity, financing,
-        thg, pc.sale_revenue_spot, pc.sale_revenue_ppa, oxygen, heat, balancing, other_rev, revenue, spk,
+        thg, pc.sale_revenue_spot, pc.sale_revenue_ppa, oxygen, heat, balancing, other_rev, revenue,
         h2, lcoh, lcoh * k.CT_PER_EUR / k.HHV_KWH_PER_KG_H2, pc, sc, capex_items, interest, wacc, water)

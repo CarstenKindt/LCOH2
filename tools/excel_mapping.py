@@ -123,12 +123,6 @@ BLATT2 = {
     "C179": ("power_subsidy_mode", "Förderungen", "Strompreisförderung"),
     "C180": ("power_subsidy_eur_per_kg", "Förderungen", "Strompreisförderung pro produziertem kg H2"),
     "C181": ("power_subsidy_eur_per_mwh", "Förderungen", "Strompreisförderung pro verbrauchter MWh"),
-    # Strompreiskompensation
-    "C189": ("spk_mode", "Strompreiskompensation", "Strompreiskompensation"),
-    "C190": ("spk_eua_price_eur_per_t", "Strompreiskompensation", "EUA-Preis"),
-    "C191": ("spk_consumption_factor", "Strompreiskompensation", "Faktor zum Stromverbrauch"),
-    "C192": ("spk_escalation", "Strompreiskompensation", "Jährliche Preisentwicklung SPK"),
-    "C193": ("spk_separate_revenue_eur", "Strompreiskompensation", "Separat kalkulierter Ertrag durch SPK"),
     # THG
     "C198": ("thg_enabled", "THG-Quote", "THG-Quote berücksichtigen"),
     "C199": ("thg_price_eur_per_t", "THG-Quote", None),

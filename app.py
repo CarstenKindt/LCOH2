@@ -75,6 +75,7 @@ section[data-testid="stSidebar"] {width: 250px !important; min-width: 250px !imp
 .st-key-cockpit_out [data-testid="stMetric"] * {justify-content: center !important; text-align: center !important;}
 .kpi {margin-bottom: .6rem;}
 .kpi .kl {font-size: .85rem; color: #555; line-height: 1.2;}
+.kpi .kq {display: inline-block; width: 1.05em; height: 1.05em; line-height: 1em; margin-left: .35em; border: 1.5px solid #808495; border-radius: 50%; color: #808495; font-size: .72rem; font-weight: 600; text-align: center; cursor: help; vertical-align: 1px;}
 .kpi .kv {font-size: 1.6rem; line-height: 1.3; white-space: nowrap;}
 .kpi .ku {font-size: .8rem; color: #666; margin-left: .2rem;}
 .st-key-cockpit_out .kpi {text-align: center;}
@@ -99,7 +100,7 @@ BLANK_KEYS = NUMERIC_KEYS + SELECT_KEYS
 
 
 DEFAULTS = tool_defaults()
-SOFT = {"Strompreiskompensation": "Strompreis&shy;kompensation", "Strompreisförderung": "Strompreis&shy;förderung",
+SOFT = {"Strompreisförderung": "Strompreis&shy;förderung",
         "Investitionskosten": "Investitions&shy;kosten", "Überschussstrom": "Überschuss&shy;strom",
         "Stromnebenkosten": "Stromneben&shy;kosten", "Wasserstoff-Aufbereitung": "Wasserstoff-&#8203;Aufbereitung",
         "Instandhaltung": "Instand&shy;haltung", "Rückstellungen": "Rück&shy;stellungen"}
@@ -432,8 +433,28 @@ logo_col.markdown(
     f'<img src="{_logo_cropped_uri("logo_bmwe.png")}" style="height:84px;width:auto;" alt="Gefördert durch das Bundesministerium für Wirtschaft und Energie"></div>',
     unsafe_allow_html=True)
 st.caption("Was kostet ein Kilogramm grüner Wasserstoff aus Ihrem Elektrolyseprojekt?")
-tab_cockpit, tab_inputs, tab_rev, tab_res, tab_data = st.tabs(
-    ["Cockpit", "Eingaben", "Einnahmepotenziale", "Ergebnisse", "Daten"])
+tab_cockpit, tab_inputs, tab_rev, tab_data, tab_res = st.tabs(
+    ["Cockpit", "Eingaben", "Einnahmepotenziale", "Daten", "Ergebnisse"])
+
+def data_tab_button() -> None:
+    """Schaltfläche, die zum Reiter „Daten“ wechselt (Streamlit kennt dafür keine eigene Funktion)."""
+    page = """<style>body{margin:0}
+    button{width:100%;box-sizing:border-box;padding:.45rem .75rem;border:1px solid rgba(49,51,63,.2);border-radius:.5rem;
+    background:#fff;color:#31333f;font-size:15px;cursor:pointer}
+    button:hover{border-color:#1f4e79;color:#1f4e79}</style>
+    <button id="b">Zeitreihen im Reiter „Daten“ ansehen oder hochladen →</button><script>
+    const P = window.parent.document;
+    document.getElementById('b').style.fontFamily = getComputedStyle(P.body).fontFamily;
+    document.getElementById('b').addEventListener('click', () => {
+      const t = [...P.querySelectorAll('[data-testid="stTab"]')].find(e => e.innerText.trim() === 'Daten');
+      if (t) { t.click(); P.defaultView.scrollTo({top: 0, behavior: 'smooth'}); }
+    });
+    </script>"""
+    if hasattr(st, "iframe"):
+        st.iframe(page, height=46)
+    else:
+        components.html(page, height=46)
+
 
 # ---------------------------------------------------------------- Cockpit (Eingaben links)
 def row(keys: list[str]) -> None:
@@ -470,6 +491,9 @@ with tab_cockpit:
                 row(["ppa_baseload_enabled", "ppa_baseload_kw", "ppa_baseload_price_eur_per_mwh"])
                 row(["ppa_pv_enabled", "ppa_pv_kw", "ppa_pv_price_eur_per_mwh"])
                 row(["ppa_wind_enabled", "ppa_wind_kw", "ppa_wind_price_eur_per_mwh"])
+                if S.get("ppa_pv_enabled") or S.get("ppa_wind_enabled"):
+                    st.caption("Die Erzeugungsprofile der PPAs lassen sich im Reiter „Daten“ durch eigene Zeitreihen ersetzen.")
+                    data_tab_button()
                 st.caption("Weitere Bezugsquellen (Details unter „Eingaben“, Reiter „Strombezug & Nebenkosten“):")
                 row(["section7_enabled"])
                 row(["section13k_enabled"])
@@ -611,7 +635,7 @@ def kmetric(col, label: str, value: str, unit: str = "", help: str | None = None
     tip = f' title="{html.escape(help, quote=True)}"' if help else ""
     u = f'<span class="ku">{html.escape(unit)}</span>' if unit else ""
     col.markdown(f'<div class="kpi" data-kpi="{html.escape(label)}" data-v="{html.escape((value + " " + unit).strip())}"{tip}>'
-                 f'<div class="kl">{html.escape(label)}{" ⓘ" if help else ""}</div>'
+                 f'<div class="kl">{html.escape(label)}{'<span class="kq">?</span>' if help else ""}</div>'
                  f'<div class="kv">{html.escape(value)}{u}</div></div>', unsafe_allow_html=True)
 
 
@@ -623,31 +647,25 @@ def footer() -> None:
 
 
 SERIES_HELP = {
-    "wind_kwh_per_kw": (
-        "Erzeugung einer Windanlage je installiertem kW und Stunde. Der Wert ist der Anteil der Nennleistung (0 = Flaute, 1 = "
-        "Volllast). Das Tool multipliziert ihn mit der installierten Leistung von PPA 2; daraus ergibt sich der stündliche Strombezug.",
-        "8.760 Werte, einer je Stunde, in kWh je kW (Werte zwischen 0 und 1). Aufbereitung: Stundenwerte der Einspeisung in kWh "
-        "durch die installierte Leistung in kW teilen."),
     "pv_kwh_per_kw": (
-        "Erzeugung einer PV-Anlage je installiertem kW und Stunde. Der Wert ist der Anteil der Nennleistung (0 nachts, höchstens 1). "
-        "Das Tool multipliziert ihn mit der installierten Leistung von PPA 1; daraus ergibt sich der stündliche Strombezug.",
-        "8.760 Werte, einer je Stunde, in kWh je kW (Werte zwischen 0 und 1). Aufbereitung: Stundenwerte der Einspeisung in kWh "
-        "durch die installierte Leistung in kW teilen."),
+        "Stündliches Erzeugungsprofil der Anlage hinter PPA 1, angegeben als Erzeugung je installiertem kW (z. B. Photovoltaik). "
+        "Das Tool multipliziert es mit der installierten Leistung von PPA 1; daraus ergibt sich der stündliche Strombezug. "
+        "Hinterlegt ist ein Beispielprofil."),
+    "wind_kwh_per_kw": (
+        "Stündliches Erzeugungsprofil der Anlage hinter PPA 2, angegeben als Erzeugung je installiertem kW (z. B. Windkraft). "
+        "Das Tool multipliziert es mit der installierten Leistung von PPA 2; daraus ergibt sich der stündliche Strombezug. "
+        "Hinterlegt ist ein Beispielprofil."),
     "day_ahead": (
         "Börsenstrompreis (Day-Ahead) je Stunde. Er bestimmt den Preis beim Strombezug am Spotmarkt und nach §7 der 37. BImSchV "
-        "sowie den Erlös beim Verkauf von Überschussstrom (negative Preise werden dort mit 0 angesetzt).",
-        "8.760 Werte in €/MWh, einer je Stunde; negative Preise sind erlaubt. Eine hochgeladene Reihe ersetzt alle hinterlegten "
-        "Preis-Szenarien (2024 bis 2045)."),
+        "sowie den Erlös beim Verkauf von Überschussstrom (negative Preise werden dort mit 0 angesetzt). Eine hochgeladene Reihe "
+        "ersetzt alle hinterlegten Preis-Szenarien."),
     "co2_eur_per_t": (
         "CO₂-Preis (Emissionshandel) je Stunde. Er legt die Preisgrenze für den Strombezug nach §7 fest: das 0,36-Fache des "
         "CO₂-Preises, mindestens 20 €/MWh, höchstens der maximale Nachfragepreis. Wirkt nur, wenn §7 eingeschaltet ist und als Quelle "
-        "„Jahresdaten“ gewählt ist.",
-        "8.760 Werte in €/t CO₂, einer je Stunde. Liegt nur ein Tages- oder Wochenpreis vor, den Wert auf alle zugehörigen Stunden "
-        "wiederholen."),
+        "„Jahresdaten“ gewählt ist."),
     "section13k_kwh": (
         "Energiemenge je Stunde, die im Netz sonst abgeregelt würde und für „Nutzen statt Abregeln“ (§13k EnWG) bezogen werden "
-        "kann. Sie begrenzt den Bezug nach §13k je Stunde. Wirkt nur, wenn §13k eingeschaltet ist.",
-        "8.760 Werte in kWh je Stunde, nicht negativ. In Stunden ohne Abregelung 0 eintragen."),
+        "kann. Sie begrenzt den Bezug nach §13k je Stunde. Wirkt nur, wenn §13k eingeschaltet ist."),
 }
 
 
@@ -659,19 +677,19 @@ def render_data_tab(inp) -> None:
         st.markdown(
             "- **Anzahl:** genau 8.760 Werte (ein Jahr mit 24 Stunden je Tag; bei einem Schaltjahr den 29. Februar weglassen).\n"
             "- **Reihenfolge:** zeitlich vom Jahresanfang bis zum Jahresende. Alle Reihen müssen dieselbe Stundenzuordnung haben, "
-            "damit z. B. Windprofil und Börsenpreis zeitlich zusammenpassen.\n"
+            "damit z. B. Erzeugungsprofil und Börsenpreis zeitlich zusammenpassen.\n"
             "- **Dateiformat:** .csv oder .txt. Am einfachsten ist eine Spalte mit einer Zahl pro Zeile. Bei mehreren Spalten "
             "(getrennt durch Semikolon, Tabulator oder Komma) wird die **letzte** Spalte gelesen.\n"
             "- **Zahlen:** Dezimalkomma und Dezimalpunkt sind erlaubt, keine Tausendertrennzeichen. Eine Überschriftenzeile in der "
             "ersten Zeile wird übersprungen.\n"
             "- **Prüfung:** Das Tool prüft nur Anzahl und Lesbarkeit der Zahlen und nennt bei Fehlern die betroffene Zeile. "
-            "Ob die Werte sinnvoll sind (z. B. Wind zwischen 0 und 1), müssen Sie selbst sicherstellen.\n"
+            "Ob die Werte sinnvoll sind (z. B. Erzeugungsprofile zwischen 0 und 1), müssen Sie selbst sicherstellen.\n"
             "- **Gültigkeit:** Hochgeladene Reihen gelten nur für die laufende Sitzung. Sie werden **nicht** in der gespeicherten "
             "Eingabedatei (.json) abgelegt und müssen nach einem Neuladen der Seite erneut hochgeladen werden. Mit „Auf Standard "
             "zurücksetzen“ nutzt das Tool wieder die hinterlegte Reihe.")
     defaults = load_default_timeseries()
     series_info = {
-        "wind_kwh_per_kw": ("wind_kwh_per_kw", "kWh/kW"), "pv_kwh_per_kw": ("pv_kwh_per_kw", "kWh/kW"),
+        "pv_kwh_per_kw": ("pv_kwh_per_kw", "kWh/kW"), "wind_kwh_per_kw": ("wind_kwh_per_kw", "kWh/kW"),
         "day_ahead": (f"day_ahead_{inp.day_ahead_scenario_year}_eur_per_mwh", "€/MWh"),
         "co2_eur_per_t": ("co2_eur_per_t", "€/t"), "section13k_kwh": ("section13k_kwh", "kWh")}
     for name, (col, unit) in series_info.items():
@@ -681,8 +699,7 @@ def render_data_tab(inp) -> None:
             values = np.array(st.session_state["series"][name] if custom else defaults[col], dtype=float)
             with c1:
                 st.markdown(f"**{SERIES_LABELS[name]}** · {'eigene Datei' if custom else 'Standardwerte'}")
-                meaning, fmt = SERIES_HELP[name]
-                st.caption(f"**Bedeutung:** {meaning}  \n**Aufbau für den Upload:** {fmt}")
+                st.caption(f"**Bedeutung:** {SERIES_HELP[name]}")
                 fig = go.Figure(go.Scatter(y=values, mode="lines", line=dict(color="#1f4e79", width=1)))
                 fig.update_layout(height=160, margin=dict(l=0, r=0, t=5, b=0), yaxis_title=unit, xaxis_title="Stunde")
                 st.plotly_chart(fig, width="stretch", key=f"plot_{name}")
@@ -748,6 +765,9 @@ ely_util = r.full_load_hours / 8760
 run_hours = int((r.hourly["consumption_kwh"] > 0).sum())
 full_hours = int((r.hourly["consumption_kwh"] >= r.power.total_kw * 0.99999).sum())
 part_hours = run_hours - full_hours
+avg_power_price = e.power_cost / (pc.total_procurement_kwh / 1000) if pc.total_procurement_kwh else 0.0
+HELP_AVG_PRICE = ("Jährliche Stromkosten einschließlich Netzentgelten, Umlagen und Abgaben (nach Befreiungen), geteilt durch die "
+                  "gesamte bezogene Strommenge.")
 HELP_GREEN = ("Anteil des bezogenen Stroms, der nicht aus dem Spotmarkt (Netzmix) stammt. PPA (PPA 1, PPA 2, Grundlast), "
               "§7 und §13k werden als erneuerbar gewertet. Vereinfachte Kennzahl; sie ersetzt keine Prüfung nach den "
               "RFNBO-Kriterien.")
@@ -785,7 +805,7 @@ summary_box(SUMMARY_SLOTS["Anlage & Investitionen"], [
     ("CAPEX je kW Elektrolyseur", f"{de(e.capex_gross / ely_kw)} €/kW")])
 summary_box(SUMMARY_SLOTS["Strombezug & Nebenkosten"], [
     ("Stromkosten pro Jahr", f"{de(e.power_cost)} €"),
-    ("Mittlerer Strompreis (inkl. Abgaben)", f"{de(e.power_cost / (pc.total_procurement_kwh / 1000) if pc.total_procurement_kwh else 0)} €/MWh")])
+    ("Durchschnittlicher Strompreis (inkl. Abgaben)", f"{de(avg_power_price)} €/MWh")])
 summary_box(SUMMARY_SLOTS["Betrieb (OPEX)"], [
     ("OPEX gesamt pro Jahr", f"{de(e.opex_total)} €"),
     ("OPEX je kW Elektrolyseur", f"{de(e.opex_total / ely_kw)} €/(kW·a)"),
@@ -803,7 +823,7 @@ section_sum(A, "Investitionskosten (CAPEX)", capex_pair("EPC", "Balance of Plant
 section_sum(A, "Abwärme", capex_pair("Abwärmesystem"))
 section_sum(A, "Sauerstoff", capex_pair("Sauerstoffsystem"))
 section_sum(A, "Wasserstoff-Aufbereitung", capex_pair("H₂-Aufbereitung"))
-section_sum(A, "Peripherie", [("Leistung Peripherie", f"{de(r.power.peripherals_kw, 0)} kW")])
+section_sum(A, "Leistung BoP", [("Leistung BoP", f"{de(r.power.peripherals_kw, 0)} kW")])
 section_sum(A, "Batteriesystem (Kosten)", capex_pair("Batteriesystem") if inp.battery_enabled else [("Kosten", eur(0))])
 section_sum(A, "Stacktausch", per_year("Kosten pro Jahr", e.stack_cost_per_year) + [("Tausche", f"{r.stack_replacements}")])
 section_sum(A, "Individuelle CAPEX", capex_pair("Individuelle CAPEX"))
@@ -821,7 +841,6 @@ section_sum(F, "Finanzierung", per_year("Kapitalkosten", e.financing_total))
 section_sum(F, "CAPEX-Förderung", [("Fördersumme", eur(e.capex_subsidy))])
 section_sum(F, "OPEX-Förderung", per_year("Förderung", e.opex_subsidy))
 section_sum(F, "Strompreisförderung", per_year("Förderung", pc.power_subsidy))
-section_sum(F, "Strompreiskompensation", per_year("Förderung", e.spk))
 section_sum(R, "THG-Minderungsmenge", per_year("Einnahmen", e.revenue_thg))
 section_sum(R, "Verkauf von Überschussstrom", per_year("Einnahmen", e.revenue_power_spot + e.revenue_power_ppa))
 section_sum(R, "Sauerstoff", per_year("Einnahmen", e.revenue_oxygen))
@@ -848,6 +867,8 @@ with cockpit_slot:
     kmetric(k8, "Kapitalkostensatz (WACC)", de(e.wacc * 100, 1), "%")
     kmetric(k9, "Stacktausche", str(r.stack_replacements), "", help=f"Anzahl der Stacktausche in der Projektlaufzeit "
               f"(alle {de(r.stack_interval_years, 1)} Jahre).")
+    k10, _, _ = st.columns(3)
+    kmetric(k10, "Durchschnittlicher Strompreis (inkl. Abgaben)", de(avg_power_price), "€/MWh", help=HELP_AVG_PRICE)
     items = waterfall_items(r, e, "verbraucher", netto=True)
     st.markdown("#### Kostenstruktur")
     st.plotly_chart(cost_structure_figure(items, e.lcoh_eur_per_kg, detail=False, height=430,
@@ -879,6 +900,8 @@ with tab_res:
     kmetric(p3, "Anteil grüner Wasserstoff", de(green_share * 100, 1), "%", help=HELP_GREEN)
     kmetric(p4, "Systemauslastung", de(system_util * 100, 1), "%")
     kmetric(p5, "Kapitalkostensatz (WACC)", de(e.wacc * 100, 1), "%")
+    q1, _, _, _, _ = st.columns(5)
+    kmetric(q1, "Durchschnittlicher Strompreis (inkl. Abgaben)", de(avg_power_price), "€/MWh", help=HELP_AVG_PRICE)
 
     st.markdown("### Zusammensetzung der Gestehungskosten")
     mode = st.radio("Darstellung", ["Detailliert (Einzelposten)", "Gestapelt nach Bereichen",
@@ -1026,6 +1049,7 @@ with tab_res:
     alle += [("Anlage und Betrieb", k, w.split(" ")[0], " ".join(w.split(" ")[1:])) for k, w in kennz]
     alle += [("Strombezug", f"{n}: Menge", q / m, "MWh/a") for n, q, _ in quellen]
     alle += [("Strombezug", f"{n}: Preis", p, "€/MWh") for n, _, p in quellen]
+    alle += [("Strombezug", "Durchschnittlicher Strompreis (inkl. Abgaben)", avg_power_price, "€/MWh")]
     alle += [("Sensitivität", f"{z.name}: Kosten −{pct_txt}", z.lcoh_minus, "€/kg") for z in rows_s]
     alle += [("Sensitivität", f"{z.name}: Kosten +{pct_txt}", z.lcoh_plus, "€/kg") for z in rows_s]
     alle_df = pd.DataFrame([(b, k, (de(v, 2) if isinstance(v, float) else str(v)), u) for b, k, v, u in alle],

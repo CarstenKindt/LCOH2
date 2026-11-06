@@ -17,7 +17,7 @@ def test_lcoh_und_zwischenwerte(name):
         "B2!F174": e.opex_subsidy, "B2!G131": e.opex_total, "B2!G159": e.financing_total,
         "B2!F198": e.revenue_thg, "B2!F208": e.revenue_power_spot, "B2!F209": e.revenue_power_ppa,
         "B2!F213": e.revenue_oxygen, "B2!F217": e.revenue_heat, "B2!F222": e.revenue_balancing,
-        "B2!F227": e.revenue_other, "B2!G196": e.revenue_total, "B2!F189": e.spk,
+        "B2!F227": e.revenue_other, "B2!G196": e.revenue_total,
         "B2!F3": e.lcoh_eur_per_kg, "B2!F4": e.lcoh_ct_per_kwh,
     }
     for zelle, wert in ziele.items():

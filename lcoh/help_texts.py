@@ -115,12 +115,6 @@ HELP: dict[str, str] = {
     "power_subsidy_mode": "Art der Strompreisförderung. „Pro kg“: je erzeugtem Kilogramm Wasserstoff. „Pro MWh Strom“: je verbrauchter MWh.",
     "power_subsidy_eur_per_kg": "Strompreisförderung in Euro je erzeugtem Kilogramm Wasserstoff.",
     "power_subsidy_eur_per_mwh": "Strompreisförderung in Euro je verbrauchter MWh Strom.",
-    # ---- SPK
-    "spk_mode": "Strompreiskompensation für indirekte CO₂-Kosten im Strompreis. „Rechner“: Berechnung im Tool aus EUA-Preis und Verbrauch. „Separat“: ein selbst ermittelter Jahresbetrag.",
-    "spk_eua_price_eur_per_t": "Preis der EU-Emissionsberechtigungen (EUA) in Euro je Tonne CO₂ zur Berechnung der Strompreiskompensation.",
-    "spk_consumption_factor": "Anteil des Stromverbrauchs, der für die Strompreiskompensation angesetzt wird.",
-    "spk_escalation": "Jährliche Preisentwicklung (EUA-Preis oder separater Ertrag). Gerechnet wird mit dem Mittelwert über die Laufzeit.",
-    "spk_separate_revenue_eur": "Selbst berechneter jährlicher Ertrag aus der Strompreiskompensation in Euro (nur bei „Separat“).",
     # ---- THG
     "thg_enabled": "Berücksichtigt Erlöse aus der THG-Quote. Der Wasserstoff muss dafür im Mobilitätssektor eingesetzt werden.",
     "thg_price_eur_per_t": "Preis der THG-Quote in Euro je Tonne CO₂ im Jahr 2026. In den Folgejahren steigt er um die jährliche Preissteigerung, höchstens bis 600 €/t.",

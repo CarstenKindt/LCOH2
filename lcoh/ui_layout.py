@@ -25,7 +25,7 @@ PAGES = [
         ("Wasserstoff-Aufbereitung", None, [
             "h2_processing_mode", "capex_h2_compression_eur_per_kw", "capex_h2_direct_eur_per_kw", "h2_processed_share",
             "h2_compressor_pressure_bar", "h2_inlet_temperature_c", "h2_inlet_pressure_bar", "h2_compressor_efficiency"]),
-        ("Peripherie", None, ["peripherals_share_of_ely"]),
+        ("Leistung BoP", None, ["peripherals_share_of_ely"]),
         ("Batteriesystem (Kosten)", "battery_enabled", ["battery_capex_eur_per_kwh", "battery_other_costs_eur"]),
         ("Stacktausch", None, [
             "stack_lifetime_h", "stack_degradation_per_year", "stack_replacement_cost_share",
@@ -60,9 +60,6 @@ PAGES = [
             "opex_subsidy_mode", "opex_subsidy_eur_per_kg", "opex_subsidy_eur_per_full_load_hour"]),
         ("Strompreisförderung", None, [
             "power_subsidy_mode", "power_subsidy_eur_per_kg", "power_subsidy_eur_per_mwh"]),
-        ("Strompreiskompensation", None, [
-            "spk_mode", "spk_eua_price_eur_per_t", "spk_consumption_factor", "spk_escalation",
-            "spk_separate_revenue_eur"]),
     ]),
 ]
 
@@ -112,10 +109,6 @@ VISIBLE = {
     "opex_subsidy_eur_per_full_load_hour": lambda v: v["opex_subsidy_mode"] == "Pro Volllaststunde",
     "power_subsidy_eur_per_kg": lambda v: v["power_subsidy_mode"] == "Pro kg",
     "power_subsidy_eur_per_mwh": lambda v: v["power_subsidy_mode"] == "Pro MWh Strom",
-    "spk_eua_price_eur_per_t": lambda v: v["spk_mode"] == "Rechner",
-    "spk_consumption_factor": lambda v: v["spk_mode"] == "Rechner",
-    "spk_escalation": lambda v: v["spk_mode"] != "Ohne",
-    "spk_separate_revenue_eur": lambda v: v["spk_mode"] == "Separat",
     "thg_price_eur_per_t": lambda v: v["thg_enabled"], "thg_mobility_share": lambda v: v["thg_enabled"],
     "thg_producer_share": lambda v: v["thg_enabled"], "thg_h2_intensity_kgco2_per_gj": lambda v: v["thg_enabled"],
     "thg_adjustment_factor": lambda v: v["thg_enabled"], "thg_price_escalation": lambda v: v["thg_enabled"],
