@@ -6,7 +6,8 @@ COCKPIT = [
     ("Elektrolyseur & Projekt", None, [
         "commissioning_year", "project_lifetime_years", "electrolyzer_power_kw",
         "capex_electrolyzer_eur_per_kw", "electrolyzer_efficiency", "min_part_load"]),
-    ("Batterie", None, ["battery_enabled", "battery_capacity_hours", "battery_input_power_kw"]),
+    ("Batterie", None, ["battery_enabled", "battery_capacity_hours", "battery_input_power_kw", "battery_optimize",
+                  "battery_efficiency"]),
     ("Strombezug", None, [
         "ppa_baseload_enabled", "ppa_baseload_kw", "ppa_baseload_price_eur_per_mwh",
         "ppa_pv_enabled", "ppa_pv_kw", "ppa_pv_price_eur_per_mwh", "ppa_wind_enabled", "ppa_wind_kw", "ppa_wind_price_eur_per_mwh",
@@ -81,6 +82,8 @@ REVENUE_PAGE = [
 VISIBLE = {
     "battery_capacity_hours": lambda v: v["battery_enabled"],
     "battery_input_power_kw": lambda v: v["battery_enabled"],
+    "battery_optimize": lambda v: v["battery_enabled"],
+    "battery_efficiency": lambda v: v["battery_enabled"] and v["battery_optimize"],
     "ppa_baseload_kw": lambda v: v["ppa_baseload_enabled"],
     "ppa_baseload_price_eur_per_mwh": lambda v: v["ppa_baseload_enabled"],
     "ppa_baseload_price_escalation": lambda v: v["ppa_baseload_enabled"],
@@ -158,6 +161,8 @@ def rename_label(text):
 LABEL_OVERRIDES = {
     "ppa_pv_enabled": "PPA 1 aktiv", "ppa_wind_enabled": "PPA 2 aktiv",
     "battery_enabled": "Batterie nutzen?",
+    "battery_optimize": "Batterie nach Preissignalen laden (Optimierung)",
+    "battery_efficiency": "Rundlaufwirkungsgrad Batterie",
     "battery_input_power_kw": "Anschlussleistung gesamt (Anlage + Batterieladung)",
     "min_part_load": "Minimale Teillast",
     "capex_custom_1_eur_per_kw": "Individuelle CAPEX",

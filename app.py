@@ -130,7 +130,7 @@ def fill_button(keys: list[str], ident: str) -> None:
 
 TOGGLE_KEYS = {"waste_heat_enabled", "oxygen_enabled", "thg_enabled", "power_sale_enabled", "balancing_enabled",
                "other_revenue_enabled"}
-START_OFF = ["battery_enabled", "ppa_baseload_enabled", "ppa_pv_enabled", "ppa_wind_enabled", "spot_enabled", "section7_enabled",
+START_OFF = ["battery_enabled", "battery_optimize", "ppa_baseload_enabled", "ppa_pv_enabled", "ppa_wind_enabled", "spot_enabled", "section7_enabled",
              "section13k_enabled"] + sorted(TOGGLE_KEYS)
 
 
@@ -474,6 +474,7 @@ with tab_cockpit:
                 bc1.markdown("#### Batterie")
                 if S["battery_enabled"]:
                     row(["battery_capacity_hours", "battery_input_power_kw"])
+                    row(["battery_optimize", "battery_efficiency"])
             with st.container(border=True):
                 st.markdown("#### Strombezug")
                 st.caption("Grundlast-PPA: konstanter Bezug. Pay-as-Produced-PPAs (PPA 1 und PPA 2): Bezug folgt dem jeweiligen Erzeugungsprofil.")
@@ -972,6 +973,22 @@ with tab_res:
         st.caption(f"Ladezyklen pro Jahr: {r.battery_cycles}")
     else:
         st.info("Die Batterie ist ausgeschaltet.")
+    if inp.battery_enabled and inp.battery_optimize and r.power.battery_capacity_kwh > 0:
+        st.markdown("#### Vergleich: Batterie wie in der Excel und nach Preissignalen optimiert")
+        r0, e0 = rechnen(json.dumps({**effective, "battery_optimize": False}, sort_keys=True, default=float), series_json, STEPS)
+        def _vgl(label, f, n=2, unit=""):
+            a_, b_ = f(r0, e0), f(r, e)
+            return (label, de(a_, n) + unit, de(b_, n) + unit, ("+" if b_ >= a_ else "−") + de(abs(b_ - a_), n) + unit)
+        vgl = [_vgl("Gestehungskosten [€/kg]", lambda r_, e_: e_.lcoh_eur_per_kg),
+               _vgl("Wasserstoff [t/a]", lambda r_, e_: e_.h2_kg_per_year / 1000, 0),
+               _vgl("Volllaststunden Elektrolyseur [h/a]", lambda r_, e_: r_.full_load_hours, 0),
+               _vgl("Stromkosten [Mio. €/a]", lambda r_, e_: e_.power_cost / 1e6),
+               _vgl("Erlöse aus Stromverkauf [Mio. €/a]", lambda r_, e_: (e_.revenue_power_spot + e_.revenue_power_ppa) / 1e6),
+               _vgl("Ladezyklen der Batterie [1/a]", lambda r_, e_: r_.battery_cycles, 0)]
+        st.dataframe(pd.DataFrame(vgl, columns=["Kennzahl", "Batterie wie Excel", "Batterie optimiert", "Änderung"]),
+                     hide_index=True, width="stretch")
+        st.caption("Die optimierte Batterie plant täglich mit den Preisen der nächsten 24 Stunden plus Vorlauf (perfekte Voraussicht "
+                   "im Fenster) und rechnet mit dem eingestellten Rundlaufwirkungsgrad. Sie geht über die Excel hinaus.")
 
     st.markdown("### Spotmarktpreise")
     st.plotly_chart(spot_price_figure(r.market, steps_per_hour=STEPS), width="stretch")

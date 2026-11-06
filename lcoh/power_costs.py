@@ -153,7 +153,10 @@ def power_costs(r: OperationResult) -> PowerCosts:
     sale_spot = esc(sale_spot_raw, inp.power_sale_ppa_escalation)
     sale_ppa = (esc(inp.power_sale_ppa_price_eur_per_mwh, inp.power_sale_ppa_escalation)
                 if inp.power_sale_enabled and inp.power_sale_mode == "PPA" else 0.0)
-    surplus_mwh = (procurement - cons) / m  # Blatt 5, R31 (Bezug - Verbrauch)
+    if inp.battery_enabled and inp.battery_optimize:
+        surplus_mwh = surplus / m  # optimierte Batterie: tatsächlich verkaufte Menge (Verluste der Batterie sind kein Verkauf)
+    else:
+        surplus_mwh = (procurement - cons) / m  # Blatt 5, R31 (Bezug - Verbrauch)
 
     return PowerCosts(
         pv, wind, base, s13k, s7, spot, procurement, cons, ely, rest, surplus,

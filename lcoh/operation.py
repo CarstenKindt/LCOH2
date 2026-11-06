@@ -11,6 +11,7 @@ from dataclasses import dataclass
 import pandas as pd
 
 from lcoh import constants as k
+from lcoh.battery_opt import simulate_dispatch_optimized
 from lcoh.dispatch import simulate_dispatch
 from lcoh.inputs import Inputs
 from lcoh.prices import MarketSeries, build_market_series
@@ -64,6 +65,12 @@ class OperationResult:
     steps_per_hour: int = 1
 
 
+def _dispatch(inp, ts, market, power, steps_per_hour, excel_shift):
+    if inp.battery_enabled and inp.battery_optimize:
+        return simulate_dispatch_optimized(inp, ts, market, power, steps_per_hour)
+    return simulate_dispatch(inp, ts, market, power, steps_per_hour, excel_shift)
+
+
 def run_operation(inp: Inputs, ts: pd.DataFrame, max_iter: int = 20,
                   fixed_interval_years: float | None = None, steps_per_hour: int = 1,
                   excel_shift: bool = False) -> OperationResult:
@@ -74,7 +81,7 @@ def run_operation(inp: Inputs, ts: pd.DataFrame, max_iter: int = 20,
     for i in range(1, max_iter + 1):
         eff = average_efficiency(inp, interval)
         power = system_power(inp, eff)
-        hourly = simulate_dispatch(inp, ts, market, power, steps_per_hour, excel_shift)
+        hourly = _dispatch(inp, ts, market, power, steps_per_hour, excel_shift)
         ely_kwh = float(hourly["consumption_kwh"].sum() * power.ely_kw / power.total_kw)
         flh = ely_kwh / power.ely_kw
         new_interval = stack_interval_years(inp, stack_replacements(inp, flh))
@@ -84,7 +91,7 @@ def run_operation(inp: Inputs, ts: pd.DataFrame, max_iter: int = 20,
             interval = max(interval, new_interval)
             eff = average_efficiency(inp, interval)
             power = system_power(inp, eff)
-            hourly = simulate_dispatch(inp, ts, market, power, steps_per_hour, excel_shift)
+            hourly = _dispatch(inp, ts, market, power, steps_per_hour, excel_shift)
             ely_kwh = float(hourly["consumption_kwh"].sum() * power.ely_kw / power.total_kw)
             flh = ely_kwh / power.ely_kw
             break

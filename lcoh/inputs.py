@@ -40,6 +40,8 @@ class Inputs:
     battery_input_power_kw: float = 50000.0  # Blatt 2, C48 [kW]
     battery_capex_eur_per_kwh: float = 220.0  # Blatt 2, C49 [€ / kWh]
     battery_other_costs_eur: float = 0.0  # Blatt 2, C50 [€]
+    battery_optimize: bool = False  # neu im Tool: Batterie nach Preissignalen optimieren
+    battery_efficiency: float = 0.9  # neu im Tool: Rundlaufwirkungsgrad der Batterie (nur bei Optimierung) [%]
     # ---- Strombezug: PPA
     ppa_baseload_enabled: bool = True  # Blatt 2, C62
     ppa_baseload_kw: float = 5000.0  # Blatt 2, C63 [kWh / h]

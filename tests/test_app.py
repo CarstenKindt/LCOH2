@@ -130,3 +130,14 @@ def test_berechnung_laeuft_in_viertelstunden():
     assert kpis(at, "Gestehungskosten")
     assert any("Viertelstunden" in c.value for c in at.caption)
     assert not [r for r in at.radio if r.key == "res_mode"]
+
+
+def test_batterie_optimierung_im_cockpit():
+    at = neue_app()
+    at.toggle(key="w_battery_enabled").set_value(True).run()
+    assert not at.exception
+    assert not [t for t in at.text_input if t.key == "w_battery_efficiency"]      # erst mit „Optimierung“ sichtbar
+    at.toggle(key="w_battery_optimize").set_value(True).run()
+    assert not at.exception, at.exception
+    assert at.text_input(key="w_battery_efficiency").value
+    assert kpis(at, "Gestehungskosten")
