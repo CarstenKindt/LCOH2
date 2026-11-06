@@ -99,3 +99,17 @@ def test_schalter_aus_aendert_die_alte_rechnung_nicht():
     inp = Inputs.from_dict({**tool_defaults(), **BASIS, **over, "battery_optimize": False})
     r1 = run_operation(inp, build_timeseries({}, 1), steps_per_hour=1)
     assert r0.h2_kg_per_year == r1.h2_kg_per_year and (r0.hourly.values == r1.hourly.values).all()
+
+
+def test_netzbezug_fuellt_nur_auf_und_bleibt_unter_batterieleistung():
+    """Grundlast 5 MW, PV 10 MW, Wind 30 MW, §7 an: PPA versorgt zuerst, Netz füllt auf, Gesamtbezug <= Eingangsleistung."""
+    over = {"ppa_baseload_enabled": True, "ppa_baseload_kw": 5000.0, "ppa_pv_kw": 10000.0, "ppa_wind_enabled": True,
+            "ppa_wind_kw": 30000.0, "section7_enabled": True, "electrolyzer_power_kw": 25000.0,
+            "battery_input_power_kw": 50000.0}
+    inp, r = _lauf(over)
+    _bilanz(inp, r)
+    h, c5 = r.hourly, r.power.total_kw
+    grid = h.s7_kwh + h.s13k_kwh + h.spot_kwh
+    assert (h.ppa_kwh + grid <= r.power.battery_power_kw + 1e-6).all()           # Bezug nie über Batterieeingangsleistung
+    assert (grid[h.ppa_kwh >= c5 - 1e-6] <= 1e-9).all()                          # PPA allein reicht: kein Netzbezug
+    assert (h.surplus_kwh <= (h.ppa_kwh - c5).clip(lower=0) + h.battery_discharge_kwh + 1e-6).all()  # nur Überschuss wird verkauft

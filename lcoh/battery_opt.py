@@ -47,7 +47,8 @@ def _structure(h: int, eta_c: float, eta_d: float):
     ub = sparse.vstack([
         sparse.hstack([Z, I, Z, Z, -I, -I, Z, Z]),                        # Laden <= PAP + §7 + §13k
         sparse.hstack([-I, Z, Z, Z, Z, Z, I, Z]),                         # Spot <= Verbrauch
-        sparse.hstack([Z, Z, -I, I, Z, Z, Z, Z]),                         # Verkauf <= PPA + Entladung
+        sparse.hstack([Z, Z, -I, I, Z, Z, Z, Z]),                         # Verkauf <= PPA-Überschuss + Entladung
+        sparse.hstack([Z, Z, Z, Z, I, I, I, Z]),                          # Netzbezug (§7 + §13k + Spot) <= Restleistung
     ], format="csr")
     return eq, ub
 
@@ -87,6 +88,12 @@ def simulate_dispatch_optimized(inp: Inputs, ts: pd.DataFrame, market: MarketSer
         psale = price_sale / 1000.0
     psale = psale * average_escalation_factor(inp.power_sale_ppa_escalation, years)
 
+    # PPA-Strom versorgt zuerst den Elektrolyseur; nur der Überschuss darüber kann verkauft oder geladen werden.
+    # Netzstrom füllt nur auf und nur bis zur Batterieeingangsleistung (Bezug insgesamt <= P_in); ist die PPA allein
+    # bereits ausreichend, gibt es keinen Netzbezug, damit kein PPA-Strom gegen Netzstrom getauscht wird.
+    surplus = np.maximum(L - C5, 0.0)
+    gridcap = np.where(L >= C5 - 1e-9, 0.0, np.maximum(C5 + Pb - L, 0.0))
+
     steps_day = 24 * steps_per_hour
     look = LOOKAHEAD_HOURS * steps_per_hour
     out = {c: np.zeros(n) for c in OUTPUT_COLUMNS}
@@ -113,6 +120,7 @@ def simulate_dispatch_optimized(inp: Inputs, ts: pd.DataFrame, market: MarketSer
         lo = np.zeros(nv)
         hi = np.empty(nv)
         hi[ELY * h:(ELY + 1) * h] = C5
+        lo[ELY * h:(ELY + 1) * h] = np.minimum(L[w], C5)               # PPA-Strom versorgt zuerst den Elektrolyseur
         hi[CH * h:(CH + 1) * h] = Pb
         hi[DIS * h:(DIS + 1) * h] = Pb
         hi[SELL * h:(SELL + 1) * h] = np.inf
@@ -121,7 +129,7 @@ def simulate_dispatch_optimized(inp: Inputs, ts: pd.DataFrame, market: MarketSer
         hi[SPOT * h:(SPOT + 1) * h] = capspot[w]
         hi[SOC * h:(SOC + 1) * h] = V3
         b_eq = np.concatenate([-L[w], np.r_[soc0, np.zeros(h - 1)]])
-        b_ub = np.concatenate([pap[w], np.zeros(h), L[w]])
+        b_ub = np.concatenate([pap[w], np.zeros(h), surplus[w], gridcap[w]])
         res = linprog(c, A_ub=A_ub, b_ub=b_ub, A_eq=A_eq, b_eq=b_eq, bounds=np.column_stack([lo, hi]), method="highs")
         if res.status != 0:
             raise RuntimeError(f"Batterie-Optimierung fehlgeschlagen (Tag {start // steps_day + 1}): {res.message}")
