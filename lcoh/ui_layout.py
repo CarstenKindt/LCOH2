@@ -162,7 +162,7 @@ LABEL_OVERRIDES = {
     "ppa_pv_enabled": "PPA 1 aktiv", "ppa_wind_enabled": "PPA 2 aktiv",
     "battery_enabled": "Batterie nutzen?",
     "battery_optimize": "Batterie nach Preissignalen laden (Optimierung)",
-    "battery_efficiency": "Rundlaufwirkungsgrad Batterie",
+    "battery_efficiency": "Wirkungsgrad Batterie",
     "battery_input_power_kw": "Anschlussleistung gesamt (Anlage + Batterieladung)",
     "min_part_load": "Minimale Teillast",
     "capex_custom_1_eur_per_kw": "Individuelle CAPEX",

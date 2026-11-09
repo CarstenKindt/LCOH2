@@ -51,7 +51,7 @@ SPECS: tuple[InputSpec, ...] = (
     InputSpec('battery_capex_eur_per_kwh', 'Batteriesystem', 'Spezifische Investitionskosten', '€ / kWh', '', 'number', 220.0, None, 0.0, None, 'Blatt 2, C49'),
     InputSpec('battery_other_costs_eur', 'Batteriesystem', 'Sonstige Kosten', '€', '', 'number', 0.0, None, 0.0, None, 'Blatt 2, C50'),
     InputSpec('battery_optimize', 'Batteriesystem', 'Batterie nach Preissignalen optimieren?', '', '', 'bool', False, None, None, None, 'Neu im Tool'),
-    InputSpec('battery_efficiency', 'Batteriesystem', 'Rundlaufwirkungsgrad Batterie', '%', '', 'percent', 0.9, None, 0.5, 1.0, 'Neu im Tool'),
+    InputSpec('battery_efficiency', 'Batteriesystem', 'Wirkungsgrad Batterie', '%', '', 'percent', 0.9, None, 0.5, 1.0, 'Neu im Tool'),
     InputSpec('ppa_baseload_enabled', 'Strombezug: PPA', 'PPA Baseload aktiv', '', '', 'bool', True, None, None, None, 'Blatt 2, C62'),
     InputSpec('ppa_baseload_kw', 'Strombezug: PPA', 'Leistung Baseload-PPA', 'kWh / h', '', 'number', 5000.0, None, 0.0, None, 'Blatt 2, C63'),
     InputSpec('ppa_baseload_price_eur_per_mwh', 'Strombezug: PPA', 'Strompreis Baseload-PPA', '€ / MWh', '', 'number', 85.0, None, 0.0, None, 'Blatt 2, C64'),

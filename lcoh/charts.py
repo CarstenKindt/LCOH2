@@ -285,9 +285,21 @@ def sankey_figure(b, height: int = 560) -> go.Figure:
     flow("Abwärme", col["waerme"], "Genutzte Wärme", col["waerme"], b.heat_used, tint(col["waerme"]))
     flow("Abwärme", col["waerme"], "Ungenutzte Wärme", col["verlust"], b.heat_unused, tint(col["verlust"]))
 
+    basis = b.procurement / 1000.0 or 1.0
+
+    def text(mwh: float) -> str:
+        return f"{de(mwh, 0)} MWh/a<br>{de(mwh / basis * 100, 1)} % des Gesamtbezugs"
+
+    node_text = []
+    for i, nm in enumerate(names):
+        mwh = max(sum(v for t_, v in zip(tgt, val) if t_ == i), sum(v for s_, v in zip(src, val) if s_ == i))
+        node_text.append(f"<b>{nm}</b><br>{text(mwh)}")
+    link_text = [f"<b>{names[s_]} → {names[t_]}</b><br>{text(v)}" for s_, t_, v in zip(src, tgt, val)]
     fig = go.Figure(go.Sankey(
-        arrangement="snap", valueformat=",.0f", valuesuffix=" MWh/a",
-        node=dict(label=names, color=colors, pad=18, thickness=18, line=dict(color="rgba(0,0,0,0)", width=0)),
-        link=dict(source=src, target=tgt, value=val, color=lcol)))
+        arrangement="snap",
+        node=dict(label=names, color=colors, pad=18, thickness=18, line=dict(color="rgba(0,0,0,0)", width=0),
+                  customdata=node_text, hovertemplate="%{customdata}<extra></extra>"),
+        link=dict(source=src, target=tgt, value=val, color=lcol, customdata=link_text,
+                  hovertemplate="%{customdata}<extra></extra>")))
     fig.update_layout(height=height, margin=dict(l=0, r=0, t=10, b=10), separators=",.", font=dict(size=13))
     return fig

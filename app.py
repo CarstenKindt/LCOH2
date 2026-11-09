@@ -987,7 +987,7 @@ with tab_res:
         st.dataframe(pd.DataFrame(vgl, columns=["Kennzahl", "Batterie wie Excel", "Batterie optimiert", "Änderung"]),
                      hide_index=True, width="stretch")
         st.caption("Die optimierte Batterie plant täglich mit den Preisen der nächsten 24 Stunden plus Vorlauf (perfekte Voraussicht "
-                   "im Fenster) und rechnet mit dem eingestellten Rundlaufwirkungsgrad. Sie geht über die Excel hinaus.")
+                   "im Fenster) und rechnet mit dem eingestellten Wirkungsgrad. Sie geht über die Excel hinaus.")
 
     st.markdown("### Spotmarktpreise")
     st.plotly_chart(spot_price_figure(r.market, steps_per_hour=STEPS), width="stretch")
@@ -1051,9 +1051,9 @@ with tab_res:
             ("Rechenauflösung", "Viertelstunde"),
             ("Elektrolyseurleistung", f"{de(r.power.ely_kw, 0)} kW"), ("Gesamtleistung System", f"{de(r.power.total_kw, 0)} kW"),
             ("Batteriekapazität", f"{de(r.power.battery_capacity_kwh, 0)} kWh"),
-            ("Stromverbrauch gesamt", f"{de(pc.consumption_total_kwh / 1e6, 2)} GWh/a"),
-            ("Stromverbrauch Elektrolyseur", f"{de(pc.consumption_ely_kwh / 1e6, 2)} GWh/a"),
-            ("Überschussstrom", f"{de(pc.surplus_kwh / 1e6, 2)} GWh/a"),
+            ("Stromverbrauch gesamt", f"{de(pc.consumption_total_kwh / 1000, 0)} MWh/a"),
+            ("Stromverbrauch Elektrolyseur", f"{de(pc.consumption_ely_kwh / 1000, 0)} MWh/a"),
+            ("Überschussstrom", f"{de(pc.surplus_kwh / 1000, 0)} MWh/a"),
             ("Mittlerer Wirkungsgrad", f"{de(r.avg_efficiency * 100, 1)} %"),
             ("Stacktausche in der Laufzeit", f"{r.stack_replacements} (alle {de(r.stack_interval_years, 1)} Jahre)"),
             ("Stunden mit §7-Bezug", de(r.section7_hours, 2)), ("Stunden mit §13k-Bezug", de(r.section13k_hours, 2)),
@@ -1089,7 +1089,7 @@ with tab_res:
                  hide_index=True, width="stretch")
     st.caption("Der Stromverbrauch des Systems verteilt sich auf Elektrolyseur, Peripherie und Verdichter. Dazu kommen die "
                "Verluste der Batterie (geladen minus entladen) und der verkaufte Überschussstrom; zusammen ergeben sie den Gesamtbezug.")
-    st.markdown("### Energieflüsse (Sankey-Diagramm)")
+    st.markdown("### Energieflüsse")
     st.plotly_chart(sankey_figure(eb), width="stretch")
     st.caption("Alle Mengen in MWh pro Jahr. Die Abwärme umfasst die Verluste des Elektrolyseurs und der Verdichter; genutzt wird "
                "der Anteil „nutzbare Abwärme“ aus den Eingaben, sofern die Abwärmenutzung eingeschaltet ist. Der Eigenverbrauch der "
