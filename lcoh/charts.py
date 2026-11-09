@@ -243,3 +243,51 @@ def sensitivity_figure(rows, step: float, height: int = 460) -> go.Figure:
                                  ticktext=[de(abs(t), 1) for t in ticks], zeroline=False))
     return fig
 
+
+
+def sankey_figure(b, height: int = 560) -> go.Figure:
+    """Sankey-Diagramm der Jahresenergie (MWh/a): Bezugsquellen -> Gesamtbezug -> Verbraucher -> Wasserstoff, Wärme, Verluste."""
+    col = {"strom": "#2f6db5", "h2": "#2e8b57", "waerme": "#e07a1f", "verlust": "#8c8c8c", "verkauf": "#7b5ea7"}
+    names, colors, idx = [], [], {}
+
+    def node(name: str, color: str) -> int:
+        if name not in idx:
+            idx[name] = len(names)
+            names.append(name)
+            colors.append(color)
+        return idx[name]
+
+    src, tgt, val, lcol = [], [], [], []
+
+    def flow(a: str, ca: str, c: str, cc: str, kwh: float, link_color: str) -> None:
+        if kwh > 1.0:                                     # unter 1 kWh/a wird nichts gezeichnet
+            src.append(node(a, ca)); tgt.append(node(c, cc)); val.append(kwh / 1000.0)
+            lcol.append(link_color)
+
+    def tint(hexc: str) -> str:
+        h = hexc.lstrip("#")
+        return "rgba(%d,%d,%d,0.35)" % tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))
+
+    total = "Gesamtbezug"
+    for n, q in b.sources:
+        flow(n, col["strom"], total, col["strom"], q, tint(col["strom"]))
+    flow(total, col["strom"], "Stromverbrauch System", col["strom"], b.consumption, tint(col["strom"]))
+    flow(total, col["strom"], "Verkauf Überschussstrom", col["verkauf"], b.surplus, tint(col["verkauf"]))
+    flow(total, col["strom"], "Batterieverluste", col["verlust"], b.battery_loss, tint(col["verlust"]))
+    flow("Stromverbrauch System", col["strom"], "Elektrolyseur", col["strom"], b.ely, tint(col["strom"]))
+    flow("Stromverbrauch System", col["strom"], "Peripherie", col["strom"], b.peripherals, tint(col["strom"]))
+    flow("Stromverbrauch System", col["strom"], "Verdichter", col["strom"], b.h2_compressor + b.o2_compressor, tint(col["strom"]))
+    flow("Elektrolyseur", col["strom"], "Wasserstoff", col["h2"], b.hydrogen, tint(col["h2"]))
+    flow("Elektrolyseur", col["strom"], "Abwärme", col["waerme"], b.heat_ely, tint(col["waerme"]))
+    flow("Verdichter", col["strom"], "Abwärme", col["waerme"], b.heat_compressors, tint(col["waerme"]))
+    flow("Verdichter", col["strom"], "Verdichtungsarbeit im Gas", col["verlust"], b.compression_rest, tint(col["verlust"]))
+    flow("Peripherie", col["strom"], "Verluste Peripherie", col["verlust"], b.peripherals, tint(col["verlust"]))
+    flow("Abwärme", col["waerme"], "Genutzte Wärme", col["waerme"], b.heat_used, tint(col["waerme"]))
+    flow("Abwärme", col["waerme"], "Ungenutzte Wärme", col["verlust"], b.heat_unused, tint(col["verlust"]))
+
+    fig = go.Figure(go.Sankey(
+        arrangement="snap", valueformat=",.0f", valuesuffix=" MWh/a",
+        node=dict(label=names, color=colors, pad=18, thickness=18, line=dict(color="rgba(0,0,0,0)", width=0)),
+        link=dict(source=src, target=tgt, value=val, color=lcol)))
+    fig.update_layout(height=height, margin=dict(l=0, r=0, t=10, b=10), separators=",.", font=dict(size=13))
+    return fig

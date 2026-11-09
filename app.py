@@ -22,7 +22,8 @@ from lcoh.inputs import Inputs
 from lcoh.operation import run_operation
 from lcoh.system import system_power
 from lcoh.sensitivity import sensitivity
-from lcoh.charts import COST_BLOCKS as COST_BLOCK_NAMES, battery_soc_figure, cost_structure_figure, load_duration_figure, sensitivity_figure, spot_price_figure
+from lcoh.energy_balance import energy_balance
+from lcoh.charts import COST_BLOCKS as COST_BLOCK_NAMES, battery_soc_figure, sankey_figure, cost_structure_figure, load_duration_figure, sensitivity_figure, spot_price_figure
 from lcoh.ui_layout import (rename_label, CHOICE_LABELS, COCKPIT, FINE_STEP, GATES, LABEL_OVERRIDES, LEVIES, PAGES, REVENUE_PAGE,
                             VISIBLE)
 from lcoh.waterfall import (BLOCK_CAPEX, BLOCK_INTEREST, BLOCK_OPEX, BLOCK_POWER, BLOCK_REVENUE, BLOCK_STACK,
@@ -965,7 +966,10 @@ with tab_res:
     st.markdown("### Ladezustand der Batterie")
     if inp.battery_enabled and r.power.battery_capacity_kwh > 0:
         st.plotly_chart(battery_soc_figure(r.hourly, r.power, steps_per_hour=STEPS), width="stretch")
-        st.caption(f"Ladezyklen pro Jahr: {r.battery_cycles}")
+        geladen, entladen = r.hourly["battery_charge_kwh"].sum(), r.hourly["battery_discharge_kwh"].sum()
+        st.caption(f"Ladezyklen pro Jahr: {r.battery_cycles}  \n"
+                   f"Geladene Energie pro Jahr: {de(geladen / 1000, 0)} MWh  \n"
+                   f"Entladene Energie pro Jahr: {de(entladen / 1000, 0)} MWh")
     else:
         st.info("Die Batterie ist ausgeschaltet.")
     if inp.battery_enabled and inp.battery_optimize and r.power.battery_capacity_kwh > 0:
@@ -1071,6 +1075,25 @@ with tab_res:
     st.dataframe(tab.style.format({"Menge [MWh/a]": lambda v: de(v, 0), "Anteil [%]": lambda v: de(v, 1),
                                    "Preis [€/MWh]": lambda v: de(v, 2), "Kosten [€/a]": lambda v: de(v, 0)}),
                  hide_index=True, width="stretch")
+
+    # ---- Stromverbrauch und Energiefluss
+    eb = energy_balance(r, pc)
+    st.markdown("### Stromverbrauch im Überblick")
+    zeilen = [("Elektrolyseur", eb.ely), ("Peripherie (BoP)", eb.peripherals), ("Wasserstoffverdichter", eb.h2_compressor),
+              ("Sauerstoffverdichter", eb.o2_compressor), ("Stromverbrauch System", eb.consumption),
+              ("Verluste der Batterie", eb.battery_loss), ("Verkaufter Überschussstrom", eb.surplus),
+              ("Gesamtbezug", eb.procurement)]
+    verbrauch = pd.DataFrame([(n, q / 1000, q / eb.procurement * 100 if eb.procurement else 0.0) for n, q in zeilen],
+                             columns=["Verbraucher", "Menge [MWh/a]", "Anteil am Gesamtbezug [%]"])
+    st.dataframe(verbrauch.style.format({"Menge [MWh/a]": lambda v: de(v, 0), "Anteil am Gesamtbezug [%]": lambda v: de(v, 1)}),
+                 hide_index=True, width="stretch")
+    st.caption("Der Stromverbrauch des Systems verteilt sich auf Elektrolyseur, Peripherie und Verdichter. Dazu kommen die "
+               "Verluste der Batterie (geladen minus entladen) und der verkaufte Überschussstrom; zusammen ergeben sie den Gesamtbezug.")
+    st.markdown("### Energieflüsse (Sankey-Diagramm)")
+    st.plotly_chart(sankey_figure(eb), width="stretch")
+    st.caption("Alle Mengen in MWh pro Jahr. Die Abwärme umfasst die Verluste des Elektrolyseurs und der Verdichter; genutzt wird "
+               "der Anteil „nutzbare Abwärme“ aus den Eingaben, sofern die Abwärmenutzung eingeschaltet ist. Der Eigenverbrauch der "
+               "Peripherie und die Verdichtungsarbeit, die im Gas verbleibt, sind als Verluste dargestellt.")
 
     # ---- Gesamttabelle
     st.markdown("### Alle Ergebnisse im Überblick")

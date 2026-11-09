@@ -117,3 +117,18 @@ def test_echte_viertelstundenpreise_senken_die_kosten_bei_spotbezug():
     assert e1.power.price_spot == 0.0 and e4.power.price_spot == pytest.approx(60.0)
     assert r4.h2_kg_per_year > r1.h2_kg_per_year
     assert e4.lcoh_eur_per_kg < e1.lcoh_eur_per_kg
+
+
+def test_energiebilanz_geht_auf():
+    from lcoh.energy_balance import energy_balance
+    from lcoh.power_costs import power_costs
+    inp = Inputs.from_dict({**tool_defaults(), "battery_enabled": True, "ppa_baseload_enabled": True, "ppa_baseload_kw": 5000.0,
+                            "ppa_pv_kw": 10000.0, "ppa_wind_enabled": True, "ppa_wind_kw": 30000.0, "section7_enabled": True,
+                            "waste_heat_enabled": True})
+    r = run_operation(inp, build_timeseries({}, 4), steps_per_hour=4)
+    b = energy_balance(r, power_costs(r))
+    assert abs(sum(q for _, q in b.sources) - b.procurement) < 1e-3 * b.procurement
+    assert abs(b.consumption + b.battery_loss + b.surplus - b.procurement) < 1e-6 * b.procurement
+    assert abs(b.hydrogen + b.heat_ely - b.ely) < 1e-6 * b.ely
+    assert abs(b.heat_used + b.heat_unused - b.heat_ely - b.heat_compressors) < 1e-6 * b.procurement
+    assert b.heat_used > 0
