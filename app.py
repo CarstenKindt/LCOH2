@@ -77,7 +77,6 @@ section[data-testid="stSidebar"] {width: 250px !important; min-width: 250px !imp
 .st-key-cockpit_out [data-testid="stMetric"] {width: 100%; align-items: center;}
 .st-key-cockpit_out [data-testid="stMetric"] * {justify-content: center !important; text-align: center !important;}
 .kpi {margin-bottom: .6rem;}
-.kpi.neu {background: #e3f5e6; border-radius: .5rem; padding: .35rem .6rem;}
 .kpi .kl {font-size: .85rem; color: #555; line-height: 1.2;}
 .kpi .kq {display: inline-block; width: 1.05em; height: 1.05em; line-height: 1em; margin-left: .35em; border: 1.5px solid #808495; border-radius: 50%; color: #808495; font-size: .72rem; font-weight: 600; text-align: center; cursor: help; vertical-align: 1px;}
 .kpi .kv {font-size: 1.6rem; line-height: 1.3; white-space: nowrap;}
@@ -624,14 +623,11 @@ def missing_links(keys: list[str]) -> None:
         components.html(page, height=h, scrolling=True)
 
 
-NEU_BG = "#e3f5e6"   # Pastellgrün: kennzeichnet die zuletzt ergänzten Kennzahlen
-
-
-def kmetric(col, label: str, value: str, unit: str = "", help: str | None = None, neu: bool = False) -> None:
+def kmetric(col, label: str, value: str, unit: str = "", help: str | None = None) -> None:
     """Kennzahl mit kleinerer Einheit hinter dem Wert."""
     tip = f' title="{html.escape(help, quote=True)}"' if help else ""
     u = f'<span class="ku">{html.escape(unit)}</span>' if unit else ""
-    col.markdown(f'<div class="kpi{" neu" if neu else ""}" data-kpi="{html.escape(label)}" data-v="{html.escape((value + " " + unit).strip())}"{tip}>'
+    col.markdown(f'<div class="kpi" data-kpi="{html.escape(label)}" data-v="{html.escape((value + " " + unit).strip())}"{tip}>'
                  f'<div class="kl">{html.escape(label)}{'<span class="kq">?</span>' if help else ""}</div>'
                  f'<div class="kv">{html.escape(value)}{u}</div></div>', unsafe_allow_html=True)
 
@@ -940,35 +936,35 @@ with tab_res:
     h2_kg = e.h2_kg_per_year
     cost_total = e.power_cost + e.stack_cost_per_year + e.opex_total + e.financing_total
     n1, n2 = st.columns(5), st.columns(5)
-    kmetric(n1[0], "Spez. Stromverbrauch System", de(pc.consumption_total_kwh / h2_kg if h2_kg else 0, 1), "kWh/kg", neu=True,
+    kmetric(n1[0], "Spez. Stromverbrauch System", de(pc.consumption_total_kwh / h2_kg if h2_kg else 0, 1), "kWh/kg",
             help="Stromverbrauch des gesamten Systems (Elektrolyseur, Peripherie, Verdichter) je kg erzeugtem Wasserstoff.")
-    kmetric(n1[1], "Spez. Stromverbrauch Elektrolyseur", de(r.ely_consumption_kwh / h2_kg if h2_kg else 0, 1), "kWh/kg", neu=True,
+    kmetric(n1[1], "Spez. Stromverbrauch Elektrolyseur", de(r.ely_consumption_kwh / h2_kg if h2_kg else 0, 1), "kWh/kg",
             help="Stromverbrauch des Elektrolyseurs allein je kg Wasserstoff (über die Laufzeit gemittelt).")
     kmetric(n1[2], "Systemwirkungsgrad", de(r.h2_energy_kwh / pc.consumption_total_kwh * 100 if pc.consumption_total_kwh else 0, 1),
-            "%", neu=True, help="Energie des Wasserstoffs (Brennwert) bezogen auf den Stromverbrauch des Gesamtsystems, also "
+            "%", help="Energie des Wasserstoffs (Brennwert) bezogen auf den Stromverbrauch des Gesamtsystems, also "
             "einschließlich Peripherie und Verdichter. Verkaufter Überschussstrom und Batterieverluste zählen nicht dazu.")
-    kmetric(n1[3], "Gestehungskosten (Brennwert)", de(e.lcoh_eur_per_kg / consts.HHV_KWH_PER_KG_H2 * 1000, 1), "€/MWh", neu=True,
+    kmetric(n1[3], "Gestehungskosten (Brennwert)", de(e.lcoh_eur_per_kg / consts.HHV_KWH_PER_KG_H2 * 1000, 1), "€/MWh",
             help="Gestehungskosten je MWh Wasserstoff, bezogen auf den Brennwert (39,4 kWh/kg).")
-    kmetric(n1[4], "Gestehungskosten (Heizwert)", de(e.lcoh_eur_per_kg / consts.LHV_KWH_PER_KG_H2 * 1000, 1), "€/MWh", neu=True,
+    kmetric(n1[4], "Gestehungskosten (Heizwert)", de(e.lcoh_eur_per_kg / consts.LHV_KWH_PER_KG_H2 * 1000, 1), "€/MWh",
             help="Gestehungskosten je MWh Wasserstoff, bezogen auf den Heizwert (33,33 kWh/kg). Märkte und Ausschreibungen "
             "geben Wasserstoffpreise meist auf Heizwertbasis an.")
-    kmetric(n2[0], "CAPEX nach Förderung je kW", de(e.capex_specific_eur_per_kw, 0), "€/kW", neu=True,
+    kmetric(n2[0], "CAPEX nach Förderung je kW", de(e.capex_specific_eur_per_kw, 0), "€/kW",
             help="Investition nach Förderung je kW Elektrolyseurleistung.")
-    kmetric(n2[1], "CAPEX nach Förderung je Jahreskapazität", de(e.capex_net / h2_kg if h2_kg else 0, 0), "€/(kg/a)", neu=True,
+    kmetric(n2[1], "CAPEX nach Förderung je Jahreskapazität", de(e.capex_net / h2_kg if h2_kg else 0, 0), "€/(kg/a)",
             help="Investition nach Förderung je kg Wasserstoff, der pro Jahr erzeugt wird.")
-    kmetric(n2[2], "Stromkosten je kg Wasserstoff", de(e.power_cost / h2_kg if h2_kg else 0), "€/kg", neu=True,
+    kmetric(n2[2], "Stromkosten je kg Wasserstoff", de(e.power_cost / h2_kg if h2_kg else 0), "€/kg",
             help="Jährliche Stromkosten (nach Befreiungen und Förderungen) je kg Wasserstoff.")
-    kmetric(n2[3], "Anteil Stromkosten", de(e.power_cost / cost_total * 100 if cost_total else 0, 1), "%", neu=True,
+    kmetric(n2[3], "Anteil Stromkosten", de(e.power_cost / cost_total * 100 if cost_total else 0, 1), "%",
             help="Stromkosten bezogen auf die Gesamtkosten vor Zusatzeinnahmen (Strom, Stack, Betrieb, Kapitaldienst).")
-    kmetric(n2[4], "Anteil Kapitalkosten", de(e.financing_total / cost_total * 100 if cost_total else 0, 1), "%", neu=True,
+    kmetric(n2[4], "Anteil Kapitalkosten", de(e.financing_total / cost_total * 100 if cost_total else 0, 1), "%",
             help="Kapitaldienst (Tilgung und Zinsen) bezogen auf die Gesamtkosten vor Zusatzeinnahmen.")
     st.caption("Die Berechnung erfolgt in Viertelstunden (35.040 Schritte pro Jahr) und geht damit über die Excel hinaus.")
 
     st.markdown("### Zusammensetzung der Gestehungskosten")
     mode = st.radio("Darstellung", ["Detailliert (Einzelposten)", "Gestapelt nach Bereichen",
-                                    "Strom netto (Befreiungen verrechnet)"], index=2, key="chart_mode", horizontal=True,
+                                    "Gestapelt & Befreiungen verrechnet"], index=2, key="chart_mode", horizontal=True,
                     help="Gestapelt: ein Balken je Bereich, farbig nach Einzelposten unterteilt. Detailliert: jeder "
-                         "Einzelposten ein eigener Balken. Strom netto: Die Befreiungen von Stromnebenkosten werden "
+                         "Einzelposten ein eigener Balken. Gestapelt & Befreiungen verrechnet: Die Befreiungen von Stromnebenkosten werden "
                          "direkt mit den Stromkosten verrechnet; unter „Förderungen“ stehen nur echte Förderungen.")
     unit_mode = st.radio("Werte anzeigen als", ["€ pro kg Wasserstoff", "Anteil in %"], key="chart_unit", horizontal=True,
                          help="Wechselt die Beschriftung der Balken zwischen Euro je kg Wasserstoff und dem prozentualen "
@@ -977,7 +973,7 @@ with tab_res:
     items = waterfall_items(r, e, "verbraucher")
     detail = mode.startswith("Detailliert")
     sub_title = None
-    if mode.startswith("Strom netto"):
+    if mode.startswith("Gestapelt & Befreiungen"):
         items = waterfall_items(r, e, "verbraucher", netto=True)
         sub_title = "Förderungen"
     fig = cost_structure_figure(items, e.lcoh_eur_per_kg, detail=detail, height=640 if detail else 520,
@@ -989,25 +985,7 @@ with tab_res:
     st.caption(f"{gross_text}: {de(gross)} €/kg · "
                f"Gestehungskosten: {de(e.lcoh_eur_per_kg)} €/kg")
 
-    # ---- Wirkung von Förderungen und Zusatzeinnahmen (neu)
-    st.markdown("### Wirkung von Förderungen und Zusatzeinnahmen")
-    voll = waterfall_items(r, e, "verbraucher")
-    brutto = sum(i.eur_per_kg for i in voll if i.block in COST_BLOCK_NAMES)
-    zeilen_f = [("Gestehungskosten brutto", brutto)]
-    zeilen_f += [(i.label, i.eur_per_kg) for i in voll if i.block == BLOCK_SUBSIDY and i.label.startswith(("CAPEX", "OPEX", "Strompreis"))]
-    befreit = sum(i.eur_per_kg for i in voll if i.block == BLOCK_SUBSIDY and i.label.startswith("Befreiung"))
-    zeilen_f.append(("Befreiungen von Stromnebenkosten", befreit))
-    zeilen_f += [(i.label, i.eur_per_kg) for i in voll if i.block == BLOCK_REVENUE]
-    zeilen_f = [zeilen_f[0]] + [(n, v) for n, v in zeilen_f[1:] if abs(v) > 1e-9]
-    zeilen_f.append(("Gestehungskosten", e.lcoh_eur_per_kg))
-    foerder = pd.DataFrame([(n, v, v / brutto * 100 if brutto else 0.0) for n, v in zeilen_f],
-                           columns=["Position", "€ pro kg H₂", "Anteil an brutto [%]"])
-    st.dataframe(foerder.style.format({"€ pro kg H₂": lambda v: de(v, 2), "Anteil an brutto [%]": lambda v: de(v, 1)})
-                 .set_properties(**{"background-color": NEU_BG}), hide_index=True, width="stretch")
-    st.caption("Förderungen, Befreiungen und Zusatzeinnahmen mindern die Gestehungskosten (negative Werte). Die Anteile beziehen "
-               "sich auf die Gestehungskosten brutto.")
-
-    # ---- Gestehungskosten je Projektjahr (neu)
+    # ---- Gestehungskosten je Projektjahr
     st.markdown("### Gestehungskosten je Projektjahr")
     jahre = yearly_lcoh(r, e)
     jt = jahre.table
@@ -1025,13 +1003,12 @@ with tab_res:
     for c in jt.columns[2:]:
         fmt_j[c] = (lambda v: de(v, 2)) if c in ("Gestehungskosten [€/kg]", "Wasserstoff [t/a]", "Wirkungsgrad Elektrolyseur [%]") \
             else (lambda v: de(v, 0))
-    st.dataframe(jt.style.format(fmt_j).set_properties(**{"background-color": NEU_BG}), hide_index=True, width="stretch")
+    st.dataframe(jt.style.format(fmt_j), hide_index=True, width="stretch")
     st.caption(f"Je Jahr wirken Preissteigerungen, die Degradation des Elektrolyseurs (Wirkungsgrad sinkt, Stacktausch setzt ihn "
                f"zurück), die jährlichen THG-Erlöse. Die Strommengen und der Betrieb sind "
                f"in allen Jahren gleich; Kapitaldienst und Stackkosten werden als gleichbleibende Jahresbeträge angesetzt. "
                f"Summe der Nettokosten geteilt durch die Summe des Wasserstoffs über alle Jahre: {de(jahre.lcoh_sum_ratio)} €/kg "
-               f"(Hauptergebnis: {de(e.lcoh_eur_per_kg)} €/kg). Kleine Abweichungen entstehen, weil die Excel den mittleren "
-               f"Wirkungsgrad der Laufzeit vereinfacht ansetzt.")
+               f"(Hauptergebnis: {de(e.lcoh_eur_per_kg)} €/kg).")
 
     st.markdown("### Geordneter Lastverlauf")
     st.plotly_chart(load_duration_figure(r.hourly, r.power, steps_per_hour=STEPS), width="stretch")
@@ -1164,6 +1141,24 @@ with tab_res:
                  hide_index=True, width="stretch")
     st.caption("Der Stromverbrauch des Systems verteilt sich auf Elektrolyseur, Peripherie und Verdichter. Dazu kommen die "
                "Verluste der Batterie (geladen minus entladen) und der verkaufte Überschussstrom; zusammen ergeben sie den Gesamtbezug.")
+    # ---- Wirkung von Förderungen und Zusatzeinnahmen 
+    st.markdown("### Wirkung von Förderungen und Zusatzeinnahmen")
+    voll = waterfall_items(r, e, "verbraucher")
+    brutto = sum(i.eur_per_kg for i in voll if i.block in COST_BLOCK_NAMES)
+    zeilen_f = [("Gestehungskosten brutto", brutto)]
+    zeilen_f += [(i.label, i.eur_per_kg) for i in voll if i.block == BLOCK_SUBSIDY and i.label.startswith(("CAPEX", "OPEX", "Strompreis"))]
+    befreit = sum(i.eur_per_kg for i in voll if i.block == BLOCK_SUBSIDY and i.label.startswith("Befreiung"))
+    zeilen_f.append(("Befreiungen von Stromnebenkosten", befreit))
+    zeilen_f += [(i.label, i.eur_per_kg) for i in voll if i.block == BLOCK_REVENUE]
+    zeilen_f = [zeilen_f[0]] + [(n, v) for n, v in zeilen_f[1:] if abs(v) > 1e-9]
+    zeilen_f.append(("Gestehungskosten", e.lcoh_eur_per_kg))
+    foerder = pd.DataFrame([(n, v, v / brutto * 100 if brutto else 0.0) for n, v in zeilen_f],
+                           columns=["Position", "€ pro kg H₂", "Anteil an brutto [%]"])
+    st.dataframe(foerder.style.format({"€ pro kg H₂": lambda v: de(v, 2), "Anteil an brutto [%]": lambda v: de(v, 1)})
+                 , hide_index=True, width="stretch")
+    st.caption("Förderungen, Befreiungen und Zusatzeinnahmen mindern die Gestehungskosten (negative Werte). Die Anteile beziehen "
+               "sich auf die Gestehungskosten brutto.")
+
     st.markdown("### Energieflüsse")
     st.plotly_chart(sankey_figure(eb), width="stretch")
     st.caption("Alle Mengen in MWh pro Jahr. Die Abwärme umfasst die Verluste des Elektrolyseurs und der Verdichter; genutzt wird "
@@ -1172,45 +1167,63 @@ with tab_res:
 
     # ---- Gesamttabelle
     st.markdown("### Alle Ergebnisse im Überblick")
-    alle = [("Gestehungskosten", "Gestehungskosten", e.lcoh_eur_per_kg, "€/kg"),
-            ("Gestehungskosten", "Gestehungskosten", e.lcoh_ct_per_kwh, "ct/kWh"),
-            ("Gestehungskosten", "Gestehungskosten brutto", gross, "€/kg"),
-            ("Anlage", "Wasserstoff pro Jahr", e.h2_kg_per_year / 1000, "t/a"),
-            ("Anlage", "Anlagenleistung gesamt", r.power.total_kw / 1000, "MW"),
-            ("Anlage", "Anzahl Stacktausche", r.stack_replacements, ""),
-            ("Anlage", "Ø Effizienz", r.avg_efficiency * 100, "%"),
-            ("Anlage", "Anteil grüner Wasserstoff", green_share * 100, "%"),
-            ("Anlage", "Systemauslastung", system_util * 100, "%"),
-            ("Anlage", "Betriebsstunden", run_hours, "h/a"),
-            ("Anlage", "davon Volllast", full_hours, "h/a"),
-            ("Anlage", "davon Teillast", part_hours, "h/a"),
-            ("Anlage", "Volllaststunden (Ely)", r.full_load_hours, "h/a"),
-            ("Finanzierung", "CAPEX nach Förderung", e.capex_net / 1e6, "Mio. €"),
-            ("Finanzierung", "Kapitalkostensatz (WACC)", e.wacc * 100, "%")]
-    neu_zeilen = [("Kennzahlen (neu)", "Spez. Stromverbrauch System", pc.consumption_total_kwh / h2_kg if h2_kg else 0.0, "kWh/kg"),
-                  ("Kennzahlen (neu)", "Spez. Stromverbrauch Elektrolyseur", r.ely_consumption_kwh / h2_kg if h2_kg else 0.0, "kWh/kg"),
-                  ("Kennzahlen (neu)", "Systemwirkungsgrad", r.h2_energy_kwh / pc.consumption_total_kwh * 100 if pc.consumption_total_kwh else 0.0, "%"),
-                  ("Kennzahlen (neu)", "Gestehungskosten (Brennwert)", e.lcoh_eur_per_kg / consts.HHV_KWH_PER_KG_H2 * 1000, "€/MWh"),
-                  ("Kennzahlen (neu)", "Gestehungskosten (Heizwert)", e.lcoh_eur_per_kg / consts.LHV_KWH_PER_KG_H2 * 1000, "€/MWh"),
-                  ("Kennzahlen (neu)", "CAPEX nach Förderung je kW", e.capex_specific_eur_per_kw, "€/kW"),
-                  ("Kennzahlen (neu)", "CAPEX nach Förderung je Jahreskapazität", e.capex_net / h2_kg if h2_kg else 0.0, "€/(kg/a)"),
-                  ("Kennzahlen (neu)", "Stromkosten je kg Wasserstoff", e.power_cost / h2_kg if h2_kg else 0.0, "€/kg"),
-                  ("Kennzahlen (neu)", "Anteil Stromkosten", e.power_cost / cost_total * 100 if cost_total else 0.0, "%"),
-                  ("Kennzahlen (neu)", "Anteil Kapitalkosten", e.financing_total / cost_total * 100 if cost_total else 0.0, "%")]
-    neu_zeilen += [("Förderwirkung (neu)", n, v, "€/kg") for n, v in zeilen_f]
-    alle += neu_zeilen
-    alle += [("Kosten und Erlöse pro Jahr", n, v, "€/a") for n, v in rows]
-    alle += [("Kosten und Erlöse je kg", n, v / h2 if h2 else 0.0, "€/kg") for n, v in rows]
-    alle += [("Anlage und Betrieb", k, w.split(" ")[0], " ".join(w.split(" ")[1:])) for k, w in kennz]
+    kz = {n: (w.split(" ")[0], " ".join(w.split(" ")[1:])) for n, w in kennz}
+    spez_sys = pc.consumption_total_kwh / h2_kg if h2_kg else 0.0
+    alle = [
+        # Gestehungskosten
+        ("Gestehungskosten", "Gestehungskosten", e.lcoh_eur_per_kg, "€/kg"),
+        ("Gestehungskosten", "Gestehungskosten", e.lcoh_ct_per_kwh, "ct/kWh (Brennwert)"),
+        ("Gestehungskosten", "Gestehungskosten (Brennwert)", e.lcoh_eur_per_kg / consts.HHV_KWH_PER_KG_H2 * 1000, "€/MWh"),
+        ("Gestehungskosten", "Gestehungskosten (Heizwert)", e.lcoh_eur_per_kg / consts.LHV_KWH_PER_KG_H2 * 1000, "€/MWh"),
+        ("Gestehungskosten", "Gestehungskosten brutto", gross, "€/kg"),
+        # Kostenstruktur
+        ("Kostenstruktur", "Stromkosten je kg Wasserstoff", e.power_cost / h2_kg if h2_kg else 0.0, "€/kg"),
+        ("Kostenstruktur", "Anteil Stromkosten", e.power_cost / cost_total * 100 if cost_total else 0.0, "%"),
+        ("Kostenstruktur", "Anteil Kapitalkosten", e.financing_total / cost_total * 100 if cost_total else 0.0, "%")]
+    alle += [("Kostenstruktur", f"{n} pro Jahr", v, "€/a") for n, v in rows]
+    alle += [("Kostenstruktur", f"{n} je kg", v / h2 if h2 else 0.0, "€/kg") for n, v in rows]
+    alle += [("Förderwirkung", n, v, "€/kg") for n, v in zeilen_f]
+    alle += [
+        # Wasserstoff und Anlage
+        ("Wasserstoff und Anlage", "Wasserstoff pro Jahr", e.h2_kg_per_year / 1000, "t/a"),
+        ("Wasserstoff und Anlage", "Anlagenleistung gesamt", r.power.total_kw / 1000, "MW"),
+        ("Wasserstoff und Anlage", "Elektrolyseurleistung", kz["Elektrolyseurleistung"][0], "kW"),
+        ("Wasserstoff und Anlage", "Betriebsstunden", run_hours, "h/a"),
+        ("Wasserstoff und Anlage", "davon Volllast", full_hours, "h/a"),
+        ("Wasserstoff und Anlage", "davon Teillast", part_hours, "h/a"),
+        ("Wasserstoff und Anlage", "Volllaststunden (Ely)", r.full_load_hours, "h/a"),
+        ("Wasserstoff und Anlage", "Systemauslastung", system_util * 100, "%"),
+        ("Wasserstoff und Anlage", "Ø Effizienz Elektrolyseur", r.avg_efficiency * 100, "%"),
+        ("Wasserstoff und Anlage", "Systemwirkungsgrad", r.h2_energy_kwh / pc.consumption_total_kwh * 100 if pc.consumption_total_kwh else 0.0, "%"),
+        ("Wasserstoff und Anlage", "Anzahl Stacktausche", r.stack_replacements, ""),
+        ("Wasserstoff und Anlage", "Anteil grüner Wasserstoff", green_share * 100, "%"),
+        # Strom
+        ("Strom", "Spez. Stromverbrauch System", spez_sys, "kWh/kg"),
+        ("Strom", "Spez. Stromverbrauch Elektrolyseur", r.ely_consumption_kwh / h2_kg if h2_kg else 0.0, "kWh/kg"),
+        ("Strom", "Stromverbrauch gesamt", *kz["Stromverbrauch gesamt"]),
+        ("Strom", "Stromverbrauch Elektrolyseur", *kz["Stromverbrauch Elektrolyseur"]),
+        ("Strom", "Überschussstrom", *kz["Überschussstrom"]),
+        ("Strom", "Stunden mit §7-Bezug", kz["Stunden mit §7-Bezug"][0], "h/a"),
+        ("Strom", "Stunden mit §13k-Bezug", kz["Stunden mit §13k-Bezug"][0], "h/a"),
+        ("Strom", "Durchschnittlicher Strompreis (inkl. Abgaben)", avg_power_price, "€/MWh")]
     alle += [("Strombezug", f"{n}: Menge", q / m, "MWh/a") for n, q, _ in quellen]
     alle += [("Strombezug", f"{n}: Preis", p, "€/MWh") for n, _, p in quellen]
-    alle += [("Strombezug", "Durchschnittlicher Strompreis (inkl. Abgaben)", avg_power_price, "€/MWh")]
+    alle += [
+        # Batterie
+        ("Batterie", "Batteriekapazität", *kz["Batteriekapazität"]),
+        ("Batterie", "Ladezyklen pro Jahr", kz["Ladezyklen Batterie"][0], "1/a"),
+        # Investition und Finanzierung
+        ("Investition und Finanzierung", "CAPEX brutto", e.capex_gross / 1e6, "Mio. €"),
+        ("Investition und Finanzierung", "CAPEX-Förderung", e.capex_subsidy / 1e6, "Mio. €"),
+        ("Investition und Finanzierung", "CAPEX nach Förderung", e.capex_net / 1e6, "Mio. €"),
+        ("Investition und Finanzierung", "CAPEX nach Förderung je kW", e.capex_specific_eur_per_kw, "€/kW"),
+        ("Investition und Finanzierung", "CAPEX nach Förderung je Jahreskapazität", e.capex_net / h2_kg if h2_kg else 0.0, "€/(kg/a)"),
+        ("Investition und Finanzierung", "Kapitalkostensatz (WACC)", e.wacc * 100, "%")]
     alle += [("Sensitivität", f"{z.name}: Kosten −{pct_txt}", z.lcoh_minus, "€/kg") for z in rows_s]
     alle += [("Sensitivität", f"{z.name}: Kosten +{pct_txt}", z.lcoh_plus, "€/kg") for z in rows_s]
     alle_df = pd.DataFrame([(b, k, (de(v, 2) if isinstance(v, float) else str(v)), u) for b, k, v, u in alle],
                            columns=["Bereich", "Kennzahl", "Wert", "Einheit"])
-    st.dataframe(alle_df.style.apply(lambda row: [f"background-color: {NEU_BG}" if row["Bereich"].endswith("(neu)") else ""] * len(row), axis=1),
-                 hide_index=True, width="stretch", height=563)
+    st.dataframe(alle_df, hide_index=True, width="stretch", height=563)
 
     # ---- Download
     st.markdown("### Ergebnisse herunterladen")
