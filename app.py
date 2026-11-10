@@ -913,52 +913,60 @@ with cockpit_slot:
 
 # ---------------------------------------------------------------- Ergebnisse
 with tab_res:
-    r1, r2, r3 = st.columns(5), st.columns(5), st.columns(5)
-    kmetric(r1[0], "Gestehungskosten", de(e.lcoh_eur_per_kg), "€/kg", help="Wasserstoffgestehungskosten (LCOH₂).")
-    kmetric(r1[1], "Gestehungskosten", de(e.lcoh_ct_per_kwh), "ct/kWh", help="Bezogen auf den Brennwert von 39,4 kWh/kg.")
-    kmetric(r1[2], "Wasserstoff", de(e.h2_kg_per_year / 1000, 0), "t/a")
-    kmetric(r1[3], "CAPEX nach Förderung", de(e.capex_net / 1e6, 1), "Mio. €")
-    kmetric(r1[4], "Kapitalkostensatz (WACC)", de(e.wacc * 100, 1), "%")
-    kmetric(r2[0], "Anlagenleistung gesamt", de(r.power.total_kw / 1000, 1), "MW")
-    kmetric(r2[1], "Betriebsstunden", de(run_hours, 0), "h/a", help="Stunden, in denen das System Strom verbraucht.")
-    kmetric(r2[2], "davon Volllast", de(full_hours, 0), "h/a")
-    kmetric(r2[3], "davon Teillast", de(part_hours, 0), "h/a")
-    kmetric(r2[4], "Volllaststunden (Ely)", de(r.full_load_hours, 0), "h/a", help="Jahresenergie des Elektrolyseurs geteilt "
-              "durch seine Nennleistung.")
-    kmetric(r3[0], "Systemauslastung", de(system_util * 100, 1), "%", help="Stromverbrauch des Gesamtsystems bezogen auf "
-              "den Dauerbetrieb mit Nennleistung über 8.760 Stunden.")
-    kmetric(r3[1], "Ø Effizienz", de(r.avg_efficiency * 100, 1), "%", help="Mittlerer Wirkungsgrad des Elektrolyseurs über "
-              "die Projektlaufzeit (inklusive Degradation).")
-    kmetric(r3[2], "Anzahl Stacktausche", str(r.stack_replacements), "", help=f"Anzahl der Stacktausche in der "
-            f"Projektlaufzeit (alle {de(r.stack_interval_years, 1)} Jahre).")
-    kmetric(r3[3], "Anteil grüner Wasserstoff", de(green_share * 100, 1), "%", help=HELP_GREEN)
-    kmetric(r3[4], "Durchschnittlicher Strompreis (inkl. Abgaben)", de(avg_power_price), "€/MWh", help=HELP_AVG_PRICE)
     h2_kg = e.h2_kg_per_year
     cost_total = e.power_cost + e.stack_cost_per_year + e.opex_total + e.financing_total
-    n1, n2 = st.columns(5), st.columns(5)
-    kmetric(n1[0], "Spez. Stromverbrauch System", de(pc.consumption_total_kwh / h2_kg if h2_kg else 0, 1), "kWh/kg",
-            help="Stromverbrauch des gesamten Systems (Elektrolyseur, Peripherie, Verdichter) je kg erzeugtem Wasserstoff.")
-    kmetric(n1[1], "Spez. Stromverbrauch Elektrolyseur", de(r.ely_consumption_kwh / h2_kg if h2_kg else 0, 1), "kWh/kg",
-            help="Stromverbrauch des Elektrolyseurs allein je kg Wasserstoff (über die Laufzeit gemittelt).")
-    kmetric(n1[2], "Systemwirkungsgrad", de(r.h2_energy_kwh / pc.consumption_total_kwh * 100 if pc.consumption_total_kwh else 0, 1),
-            "%", help="Energie des Wasserstoffs (Brennwert) bezogen auf den Stromverbrauch des Gesamtsystems, also "
-            "einschließlich Peripherie und Verdichter. Verkaufter Überschussstrom und Batterieverluste zählen nicht dazu.")
-    kmetric(n1[3], "Gestehungskosten (Brennwert)", de(e.lcoh_eur_per_kg / consts.HHV_KWH_PER_KG_H2 * 1000, 1), "€/MWh",
-            help="Gestehungskosten je MWh Wasserstoff, bezogen auf den Brennwert (39,4 kWh/kg).")
-    kmetric(n1[4], "Gestehungskosten (Heizwert)", de(e.lcoh_eur_per_kg / consts.LHV_KWH_PER_KG_H2 * 1000, 1), "€/MWh",
-            help="Gestehungskosten je MWh Wasserstoff, bezogen auf den Heizwert (33,33 kWh/kg). Märkte und Ausschreibungen "
-            "geben Wasserstoffpreise meist auf Heizwertbasis an.")
-    kmetric(n2[0], "CAPEX nach Förderung je kW", de(e.capex_specific_eur_per_kw, 0), "€/kW",
-            help="Investition nach Förderung je kW Elektrolyseurleistung.")
-    kmetric(n2[1], "CAPEX nach Förderung je Jahreskapazität", de(e.capex_net / h2_kg if h2_kg else 0, 0), "€/(kg/a)",
-            help="Investition nach Förderung je kg Wasserstoff, der pro Jahr erzeugt wird.")
-    kmetric(n2[2], "Stromkosten je kg Wasserstoff", de(e.power_cost / h2_kg if h2_kg else 0), "€/kg",
-            help="Jährliche Stromkosten (nach Befreiungen und Förderungen) je kg Wasserstoff.")
-    kmetric(n2[3], "Anteil Stromkosten", de(e.power_cost / cost_total * 100 if cost_total else 0, 1), "%",
-            help="Stromkosten bezogen auf die Gesamtkosten vor Zusatzeinnahmen (Strom, Stack, Betrieb, Kapitaldienst).")
-    kmetric(n2[4], "Anteil Kapitalkosten", de(e.financing_total / cost_total * 100 if cost_total else 0, 1), "%",
-            help="Kapitaldienst (Tilgung und Zinsen) bezogen auf die Gesamtkosten vor Zusatzeinnahmen.")
-    st.caption("Die Berechnung erfolgt in Viertelstunden (35.040 Schritte pro Jahr) und geht damit über die Excel hinaus.")
+
+    def kpi_group(title: str, items: list, ncols: int = 4) -> None:
+        """Kennzahlen eines Themas in Reihen zu je ncols Spalten."""
+        st.markdown(f"##### {title}")
+        for start in range(0, len(items), ncols):
+            cols = st.columns(ncols)
+            for col, (lab, val, unit, hlp) in zip(cols, items[start:start + ncols]):
+                kmetric(col, lab, val, unit, help=hlp)
+
+    ely_eff = r.h2_energy_kwh / pc.consumption_total_kwh * 100 if pc.consumption_total_kwh else 0.0
+    kpi_group("Gestehungskosten", [
+        ("Gestehungskosten", de(e.lcoh_eur_per_kg), "€/kg", "Wasserstoffgestehungskosten (LCOH₂)."),
+        ("Gestehungskosten", de(e.lcoh_ct_per_kwh), "ct/kWh", "Bezogen auf den Brennwert von 39,4 kWh/kg."),
+        ("Gestehungskosten (Brennwert)", de(e.lcoh_eur_per_kg / consts.HHV_KWH_PER_KG_H2 * 1000, 1), "€/MWh",
+         "Gestehungskosten je MWh Wasserstoff, bezogen auf den Brennwert (39,4 kWh/kg)."),
+        ("Gestehungskosten (Heizwert)", de(e.lcoh_eur_per_kg / consts.LHV_KWH_PER_KG_H2 * 1000, 1), "€/MWh",
+         "Gestehungskosten je MWh Wasserstoff, bezogen auf den Heizwert (33,33 kWh/kg). Märkte und Ausschreibungen geben "
+         "Wasserstoffpreise meist auf Heizwertbasis an.")])
+    kpi_group("Wasserstoff und Anlage", [
+        ("Wasserstoff", de(e.h2_kg_per_year / 1000, 0), "t/a", None),
+        ("Anlagenleistung gesamt", de(r.power.total_kw / 1000, 1), "MW", None),
+        ("Volllaststunden (Ely)", de(r.full_load_hours, 0), "h/a", "Jahresenergie des Elektrolyseurs geteilt durch seine Nennleistung."),
+        ("Betriebsstunden", de(run_hours, 0), "h/a", "Stunden, in denen das System Strom verbraucht."),
+        ("davon Volllast", de(full_hours, 0), "h/a", None),
+        ("davon Teillast", de(part_hours, 0), "h/a", None),
+        ("Systemauslastung", de(system_util * 100, 1), "%", "Stromverbrauch des Gesamtsystems bezogen auf den Dauerbetrieb "
+         "mit Nennleistung über 8.760 Stunden."),
+        ("Anzahl Stacktausche", str(r.stack_replacements), "", f"Anzahl der Stacktausche in der Projektlaufzeit "
+         f"(alle {de(r.stack_interval_years, 1)} Jahre).")])
+    kpi_group("Wirkungsgrad und Strom", [
+        ("Ø Effizienz", de(r.avg_efficiency * 100, 1), "%", "Mittlerer Wirkungsgrad des Elektrolyseurs über die Projektlaufzeit "
+         "(inklusive Degradation)."),
+        ("Systemwirkungsgrad", de(ely_eff, 1), "%", "Energie des Wasserstoffs (Brennwert) bezogen auf den Stromverbrauch des "
+         "Gesamtsystems, also einschließlich Peripherie und Verdichter. Verkaufter Überschussstrom und Batterieverluste zählen nicht dazu."),
+        ("Spez. Stromverbrauch System", de(pc.consumption_total_kwh / h2_kg if h2_kg else 0, 1), "kWh/kg",
+         "Stromverbrauch des gesamten Systems (Elektrolyseur, Peripherie, Verdichter) je kg erzeugtem Wasserstoff."),
+        ("Spez. Stromverbrauch Elektrolyseur", de(r.ely_consumption_kwh / h2_kg if h2_kg else 0, 1), "kWh/kg",
+         "Stromverbrauch des Elektrolyseurs allein je kg Wasserstoff (über die Laufzeit gemittelt)."),
+        ("Durchschnittlicher Strompreis (inkl. Abgaben)", de(avg_power_price), "€/MWh", HELP_AVG_PRICE),
+        ("Anteil grüner Wasserstoff", de(green_share * 100, 1), "%", HELP_GREEN)], ncols=3)
+    kpi_group("Investition und Kosten", [
+        ("CAPEX nach Förderung", de(e.capex_net / 1e6, 1), "Mio. €", None),
+        ("CAPEX nach Förderung je kW", de(e.capex_specific_eur_per_kw, 0), "€/kW", "Investition nach Förderung je kW Elektrolyseurleistung."),
+        ("CAPEX nach Förderung je Jahreskapazität", de(e.capex_net / h2_kg if h2_kg else 0, 0), "€/(kg/a)",
+         "Investition nach Förderung je kg Wasserstoff, der pro Jahr erzeugt wird."),
+        ("Kapitalkostensatz (WACC)", de(e.wacc * 100, 1), "%", None),
+        ("Stromkosten je kg Wasserstoff", de(e.power_cost / h2_kg if h2_kg else 0), "€/kg",
+         "Jährliche Stromkosten (nach Befreiungen und Förderungen) je kg Wasserstoff."),
+        ("Anteil Stromkosten", de(e.power_cost / cost_total * 100 if cost_total else 0, 1), "%",
+         "Stromkosten bezogen auf die Gesamtkosten vor Zusatzeinnahmen (Strom, Stack, Betrieb, Kapitaldienst)."),
+        ("Anteil Kapitalkosten", de(e.financing_total / cost_total * 100 if cost_total else 0, 1), "%",
+         "Kapitaldienst (Tilgung und Zinsen) bezogen auf die Gesamtkosten vor Zusatzeinnahmen.")])
 
     st.markdown("### Zusammensetzung der Gestehungskosten")
     mode = st.radio("Darstellung", ["Detailliert (Einzelposten)", "Gestapelt nach Bereichen",

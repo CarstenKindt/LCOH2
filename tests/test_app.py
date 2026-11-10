@@ -128,7 +128,7 @@ def test_batterie_anschlussleistung_zu_klein():
 def test_berechnung_laeuft_in_viertelstunden():
     at = neue_app()
     assert kpis(at, "Gestehungskosten")
-    assert any("Viertelstunden" in c.value for c in at.caption)
+    assert not any("geht damit über die Excel hinaus" in c.value for c in at.caption)   # Hinweis entfällt
     assert not [r for r in at.radio if r.key == "res_mode"]
 
 
