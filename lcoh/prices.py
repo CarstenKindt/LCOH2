@@ -20,6 +20,13 @@ def average_escalation_factor(escalation: float, years: int) -> float:
     return ((1.0 + escalation) ** years - 1.0) / escalation / years
 
 
+def escalation_factor(escalation: float, years: int, year: int | None = None) -> float:
+    """Preisfaktor eines einzelnen Projektjahres (Jahr 1 = Preis im Jahr 0); ohne Jahr der Mittelwert über die Laufzeit."""
+    if year is None:
+        return average_escalation_factor(escalation, years)
+    return (1.0 + escalation) ** (year - 1)
+
+
 @dataclass(frozen=True)
 class MarketSeries:
     """Stundenreihen aus Blatt 8 (jeweils 8760 Werte)."""

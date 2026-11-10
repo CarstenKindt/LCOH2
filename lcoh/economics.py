@@ -7,7 +7,7 @@ from lcoh import constants as k
 from lcoh.inputs import Inputs
 from lcoh.operation import OperationResult
 from lcoh.power_costs import PowerCosts, power_costs
-from lcoh.prices import average_escalation_factor
+from lcoh.prices import average_escalation_factor, escalation_factor
 from lcoh.stack import StackCosts, stack_costs
 from lcoh.system import h2_compressor_work_kwh_per_kg, o2_compressor_work_kwh_per_kg
 
@@ -24,13 +24,13 @@ def _esc(price: float, g: float, years: float) -> float:
     return price * average_escalation_factor(g, years)
 
 
-def thg_revenue_per_year(inp: Inputs, h2_kg: float) -> float:
-    """Durchschnittliche THG-Erlöse pro Jahr (Blatt 3, L4). Erlöse nur in den Projektjahren ab Inbetriebnahme."""
+def thg_revenue_by_year(inp: Inputs, h2_kg: float) -> list[float]:
+    """THG-Erlöse je Projektjahr (Blatt 3, L5:AJ14); Erlöse nur in den Projektjahren ab Inbetriebnahme."""
+    life = int(inp.project_lifetime_years)
+    result = [0.0] * life
     if not inp.thg_enabled:
-        return 0.0
-    life = inp.project_lifetime_years
+        return result
     price = inp.thg_price_eur_per_t
-    total = 0.0
     for i, (quota, credit) in enumerate(zip(THG_QUOTA, THG_CREDIT)):
         year = THG_FIRST_YEAR + i
         if i > 0:
@@ -42,8 +42,13 @@ def thg_revenue_per_year(inp: Inputs, h2_kg: float) -> float:
         ghg = inp.thg_h2_intensity_kgco2_per_gj * adj
         per_kg = (target - ghg) * credit * THG_KG_CO2_PER_KG_H2_FACTOR
         tonnes = inp.thg_mobility_share * h2_kg * per_kg / k.KG_PER_TONNE
-        total += tonnes * price * inp.thg_producer_share
-    return total / life
+        result[year - inp.commissioning_year] = tonnes * price * inp.thg_producer_share
+    return result
+
+
+def thg_revenue_per_year(inp: Inputs, h2_kg: float) -> float:
+    """Durchschnittliche THG-Erlöse pro Jahr (Blatt 3, L4)."""
+    return sum(thg_revenue_by_year(inp, h2_kg)) / inp.project_lifetime_years
 
 
 @dataclass(frozen=True)
@@ -92,16 +97,17 @@ class Economics:
     water_cost: float
 
 
-def compute_economics(r: OperationResult) -> Economics:
+def compute_economics(r: OperationResult, year: int | None = None) -> Economics:
+    """year: einzelnes Projektjahr (Preise und Wasserstoffmenge des Jahres, übergeben in r); ohne Angabe Mittelwerte wie die Excel."""
     inp, p = r.inputs, r.power
     life = inp.project_lifetime_years
     ely_kw = inp.electrolyzer_power_kw
     h2 = r.h2_kg_per_year
-    pc = power_costs(r)
+    pc = power_costs(r, year)
     sc = stack_costs(inp, r.full_load_hours)
 
     def esc(price: float, g: float) -> float:
-        return _esc(price, g, life)
+        return price * escalation_factor(g, life, year)
 
     # ---- CAPEX (Blatt 2, F23:F54 und Blatt 3, G5)
     per_kw = inp.capex_electrolyzer_eur_per_kw + inp.capex_epc_eur_per_kw + inp.capex_bop_eur_per_kw
@@ -173,7 +179,7 @@ def compute_economics(r: OperationResult) -> Economics:
             + inp.debt_interest_rate * inp.debt_share * (1 - inp.corporate_tax_rate))
 
     # ---- Erlöse (Blatt 3, K20:L50)
-    thg = thg_revenue_per_year(inp, h2)
+    thg = thg_revenue_per_year(inp, h2) if year is None else thg_revenue_by_year(inp, h2)[year - 1]
     o2_kg = h2 * k.O2_KG_PER_KG_H2
     oxygen = (o2_kg / k.KG_PER_TONNE * esc(inp.oxygen_price_eur_per_t, inp.oxygen_price_escalation)) if inp.oxygen_enabled else 0.0
     heat = 0.0

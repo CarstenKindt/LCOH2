@@ -1,5 +1,6 @@
 """Feste Rechengrößen. Sie stammen aus dem Blatt "3. Nebenrechnungen" der Excel (nicht gelb, also keine Eingaben)."""
 
+LHV_KWH_PER_KG_H2 = 33.33         # Heizwert Wasserstoff, kWh je kg (120 MJ/kg)
 HHV_KWH_PER_KG_H2 = 39.4          # Brennwert Wasserstoff, kWh je kg (Nebenrechnungen C6)
 KWH_PER_NM3_H2 = 3.5              # kWh je Nm³ (C7)
 WATER_KG_PER_KG_H2 = 9.0          # Stöchiometrisch (C10)

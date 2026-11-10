@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 from lcoh import constants as k
 from lcoh.operation import OperationResult
-from lcoh.prices import average_escalation_factor
+from lcoh.prices import average_escalation_factor, escalation_factor
 
 LEVIES = ("grid_fee", "electricity_tax", "concession_fee", "kwk_levy", "stromnev19_levy", "offshore_levy")
 
@@ -62,12 +62,16 @@ class PowerCosts:
     consumption_h2_kwh: float
 
 
-def power_costs(r: OperationResult) -> PowerCosts:
+def power_costs(r: OperationResult, year: int | None = None) -> PowerCosts:
+    """year: einzelnes Projektjahr (Preise des Jahres); ohne Angabe die Mittelwerte über die Laufzeit (wie die Excel)."""
     inp, h, p = r.inputs, r.hourly, r.power
     years = inp.project_lifetime_years
 
     def esc(price: float, g: float) -> float:
-        return price * average_escalation_factor(g, years)
+        return price * escalation_factor(g, years, year)
+
+    # Börsenpreise enthalten den Mittelwertfaktor der Preisentwicklung; im Einzeljahr wird auf den Faktor des Jahres umgerechnet
+    spot_ratio = 1.0 if year is None else escalation_factor(inp.spot_price_escalation, years, year) / average_escalation_factor(inp.spot_price_escalation, years)
 
     # --- Mengen
     pv = float(h["pv_kwh"].sum())
@@ -92,9 +96,9 @@ def power_costs(r: OperationResult) -> PowerCosts:
     price_wind = esc(inp.ppa_wind_price_eur_per_mwh, pe)
     price_base = esc(inp.ppa_baseload_price_eur_per_mwh, inp.ppa_baseload_price_escalation)
     price_13k = esc(inp.section13k_price_eur_per_mwh, inp.section13k_price_escalation)
-    price_s7 = (float(h["s7_cost_eur"].sum()) / s7 * k.KWH_PER_MWH) if (inp.section7_enabled and s7 > 0) else 0.0
+    price_s7 = (float(h["s7_cost_eur"].sum()) / s7 * k.KWH_PER_MWH * spot_ratio) if (inp.section7_enabled and s7 > 0) else 0.0
     if inp.spot_price_source == "Marktpreise":
-        price_spot = (float(h["spot_cost_eur"].sum()) / spot * k.KWH_PER_MWH) if (inp.spot_enabled and spot > 0) else 0.0
+        price_spot = (float(h["spot_cost_eur"].sum()) / spot * k.KWH_PER_MWH * spot_ratio) if (inp.spot_enabled and spot > 0) else 0.0
     else:
         price_spot = esc(inp.spot_own_price_eur_per_mwh, inp.spot_price_escalation)
 
@@ -147,7 +151,7 @@ def power_costs(r: OperationResult) -> PowerCosts:
 
     # --- Stromverkauf (Überschuss)
     if inp.power_sale_enabled and inp.power_sale_mode == "Spotmarkt" and surplus > 0:
-        sale_spot_raw = float(h["surplus_revenue_eur"].sum()) / surplus * m
+        sale_spot_raw = float(h["surplus_revenue_eur"].sum()) / surplus * m * spot_ratio
     else:
         sale_spot_raw = 0.0
     sale_spot = esc(sale_spot_raw, inp.power_sale_ppa_escalation)

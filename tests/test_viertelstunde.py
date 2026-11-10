@@ -132,3 +132,26 @@ def test_energiebilanz_geht_auf():
     assert abs(b.hydrogen + b.heat_ely - b.ely) < 1e-6 * b.ely
     assert abs(b.heat_used + b.heat_unused - b.heat_ely - b.heat_compressors) < 1e-6 * b.procurement
     assert b.heat_used > 0
+
+
+def test_jahresrechnung_stimmt_ohne_degradation_mit_dem_hauptergebnis():
+    """Ohne Degradation, THG und Förderung ist die Summe der Jahreskosten durch die Summe des Wasserstoffs das Hauptergebnis."""
+    from lcoh.yearly import yearly_lcoh
+    inp = Inputs.from_dict({**tool_defaults(), "stack_degradation_per_year": 0.0, "thg_enabled": False,
+                            "ppa_pv_price_escalation": 0.0, "opex_lump_sum_enabled": False})
+    r = run_operation(inp, build_timeseries({}, 4), steps_per_hour=4)
+    e = compute_economics(r)
+    y = yearly_lcoh(r, e)
+    assert len(y.table) == inp.project_lifetime_years
+    assert abs(y.lcoh_sum_ratio - e.lcoh_eur_per_kg) < 1e-6 * abs(e.lcoh_eur_per_kg)
+
+
+def test_jahresrechnung_mit_preissteigerung_stimmt_im_mittel():
+    from lcoh.yearly import yearly_lcoh
+    inp = Inputs.from_dict({**tool_defaults(), "stack_degradation_per_year": 0.0, "thg_enabled": False,
+                            "maintenance_escalation": 0.02, "personnel_escalation": 0.03, "spot_price_escalation": 0.02})
+    r = run_operation(inp, build_timeseries({}, 4), steps_per_hour=4)
+    e = compute_economics(r)
+    y = yearly_lcoh(r, e)
+    assert abs(y.lcoh_sum_ratio - e.lcoh_eur_per_kg) < 1e-3 * abs(e.lcoh_eur_per_kg)
+    assert y.table["Betrieb (OPEX) [€/a]"].iloc[-1] > y.table["Betrieb (OPEX) [€/a]"].iloc[0]
