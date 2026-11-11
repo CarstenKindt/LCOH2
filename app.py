@@ -702,35 +702,45 @@ def series_download(name: str, rate_q: np.ndarray | None, res: str, default_col:
 
 def render_data_tab(inp) -> None:
     st.markdown("### Zeitreihen (Energiedaten und Preise)")
-    st.caption("Im Standard rechnet das Tool mit den hinterlegten Reihen (Erzeugungsprofile und Preise 2025). Eigene Reihen dürfen als Stunden-, "
-               "Viertelstunden- oder gemischte Werte (z. B. das Jahr 2025) hochgeladen werden (.csv oder .txt).")
-    st.caption("Das Tool rechnet immer in Viertelstunden (35.040 Schritte pro Jahr), unabhängig von der Auflösung Ihrer Daten. "
-               "Stundenwerte werden dazu auf vier Viertelstunden gelegt (Preise und Leistungen bleiben gleich, Energie je Viertelstunde "
-               "ein Viertel).")
-    st.caption("Die hinterlegten Reihen folgen der Sommerzeit (MEZ/MESZ) und sind durchgehend ab 01.01.2025, 00:00 Uhr gezählt. "
-               "Eigene Reihen sollten dieselbe Zeitbasis haben.")
-    with st.expander("Allgemein: So muss eine eigene Reihe aufgebaut sein"):
+    with st.expander("Informationen zu eigenen Preisen & Zeitreihen"):
         st.markdown(
-            "- **Zeitraum:** ein Jahr ohne 29. Februar. Bei einem Schaltjahr wird der 29. Februar automatisch entfernt.\n"
+            "**Standardwerte**\n"
+            "- Im Standard rechnet das Tool mit den hinterlegten Reihen (Erzeugungsprofile und Preise 2025).\n"
+            "- Eigene Reihen dürfen als Stunden-, Viertelstunden- oder gemischte Werte (z. B. das Jahr 2025) hochgeladen werden "
+            "(.csv oder .txt). Eine hochgeladene Reihe ersetzt die hinterlegte.\n"
+            "- Die Reihen gelten für die gesamte Projektlaufzeit; die jährlichen Preisentwicklungen werden darauf angewendet.\n\n"
+            "**Zeitbasis und Zeitraum**\n"
+            "- Die hinterlegten Reihen folgen der Sommerzeit (MEZ/MESZ) und sind durchgehend ab 01.01.2025, 00:00 Uhr gezählt. "
+            "Eigene Reihen sollten dieselbe Zeitbasis haben.\n"
+            "- Alle Reihen laufen zeitlich vom Jahresanfang bis zum Jahresende und müssen dieselbe Zuordnung haben, damit z. B. "
+            "Erzeugungsprofil und Börsenpreis zeitlich zusammenpassen.\n"
+            "- Zeitraum ist ein Jahr ohne 29. Februar. Bei einem Schaltjahr wird der 29. Februar automatisch entfernt.\n\n"
+            "**Auflösung und Rechenraster**\n"
+            "- Das Tool rechnet immer in Viertelstunden (35.040 Schritte pro Jahr), unabhängig von der Auflösung Ihrer Daten. "
+            "Stundenwerte werden dazu auf vier Viertelstunden gelegt (Preise und Leistungen bleiben gleich, Energie je Viertelstunde "
+            "ein Viertel).\n"
             "- **Stundenwerte:** genau 8.760 Werte, einer je Stunde.\n"
             "- **Viertelstundenwerte:** genau 35.040 Werte, einer je Viertelstunde (seit dem 01.10.2025 am Day-Ahead-Markt üblich).\n"
             "- **Gemischte Auflösung** (z. B. 2025: bis 30.09. Stundenwerte, danach Viertelstundenwerte): Die Datei braucht eine Spalte "
             "mit dem Zeitstempel (Datum und Uhrzeit, z. B. „01.10.2025 00:15“ oder „2025-10-01 00:15“) vor dem Wert; Datum und "
             "Uhrzeit dürfen auch in zwei Spalten stehen. Aus dem Abstand zum nächsten Zeitstempel erkennt das Tool, ob der Wert "
-            "eine Stunde oder eine Viertelstunde gilt.\n"
-            "- **Einheiten:** Preise (Day-Ahead, CO₂) bleiben in €/MWh bzw. €/t, egal in welcher Auflösung. Energiewerte beziehen "
-            "sich auf das jeweilige Intervall: Erzeugungsprofile in kWh je kW und Stunde bzw. je Viertelstunde (Viertelstunde: "
-            "höchstens 0,25), §13k-Energie in kWh je Stunde bzw. je Viertelstunde.\n"
-            "- **Reihenfolge:** zeitlich vom Jahresanfang bis zum Jahresende. Alle Reihen müssen dieselbe Zuordnung haben, damit z. B. "
-            "Erzeugungsprofil und Börsenpreis zeitlich zusammenpassen.\n"
-            "- **Dateiformat:** .csv oder .txt. Am einfachsten ist eine Spalte mit einer Zahl pro Zeile. Bei mehreren Spalten "
+            "eine Stunde oder eine Viertelstunde gilt.\n\n"
+            "**Dateiformat**\n"
+            "- .csv oder .txt. Am einfachsten ist eine Spalte mit einer Zahl pro Zeile. Bei mehreren Spalten "
             "(getrennt durch Semikolon, Tabulator oder Komma) wird die **letzte** Spalte als Wert gelesen.\n"
-            "- **Zahlen:** Dezimalkomma und Dezimalpunkt sind erlaubt, keine Tausendertrennzeichen. Eine Überschriftenzeile in der "
-            "ersten Zeile wird übersprungen.\n"
-            "- **Prüfung:** Das Tool prüft Anzahl, Zeitabstände und Lesbarkeit der Zahlen und nennt bei Fehlern die betroffene Zeile. "
-            "Ob die Werte sinnvoll sind, müssen Sie selbst sicherstellen. Fehlt am Jahresende höchstens eine Stunde, wird der letzte Wert "
-            "dafür fortgeschrieben und ein Hinweis angezeigt.\n"
-            "- **Gültigkeit:** Hochgeladene Reihen gelten nur für die laufende Sitzung. Sie werden **nicht** in der gespeicherten "
+            "- Dezimalkomma und Dezimalpunkt sind erlaubt, keine Tausendertrennzeichen. Eine Überschriftenzeile in der "
+            "ersten Zeile wird übersprungen.\n\n"
+            "**Einheiten**\n"
+            "- Preise (Day-Ahead, CO₂) bleiben in €/MWh bzw. €/t, egal in welcher Auflösung.\n"
+            "- Energiewerte beziehen sich auf das jeweilige Intervall: Erzeugungsprofile in kWh je kW und Stunde bzw. je Viertelstunde "
+            "(Viertelstunde: höchstens 0,25).\n"
+            "- §13k: Energie (kWh, MWh) oder Leistung (kW, MW) sind möglich; die Einheit wird an der Überschrift erkannt.\n\n"
+            "**Prüfung**\n"
+            "- Das Tool prüft Anzahl, Zeitabstände und Lesbarkeit der Zahlen und nennt bei Fehlern die betroffene Zeile. "
+            "Ob die Werte sinnvoll sind, müssen Sie selbst sicherstellen.\n"
+            "- Fehlt am Jahresende höchstens eine Stunde, wird der letzte Wert dafür fortgeschrieben und ein Hinweis angezeigt.\n\n"
+            "**Gültigkeit**\n"
+            "- Hochgeladene Reihen gelten nur für die laufende Sitzung. Sie werden **nicht** in der gespeicherten "
             "Eingabedatei (.json) abgelegt und müssen nach einem Neuladen der Seite erneut hochgeladen werden. Mit „Auf Standard "
             "zurücksetzen“ nutzt das Tool wieder die hinterlegte Reihe.")
     defaults = load_default_timeseries()
@@ -791,8 +801,6 @@ def render_data_tab(inp) -> None:
                     st.session_state["series_info"].pop(name, None)
                     st.session_state.pop(f"_up_{name}", None)
                     st.rerun()
-    st.info("Hinweis: Eine hochgeladene Preisreihe ersetzt die hinterlegte Börsenpreisreihe (Standard: Jahr 2025). Die Reihen gelten "
-            "für die gesamte Projektlaufzeit; die jährlichen Preisentwicklungen werden wie bisher darauf angewendet.")
 
 
 if missing or errors:
