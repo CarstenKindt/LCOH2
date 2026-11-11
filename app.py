@@ -641,7 +641,8 @@ def footer() -> None:
 
 DEFAULT_ORIGIN = {
     "pv_kwh_per_kw": "Standardwerte am Beispiel: Husum, Photovoltaik, 2025, MEZ",
-    "wind_kwh_per_kw": "Standardwerte am Beispiel: Husum, Wind, 2025, MEZ"}
+    "wind_kwh_per_kw": "Standardwerte am Beispiel: Husum, Wind, 2025, MEZ",
+    "section13k_kwh": "Standardwerte: ausgewiesene Abregelungsstrommenge 2025, Region T5 (Netztransparenz), MEZ"}
 
 SERIES_HELP = {
     "pv_kwh_per_kw": (
@@ -662,8 +663,9 @@ SERIES_HELP = {
         "„Jahresdaten“ gewählt ist."),
     "section13k_kwh": (
         "Energiemenge je Zeitintervall (Stunde oder Viertelstunde), die im Netz sonst abgeregelt würde und für „Nutzen statt Abregeln“ (§13k EnWG) bezogen werden "
-        "kann. Sie begrenzt den Bezug nach §13k je Stunde. Veröffentlichte Abregelungsstrommengen (Netztransparenz) sind Leistungen in MW; "
-        "beim Hochladen wählen Sie „Leistung (MW)“, das Tool bildet daraus die Energie je Viertelstunde. Wirkt nur, wenn §13k eingeschaltet ist."),
+        "kann. Sie begrenzt den Bezug nach §13k je Stunde. Hochgeladene Reihen dürfen Energie (kWh, MWh) oder Leistung (kW, MW) enthalten; "
+        "das Tool erkennt die Einheit an der Überschrift (Dateien der Netztransparenz mit Regionsname, z. B. „T5“, gelten als MW) und rechnet "
+        "selbst in Energie je Viertelstunde um. Ohne erkennbare Einheit gilt kWh je Intervall. Wirkt nur, wenn §13k eingeschaltet ist."),
 }
 
 
@@ -674,7 +676,7 @@ SERIES_UNITS = {"pv_kwh_per_kw": ("kWh/kW je h", "kWh/kW"), "wind_kwh_per_kw": (
 def series_download(name: str, rate_q: np.ndarray | None, res: str, default_col: str, defaults) -> str:
     """CSV-Text der aktuellen Reihe in ihrer ursprünglichen Auflösung (Energie je Intervall, Preise unverändert)."""
     if rate_q is None:
-        if name == "wind_kwh_per_kw":              # hinterlegt: Viertelstundenwerte (Energie je Viertelstunde)
+        if name in ("wind_kwh_per_kw", "section13k_kwh"):   # hinterlegt: Viertelstundenwerte (Energie je Viertelstunde)
             return "\n".join(f"{v / 4.0:.6g}" for v in load_default_profiles()[default_col])
         if name == "pv_kwh_per_kw":                # hinterlegt: Stundenwerte
             return "\n".join(f"{v:.6g}" for v in to_grid(load_default_profiles()[default_col].to_numpy(), 1))
@@ -682,7 +684,7 @@ def series_download(name: str, rate_q: np.ndarray | None, res: str, default_col:
     if res == "Stunde":
         vals = to_grid(rate_q, 1)
     else:
-        vals = rate_q / 4.0 if SERIES_KIND[name] == "energie" else rate_q
+        vals = rate_q / 4.0 if SERIES_KIND[name] in ("energie", "abregelung") else rate_q
     return "\n".join(f"{v:.6g}" for v in vals)
 
 
@@ -730,7 +732,7 @@ def render_data_tab(inp) -> None:
             custom = name in st.session_state["series"]
             rate_q = np.array(st.session_state["series"][name], dtype=float) if custom else None
             res, note, fname = st.session_state["series_info"].get(name, ("Stunde", "", ""))
-            profile = name in ("pv_kwh_per_kw", "wind_kwh_per_kw")
+            profile = name in ("pv_kwh_per_kw", "wind_kwh_per_kw", "section13k_kwh")
             quarterly = custom or profile                        # Viertelstundenwerte (35.040) statt Stundenwerte (8.760)
             values = rate_q if custom else np.array((profiles if profile else defaults)[col], dtype=float)
             per_year = values.sum() / (4 if quarterly else 1)    # Jahresenergie je kW bzw. in kWh
@@ -746,18 +748,19 @@ def render_data_tab(inp) -> None:
                 fig.update_layout(height=160, margin=dict(l=0, r=0, t=5, b=0), yaxis_title=unit,
                                   xaxis_title="Viertelstunde" if quarterly else "Stunde")
                 st.plotly_chart(fig, width="stretch", key=f"plot_{name}")
-                stats = [f"Summe {de(per_year, 0)} {sum_unit} pro Jahr"] if sum_unit else []
-                stats += [f"Mittelwert {de(values.mean(), 3)}", f"Maximum {de(values.max(), 2)}"]
-                if not sum_unit:
-                    stats.insert(1, f"Minimum {de(values.min(), 2)}")
+                stats = [f"Minimum {de(values.min(), 3)}", f"Durchschnitt {de(values.mean(), 3)}", f"Maximum {de(values.max(), 3)}"]
                 st.caption(" · ".join(stats) + f" {unit}")
+                if sum_unit:
+                    zeilen = [f"Summe {de(per_year, 0)} {sum_unit} pro Jahr"]
+                    if name in ("pv_kwh_per_kw", "wind_kwh_per_kw"):
+                        wort = "Sonnenstunden" if name == "pv_kwh_per_kw" else "Windstunden"
+                        n_aktiv = int((values > 0).sum()) / (4 if quarterly else 1)
+                        zeilen = [f"{wort} (Volllaststunden): {de(per_year, 0)} h pro Jahr, im Mittel {de(per_year / 365, 1)} h pro Tag",
+                                  f"Stunden mit Erzeugung: {de(n_aktiv, 0)} h pro Jahr"]
+                    for z in zeilen:
+                        st.caption(z)
             with c2:
                 unit_kind = SERIES_KIND[name]
-                if name == "section13k_kwh":
-                    choice = st.radio("Die Datei enthält", ["Energie je Intervall (kWh)", "Leistung (MW, z. B. Netztransparenz)"],
-                                      key="unit_13k", help="Veröffentlichte Abregelungsstrommengen sind Leistungen in MW. Das Tool rechnet sie "
-                                      "selbst in Energie je Viertelstunde um (MW × 1.000 × 0,25 h = kWh).")
-                    unit_kind = "leistung_mw" if choice.startswith("Leistung") else "energie"
                 up = st.file_uploader("Eigene Zeitreihe hochladen", type=["csv", "txt"], key=f"up_{name}")
                 if up is not None and st.session_state.get(f"_up_{name}") != (up.name, up.size, unit_kind):
                     try:

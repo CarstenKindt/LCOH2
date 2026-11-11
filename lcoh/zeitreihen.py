@@ -31,6 +31,7 @@ def load_default_timeseries() -> pd.DataFrame:
     return pd.read_csv(DATA_FILE)
 
 
+PROFILE_COLUMNS = ("wind_kwh_per_kw", "pv_kwh_per_kw", "section13k_kwh")
 PROFILE_FILE = Path(__file__).resolve().parent / "data" / "profile_2025.csv"
 
 
@@ -39,6 +40,7 @@ def load_default_profiles() -> pd.DataFrame:
 
     pv_kwh_per_kw  PPA 1: normierte Photovoltaik-Leistung 2025 (Stundenwerte, UTC, auf MEZ verschoben)
     wind_kwh_per_kw  PPA 2: Kapazitätsfaktor Windkraft Husum 2025 (Viertelstundenwerte, ab 01.01.2025 00:00 MEZ)
+    section13k_kwh  ausgewiesene Abregelungsstrommenge 2025, Region T5 (Netztransparenz, MW je Viertelstunde, in kWh je Stunde umgerechnet)
     """
     return pd.read_csv(PROFILE_FILE)
 
@@ -117,8 +119,8 @@ QUARTERS_PER_YEAR = 4 * HOURS_PER_YEAR          # 35.040
 _FEB29_HOURS = slice(59 * 24, 60 * 24)          # Index der Stunden des 29. Februar in einem Schaltjahr
 
 #: Art der Reihe: "energie" = Energie je Zeitintervall (wird in eine Rate je Stunde umgerechnet),
-#: "preis" = Preis (bleibt unverändert)
-SERIES_KIND = {"wind_kwh_per_kw": "energie", "pv_kwh_per_kw": "energie", "section13k_kwh": "energie",
+#: "preis" = Preis (bleibt unverändert), "abregelung" = Energie oder Leistung (Einheit wird aus der Überschrift erkannt)
+SERIES_KIND = {"wind_kwh_per_kw": "energie", "pv_kwh_per_kw": "energie", "section13k_kwh": "abregelung",
                "day_ahead": "preis", "co2_eur_per_t": "preis"}
 
 _DATE = r"(?:\d{1,2}\.\d{1,2}\.\d{4}|\d{4}-\d{2}-\d{2})"
@@ -168,6 +170,26 @@ def _split_cells(line: str) -> list[str]:
     return [line]
 
 
+def _detect_unit(header: str) -> tuple[bool, float, str]:
+    """Einheit einer Abregelungs-/§13k-Reihe aus der Überschrift: (ist Leistung, Faktor nach kW bzw. kWh, Text).
+
+    Erkannt werden MWh, kWh, MW, kW sowie die Regionsnamen der Netztransparenz-Dateien (z. B. „T5“, „H2“), die Leistungen in MW
+    enthalten. Ohne erkennbare Angabe gilt: Energie in kWh je Intervall.
+    """
+    h = header.strip()
+    if re.search(r"\bMWh\b", h, re.I) and not re.search(r"\bkWh\b", h, re.I):
+        return False, 1000.0, "Energie in MWh"
+    if re.search(r"\bkWh\b", h, re.I):
+        return False, 1.0, "Energie in kWh"
+    if re.search(r"\bMW\b", h):
+        return True, 1000.0, "Leistung in MW"
+    if re.search(r"\bkW\b", h):
+        return True, 1.0, "Leistung in kW"
+    if re.fullmatch(r"[TH]\d{1,2}|50\s?Hertz|TenneT|Amprion|Transnet\s?BW", h, re.I):
+        return True, 1000.0, "Leistung in MW (Netztransparenz)"
+    return False, 1.0, "Energie in kWh"
+
+
 def read_series(data: bytes, kind: str) -> ParsedSeries:
     """Liest eine hochgeladene Reihe (Stunden, Viertelstunden oder beides gemischt).
 
@@ -184,11 +206,14 @@ def read_series(data: bytes, kind: str) -> ParsedSeries:
         text = data.decode("latin-1")
     values: list[float] = []
     stamps: list[np.datetime64 | None] = []
+    header = ""
     for number, line in enumerate(text.splitlines(), start=1):
         line = line.strip()
         if not line:
             continue
         cells = _split_cells(line)
+        if not values and not header:
+            header = cells[-1].strip()
         if values and len(cells) > 1 and not cells[0].strip():
             continue                                       # Summen- oder Prozentzeile am Dateiende (z. B. „;607.396,00“)
         cell = cells[-1].strip().replace(" ", "")
@@ -262,7 +287,14 @@ def read_series(data: bytes, kind: str) -> ParsedSeries:
     if total != QUARTERS_PER_YEAR:
         raise ValueError(f"Die Werte decken {total / 4:,.2f} Stunden ab, erwartet werden {HOURS_PER_YEAR:,} (ein Jahr ohne "
                          "29. Februar).".replace(",", "#").replace(".", ",").replace("#", "."))
-    if kind == "leistung_mw":                              # MW × 1.000 = kW = Rate in kWh je Stunde
+    if kind == "abregelung":
+        power, factor, unit_text = _detect_unit(header)
+        if power:
+            rate = vals * factor                            # Leistung: MW × 1.000 = kW = Rate in kWh je Stunde
+        else:
+            rate = vals * factor / (dur / 60.0)             # Energie je Intervall
+        note = (note + f" Die Werte wurden als {unit_text} gelesen und in Energie je Viertelstunde umgerechnet.").strip()
+    elif kind == "leistung_mw":
         rate = vals * 1000.0
     else:
         rate = vals / (dur / 60.0) if kind == "energie" else vals
@@ -295,7 +327,7 @@ def build_timeseries(series: dict, steps_per_hour: int = 1) -> pd.DataFrame:
     legacy = load_default_timeseries()
     prof = load_default_profiles()
     ts = pd.DataFrame({c: np.repeat(legacy[c].to_numpy(), 4) for c in legacy.columns if c != "hour"})
-    for c in ("wind_kwh_per_kw", "pv_kwh_per_kw"):
+    for c in PROFILE_COLUMNS:
         ts[c] = prof[c].to_numpy()
     if steps_per_hour == 1:
         ts = pd.DataFrame({c: to_grid(ts[c].to_numpy(), 1) for c in ts.columns})

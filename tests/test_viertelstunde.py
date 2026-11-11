@@ -195,9 +195,16 @@ def test_fehlende_zeit_bis_eine_stunde_wird_aufgefuellt():
         read_series("\n".join(["0,5"] * 35030).encode(), "preis")
 
 
-def test_leistung_in_mw_wird_zu_energie_und_summenzeilen_werden_uebersprungen():
-    zeilen = ["Datum;T5"] + [f"01.01.2025;{2 if i < 8 else 0}" for i in range(QUARTERS_PER_YEAR)] + ["; 16,00 ", ";", ";0,000%"]
-    p = read_series("\r\n".join(zeilen).encode(), "leistung_mw")
-    assert p.resolution == "Viertelstunde" and len(p.rate_quarter) == QUARTERS_PER_YEAR
-    assert p.rate_quarter[0] == 2000.0                         # 2 MW = 2.000 kWh je Stunde
-    assert p.rate_quarter.sum() / 4 == pytest.approx(2000 * 8 / 4)   # 8 Viertelstunden × 2 MW × 0,25 h = 4 MWh
+def test_abregelung_einheit_wird_aus_ueberschrift_erkannt():
+    def lesen(kopf: str, wert: str = "2"):
+        z = [f"Datum;{kopf}"] + [f"01.01.2025;{wert}" for _ in range(QUARTERS_PER_YEAR)] + ["; 16,00 ", ";", ";0,000%"]
+        return read_series("\r\n".join(z).encode(), "abregelung")
+    assert lesen("T5").rate_quarter[0] == 2000.0            # Netztransparenz-Region: MW -> kWh je Stunde
+    assert lesen("Leistung [MW]").rate_quarter[0] == 2000.0
+    assert lesen("Leistung kW").rate_quarter[0] == 2.0
+    assert lesen("Energie kWh").rate_quarter[0] == 8.0      # 2 kWh je Viertelstunde = 8 kWh je Stunde
+    assert lesen("Energie MWh").rate_quarter[0] == 8000.0
+    assert lesen("Wert").rate_quarter[0] == 8.0             # ohne Einheit: kWh je Intervall
+    p = lesen("T5")
+    assert p.resolution == "Viertelstunde" and "MW" in p.note
+    assert p.rate_quarter.sum() / 4 == pytest.approx(2000 * QUARTERS_PER_YEAR / 4)
