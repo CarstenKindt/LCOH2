@@ -683,8 +683,7 @@ def render_data_tab(inp) -> None:
                "Viertelstunden- oder gemischte Werte (z. B. das Jahr 2025) hochgeladen werden (.csv oder .txt).")
     st.caption("Das Tool rechnet immer in Viertelstunden (35.040 Schritte pro Jahr), unabhängig von der Auflösung Ihrer Daten. "
                "Stundenwerte werden dazu auf vier Viertelstunden gelegt (Preise und Leistungen bleiben gleich, Energie je Viertelstunde "
-               "ein Viertel). Das geht über die Excel hinaus, die nur Stundenwerte kennt; mit reinen Stundendaten ergibt sich "
-               "praktisch dasselbe Ergebnis wie in der Excel-Rechnung.")
+               "ein Viertel).")
     with st.expander("Allgemein: So muss eine eigene Reihe aufgebaut sein"):
         st.markdown(
             "- **Zeitraum:** ein Jahr ohne 29. Februar. Bei einem Schaltjahr wird der 29. Februar automatisch entfernt.\n"
@@ -916,57 +915,60 @@ with tab_res:
     h2_kg = e.h2_kg_per_year
     cost_total = e.power_cost + e.stack_cost_per_year + e.opex_total + e.financing_total
 
-    def kpi_group(title: str, items: list, ncols: int = 4) -> None:
-        """Kennzahlen eines Themas in Reihen zu je ncols Spalten."""
-        st.markdown(f"##### {title}")
-        for start in range(0, len(items), ncols):
-            cols = st.columns(ncols)
-            for col, (lab, val, unit, hlp) in zip(cols, items[start:start + ncols]):
-                kmetric(col, lab, val, unit, help=hlp)
+    def kpi_group(target, title: str, items: list) -> None:
+        """Kennzahlen eines Themas in einem sanft eingerahmten Bereich, je Zeile zwei Kennzahlen."""
+        with target:
+            with st.container(border=True):
+                st.markdown(f"##### {title}")
+                for start in range(0, len(items), 2):
+                    cols = st.columns(2)
+                    for col, (lab, val, unit, hlp) in zip(cols, items[start:start + 2]):
+                        kmetric(col, lab, val, unit, help=hlp)
 
     ely_eff = r.h2_energy_kwh / pc.consumption_total_kwh * 100 if pc.consumption_total_kwh else 0.0
-    kpi_group("Gestehungskosten", [
+    zeile1, zeile2 = st.columns(2), st.columns(2)
+    kpi_group(zeile1[0], "Gestehungskosten", [
         ("Gestehungskosten", de(e.lcoh_eur_per_kg), "€/kg", "Wasserstoffgestehungskosten (LCOH₂)."),
         ("Gestehungskosten", de(e.lcoh_ct_per_kwh), "ct/kWh", "Bezogen auf den Brennwert von 39,4 kWh/kg."),
         ("Gestehungskosten (Brennwert)", de(e.lcoh_eur_per_kg / consts.HHV_KWH_PER_KG_H2 * 1000, 1), "€/MWh",
          "Gestehungskosten je MWh Wasserstoff, bezogen auf den Brennwert (39,4 kWh/kg)."),
         ("Gestehungskosten (Heizwert)", de(e.lcoh_eur_per_kg / consts.LHV_KWH_PER_KG_H2 * 1000, 1), "€/MWh",
          "Gestehungskosten je MWh Wasserstoff, bezogen auf den Heizwert (33,33 kWh/kg). Märkte und Ausschreibungen geben "
-         "Wasserstoffpreise meist auf Heizwertbasis an.")])
-    kpi_group("Wasserstoff und Anlage", [
-        ("Wasserstoff", de(e.h2_kg_per_year / 1000, 0), "t/a", None),
-        ("Anlagenleistung gesamt", de(r.power.total_kw / 1000, 1), "MW", None),
-        ("Volllaststunden (Ely)", de(r.full_load_hours, 0), "h/a", "Jahresenergie des Elektrolyseurs geteilt durch seine Nennleistung."),
-        ("Betriebsstunden", de(run_hours, 0), "h/a", "Stunden, in denen das System Strom verbraucht."),
-        ("davon Volllast", de(full_hours, 0), "h/a", None),
-        ("davon Teillast", de(part_hours, 0), "h/a", None),
-        ("Systemauslastung", de(system_util * 100, 1), "%", "Stromverbrauch des Gesamtsystems bezogen auf den Dauerbetrieb "
-         "mit Nennleistung über 8.760 Stunden."),
-        ("Anzahl Stacktausche", str(r.stack_replacements), "", f"Anzahl der Stacktausche in der Projektlaufzeit "
-         f"(alle {de(r.stack_interval_years, 1)} Jahre).")])
-    kpi_group("Wirkungsgrad und Strom", [
-        ("Ø Effizienz", de(r.avg_efficiency * 100, 1), "%", "Mittlerer Wirkungsgrad des Elektrolyseurs über die Projektlaufzeit "
-         "(inklusive Degradation)."),
-        ("Systemwirkungsgrad", de(ely_eff, 1), "%", "Energie des Wasserstoffs (Brennwert) bezogen auf den Stromverbrauch des "
-         "Gesamtsystems, also einschließlich Peripherie und Verdichter. Verkaufter Überschussstrom und Batterieverluste zählen nicht dazu."),
-        ("Spez. Stromverbrauch System", de(pc.consumption_total_kwh / h2_kg if h2_kg else 0, 1), "kWh/kg",
-         "Stromverbrauch des gesamten Systems (Elektrolyseur, Peripherie, Verdichter) je kg erzeugtem Wasserstoff."),
-        ("Spez. Stromverbrauch Elektrolyseur", de(r.ely_consumption_kwh / h2_kg if h2_kg else 0, 1), "kWh/kg",
-         "Stromverbrauch des Elektrolyseurs allein je kg Wasserstoff (über die Laufzeit gemittelt)."),
-        ("Durchschnittlicher Strompreis (inkl. Abgaben)", de(avg_power_price), "€/MWh", HELP_AVG_PRICE),
-        ("Anteil grüner Wasserstoff", de(green_share * 100, 1), "%", HELP_GREEN)], ncols=3)
-    kpi_group("Investition und Kosten", [
+         "Wasserstoffpreise meist auf Heizwertbasis an."),
+        ("Stromkosten je kg Wasserstoff", de(e.power_cost / h2_kg if h2_kg else 0), "€/kg",
+         "Jährliche Stromkosten (nach Befreiungen und Förderungen) je kg Wasserstoff."),
+        ("Anteil Stromkosten", de(e.power_cost / cost_total * 100 if cost_total else 0, 1), "%",
+         "Stromkosten bezogen auf die Gesamtkosten vor Zusatzeinnahmen (Strom, Stack, Betrieb, Kapitaldienst).")])
+    kpi_group(zeile1[1], "Investition und Finanzierung", [
         ("CAPEX nach Förderung", de(e.capex_net / 1e6, 1), "Mio. €", None),
         ("CAPEX nach Förderung je kW", de(e.capex_specific_eur_per_kw, 0), "€/kW", "Investition nach Förderung je kW Elektrolyseurleistung."),
         ("CAPEX nach Förderung je Jahreskapazität", de(e.capex_net / h2_kg if h2_kg else 0, 0), "€/(kg/a)",
          "Investition nach Förderung je kg Wasserstoff, der pro Jahr erzeugt wird."),
         ("Kapitalkostensatz (WACC)", de(e.wacc * 100, 1), "%", None),
-        ("Stromkosten je kg Wasserstoff", de(e.power_cost / h2_kg if h2_kg else 0), "€/kg",
-         "Jährliche Stromkosten (nach Befreiungen und Förderungen) je kg Wasserstoff."),
-        ("Anteil Stromkosten", de(e.power_cost / cost_total * 100 if cost_total else 0, 1), "%",
-         "Stromkosten bezogen auf die Gesamtkosten vor Zusatzeinnahmen (Strom, Stack, Betrieb, Kapitaldienst)."),
         ("Anteil Kapitalkosten", de(e.financing_total / cost_total * 100 if cost_total else 0, 1), "%",
          "Kapitaldienst (Tilgung und Zinsen) bezogen auf die Gesamtkosten vor Zusatzeinnahmen.")])
+    kpi_group(zeile2[0], "Wasserstoff und Anlage", [
+        ("Wasserstoff", de(e.h2_kg_per_year / 1000, 0), "t/a", None),
+        ("Anlagenleistung gesamt", de(r.power.total_kw / 1000, 1), "MW", None),
+        ("Volllaststunden (Ely)", de(r.full_load_hours, 0), "h/a", "Jahresenergie des Elektrolyseurs geteilt durch seine Nennleistung."),
+        ("Systemauslastung", de(system_util * 100, 1), "%", "Stromverbrauch des Gesamtsystems bezogen auf den Dauerbetrieb "
+         "mit Nennleistung über 8.760 Stunden."),
+        ("Betriebsstunden", de(run_hours, 0), "h/a", "Stunden, in denen das System Strom verbraucht."),
+        ("davon Volllast", de(full_hours, 0), "h/a", None),
+        ("davon Teillast", de(part_hours, 0), "h/a", None)])
+    kpi_group(zeile2[1], "Wirkungsgrad und Strom", [
+        ("Ø Effizienz", de(r.avg_efficiency * 100, 1), "%", "Mittlerer Wirkungsgrad des Elektrolyseurs über die Projektlaufzeit "
+         "(inklusive Degradation)."),
+        ("Systemwirkungsgrad", de(ely_eff, 1), "%", "Energie des Wasserstoffs (Brennwert) bezogen auf den Stromverbrauch des "
+         "Gesamtsystems, also einschließlich Peripherie und Verdichter. Verkaufter Überschussstrom und Batterieverluste zählen nicht dazu."),
+        ("Anzahl Stacktausche", str(r.stack_replacements), "", f"Anzahl der Stacktausche in der Projektlaufzeit "
+         f"(alle {de(r.stack_interval_years, 1)} Jahre)."),
+        ("Spez. Stromverbrauch System", de(pc.consumption_total_kwh / h2_kg if h2_kg else 0, 1), "kWh/kg",
+         "Stromverbrauch des gesamten Systems (Elektrolyseur, Peripherie, Verdichter) je kg erzeugtem Wasserstoff."),
+        ("Spez. Stromverbrauch Elektrolyseur", de(r.ely_consumption_kwh / h2_kg if h2_kg else 0, 1), "kWh/kg",
+         "Stromverbrauch des Elektrolyseurs allein je kg Wasserstoff (über die Laufzeit gemittelt)."),
+        ("Durchschnittlicher Strompreis (inkl. Abgaben)", de(avg_power_price), "€/MWh", HELP_AVG_PRICE),
+        ("Anteil grüner Wasserstoff", de(green_share * 100, 1), "%", HELP_GREEN)])
 
     st.markdown("### Zusammensetzung der Gestehungskosten")
     mode = st.radio("Darstellung", ["Detailliert (Einzelposten)", "Gestapelt nach Bereichen",
@@ -1033,7 +1035,7 @@ with tab_res:
     else:
         st.info("Die Batterie ist ausgeschaltet.")
     if inp.battery_enabled and inp.battery_optimize and r.power.battery_capacity_kwh > 0:
-        st.markdown("#### Vergleich: Batterie wie in der Excel und nach Preissignalen optimiert")
+        st.markdown("#### Vergleich: Batterie chronologisch (feste Regeln) und nach Preissignalen optimiert")
         r0, e0 = rechnen(json.dumps({**effective, "battery_optimize": False}, sort_keys=True, default=float), series_json, STEPS)
         def _vgl(label, f, n=2, unit=""):
             a_, b_ = f(r0, e0), f(r, e)
@@ -1044,10 +1046,10 @@ with tab_res:
                _vgl("Stromkosten [Mio. €/a]", lambda r_, e_: e_.power_cost / 1e6),
                _vgl("Erlöse aus Stromverkauf [Mio. €/a]", lambda r_, e_: (e_.revenue_power_spot + e_.revenue_power_ppa) / 1e6),
                _vgl("Ladezyklen der Batterie [1/a]", lambda r_, e_: r_.battery_cycles, 0)]
-        st.dataframe(pd.DataFrame(vgl, columns=["Kennzahl", "Batterie wie Excel", "Batterie optimiert", "Änderung"]),
+        st.dataframe(pd.DataFrame(vgl, columns=["Kennzahl", "Batterie chronologisch", "Batterie optimiert", "Änderung"]),
                      hide_index=True, width="stretch")
         st.caption("Die optimierte Batterie plant täglich mit den Preisen der nächsten 24 Stunden plus Vorlauf (perfekte Voraussicht "
-                   "im Fenster) und rechnet mit dem eingestellten Wirkungsgrad. Sie geht über die Excel hinaus.")
+                   "im Fenster) und rechnet mit dem eingestellten Wirkungsgrad.")
 
     st.markdown("### Spotmarktpreise")
     st.plotly_chart(spot_price_figure(r.market, steps_per_hour=STEPS), width="stretch")
@@ -1062,7 +1064,7 @@ with tab_res:
     rows_s = sensitivity(r, e, S["sensitivity_step"] if S["sensitivity_step"] is not None else 0.3)
     with sc2:
         st.caption("Jede Einflussgröße wird einzeln um die Schrittweite verringert bzw. erhöht; alle übrigen Kostenblöcke "
-                   "bleiben unverändert (Vorgehen wie in der Excel). Links: Einflussgröße −x %, rechts: +x %. Die Länge zeigt die Kostenänderung; grün: Die Gestehungskosten sinken, rot: sie steigen.")
+                   "bleiben unverändert. Links: Einflussgröße −x %, rechts: +x %. Die Länge zeigt die Kostenänderung; grün: Die Gestehungskosten sinken, rot: sie steigen.")
     st.plotly_chart(sensitivity_figure(rows_s, S["sensitivity_step"] or 0.3), width="stretch")
     pct_txt = f"{de(S['sensitivity_step'] * 100 if S['sensitivity_step'] is not None else 30, 0)} %"
     sens_df = pd.DataFrame([(z.name, z.block, z.v_minus, z.v_base, z.v_plus, z.setting, z.lcoh_minus, z.lcoh_plus)
@@ -1084,6 +1086,13 @@ with tab_res:
     st.dataframe(sens_show.iloc[::-1].style.format(fmt), hide_index=True, width="stretch")
     st.caption("Reihenfolge wie im Diagramm (von oben nach unten). Die Excel-Datei zum Herunterladen enthält zusätzlich die "
                "veränderten Kostenblöcke in €.")
+
+    eb = energy_balance(r, pc)
+    st.markdown("### Energieflüsse")
+    st.plotly_chart(sankey_figure(eb), width="stretch")
+    st.caption("Alle Mengen in MWh pro Jahr. Die Abwärme umfasst die Verluste des Elektrolyseurs und der Verdichter; genutzt wird "
+               "der Anteil „nutzbare Abwärme“ aus den Eingaben, sofern die Abwärmenutzung eingeschaltet ist. Der Eigenverbrauch der "
+               "Peripherie und die Verdichtungsarbeit, die im Gas verbleibt, sind als Verluste dargestellt.")
 
     t1, t2 = st.columns(2)
     with t1:
@@ -1136,8 +1145,7 @@ with tab_res:
                                    "Preis [€/MWh]": lambda v: de(v, 2), "Kosten [€/a]": lambda v: de(v, 0)}),
                  hide_index=True, width="stretch")
 
-    # ---- Stromverbrauch und Energiefluss
-    eb = energy_balance(r, pc)
+    # ---- Stromverbrauch
     st.markdown("### Stromverbrauch im Überblick")
     zeilen = [("Elektrolyseur", eb.ely), ("Peripherie (BoP)", eb.peripherals), ("Wasserstoffverdichter", eb.h2_compressor),
               ("Sauerstoffverdichter", eb.o2_compressor), ("Stromverbrauch System", eb.consumption),
@@ -1166,12 +1174,6 @@ with tab_res:
                  , hide_index=True, width="stretch")
     st.caption("Förderungen, Befreiungen und Zusatzeinnahmen mindern die Gestehungskosten (negative Werte). Die Anteile beziehen "
                "sich auf die Gestehungskosten brutto.")
-
-    st.markdown("### Energieflüsse")
-    st.plotly_chart(sankey_figure(eb), width="stretch")
-    st.caption("Alle Mengen in MWh pro Jahr. Die Abwärme umfasst die Verluste des Elektrolyseurs und der Verdichter; genutzt wird "
-               "der Anteil „nutzbare Abwärme“ aus den Eingaben, sofern die Abwärmenutzung eingeschaltet ist. Der Eigenverbrauch der "
-               "Peripherie und die Verdichtungsarbeit, die im Gas verbleibt, sind als Verluste dargestellt.")
 
     # ---- Gesamttabelle
     st.markdown("### Alle Ergebnisse im Überblick")
