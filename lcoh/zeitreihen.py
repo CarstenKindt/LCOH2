@@ -31,6 +31,18 @@ def load_default_timeseries() -> pd.DataFrame:
     return pd.read_csv(DATA_FILE)
 
 
+PROFILE_FILE = Path(__file__).resolve().parent / "data" / "profile_2025.csv"
+
+
+def load_default_profiles() -> pd.DataFrame:
+    """Hinterlegte Erzeugungsprofile 2025 in Viertelstunden (35.040 Zeilen, Rate je Stunde), Zeitbezug MEZ (UTC+1).
+
+    pv_kwh_per_kw  PPA 1: normierte Photovoltaik-Leistung 2025 (Stundenwerte, UTC, auf MEZ verschoben)
+    wind_kwh_per_kw  PPA 2: Kapazitätsfaktor Windkraft Husum 2025 (Viertelstundenwerte, ab 01.01.2025 00:00 MEZ)
+    """
+    return pd.read_csv(PROFILE_FILE)
+
+
 def check_timeseries(df: pd.DataFrame) -> list[str]:
     """Prüft eine (auch hochgeladene) Zeitreihentabelle. Leere Liste = in Ordnung."""
     problems = []
@@ -217,7 +229,11 @@ def read_series(data: bytes, kind: str) -> ParsedSeries:
             vals, dur = vals[~is_feb29], dur[~is_feb29]
             note = "Der 29. Februar wurde entfernt."
     else:
-        if n in (HOURS_PER_YEAR, HOURS_PER_YEAR + 24):
+        if n == HOURS_PER_YEAR - 1:
+            dur = np.full(n, 60)                                         # eine Stunde fehlt: wird unten aufgefüllt
+        elif QUARTERS_PER_YEAR - 4 <= n < QUARTERS_PER_YEAR:
+            dur = np.full(n, 15)                                         # bis zu eine Stunde fehlt: wird unten aufgefüllt
+        elif n in (HOURS_PER_YEAR, HOURS_PER_YEAR + 24):
             dur = np.full(n, 60)
             if n != HOURS_PER_YEAR:
                 keep = np.ones(n, dtype=bool); keep[_FEB29_HOURS] = False
@@ -235,11 +251,17 @@ def read_series(data: bytes, kind: str) -> ParsedSeries:
 
     quarters = dur // 15
     total = int(quarters.sum())
+    fill = 0
+    if QUARTERS_PER_YEAR - 4 <= total < QUARTERS_PER_YEAR:    # höchstens eine Stunde fehlt: letzten Wert fortschreiben
+        fill, total = QUARTERS_PER_YEAR - total, QUARTERS_PER_YEAR
     if total != QUARTERS_PER_YEAR:
         raise ValueError(f"Die Werte decken {total / 4:,.2f} Stunden ab, erwartet werden {HOURS_PER_YEAR:,} (ein Jahr ohne "
                          "29. Februar).".replace(",", "#").replace(".", ",").replace("#", "."))
     rate = vals / (dur / 60.0) if kind == "energie" else vals
     rate_q = np.repeat(rate, quarters)
+    if fill:
+        rate_q = np.append(rate_q, np.full(fill, rate_q[-1]))
+        note = (note + f" Es fehlten {fill * 15} Minuten am Jahresende; der letzte Wert wurde dafür fortgeschrieben.").strip()
     if (quarters == 4).all():
         res = "Stunde"
     elif (quarters == 1).all():
@@ -262,9 +284,14 @@ def build_timeseries(series: dict, steps_per_hour: int = 1) -> pd.DataFrame:
     Stundenraster: 8.760 Zeilen, Viertelstundenraster: 35.040 Zeilen. Hinterlegte Stundenreihen werden dafür auf vier
     Viertelstunden gelegt (Zero-Order-Hold, Raten und Preise bleiben gleich).
     """
-    ts = load_default_timeseries().copy()
-    if steps_per_hour == 4:
-        ts = pd.DataFrame({c: np.repeat(ts[c].to_numpy(), 4) for c in ts.columns if c != "hour"})
+    legacy = load_default_timeseries()
+    prof = load_default_profiles()
+    ts = pd.DataFrame({c: np.repeat(legacy[c].to_numpy(), 4) for c in legacy.columns if c != "hour"})
+    for c in ("wind_kwh_per_kw", "pv_kwh_per_kw"):
+        ts[c] = prof[c].to_numpy()
+    if steps_per_hour == 1:
+        ts = pd.DataFrame({c: to_grid(ts[c].to_numpy(), 1) for c in ts.columns})
+        ts.insert(0, "hour", legacy["hour"].to_numpy())
     for name, values in series.items():
         grid = to_grid(np.asarray(values, dtype=float), steps_per_hour)
         ts["day_ahead_eur_per_mwh" if name == "day_ahead" else name] = grid

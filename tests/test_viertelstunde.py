@@ -8,7 +8,7 @@ from lcoh.economics import compute_economics
 from lcoh.inputs import Inputs
 from lcoh.operation import run_operation
 from lcoh.tool_defaults import tool_defaults
-from lcoh.zeitreihen import QUARTERS_PER_YEAR, build_timeseries, read_series, to_grid
+from lcoh.zeitreihen import QUARTERS_PER_YEAR, build_timeseries, load_default_profiles, read_series, to_grid
 
 
 def _csv(values) -> bytes:
@@ -88,9 +88,15 @@ def _rechne(over: dict, steps: int, series: dict | None = None):
     return r, compute_economics(r)
 
 
+def _stundenprofile() -> dict:
+    """Hinterlegte Erzeugungsprofile als Stundenmittel (je Stunde konstant), damit beide Raster dieselben Daten sehen."""
+    prof = load_default_profiles()
+    return {c: np.repeat(to_grid(prof[c].to_numpy(), 1), 4).tolist() for c in ("wind_kwh_per_kw", "pv_kwh_per_kw")}
+
+
 def test_viertelstundenrechnung_mit_stundendaten_ohne_batterie_identisch():
-    r1, e1 = _rechne({}, 1)
-    r4, e4 = _rechne({}, 4)
+    r1, e1 = _rechne({}, 1, _stundenprofile())
+    r4, e4 = _rechne({}, 4, _stundenprofile())
     assert e4.lcoh_eur_per_kg == pytest.approx(e1.lcoh_eur_per_kg, rel=1e-9)
     assert r4.h2_kg_per_year == pytest.approx(r1.h2_kg_per_year, rel=1e-9)
     assert len(r4.hourly) == QUARTERS_PER_YEAR
@@ -167,3 +173,23 @@ def test_zeitstempel_und_wert_mit_komma_getrennt():
     assert abs(p.rate_quarter[0] - 0.5) < 1e-12 and "29. Februar" in p.note
     # Dezimalkomma bleibt Dezimalkomma
     assert read_series(("\n".join(["0,5"] * 8760)).encode(), "preis").rate_quarter[0] == 0.5
+
+
+def test_fehlende_zeit_bis_eine_stunde_wird_aufgefuellt():
+    ts = ["2025-01-01 %02d:%02d" % (m // 60, m % 60) for m in range(0, 24 * 60, 15)]
+    # 8759,25 Stunden mit Zeitstempel: drei Viertelstunden fehlen am Jahresende
+    stamps = np.arange(np.datetime64("2025-01-01T00:00"), np.datetime64("2026-01-01T00:00") - np.timedelta64(45, "m"),
+                       np.timedelta64(15, "m"))
+    data = "\n".join(f"{str(t).replace('T', ' ')};{0.1 + (i % 7) / 100:.3f}" for i, t in enumerate(stamps))
+    p = read_series(data.encode(), "energie")
+    assert len(p.rate_quarter) == QUARTERS_PER_YEAR
+    assert (p.rate_quarter[-4:] == p.rate_quarter[-4]).all()     # letzter Wert fortgeschrieben
+    assert "fortgeschrieben" in p.note
+    # ohne Zeitstempel: 8759 Stundenwerte
+    q = read_series("\n".join(["0,5"] * 8759).encode(), "preis")
+    assert len(q.rate_quarter) == QUARTERS_PER_YEAR and q.rate_quarter[-1] == 0.5
+    # mehr als eine Stunde fehlt: Fehler
+    with pytest.raises(ValueError):
+        read_series("\n".join(["0,5"] * 8758).encode(), "preis")
+    with pytest.raises(ValueError):
+        read_series("\n".join(["0,5"] * 35030).encode(), "preis")

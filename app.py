@@ -30,7 +30,7 @@ from lcoh.ui_layout import (rename_label, CHOICE_LABELS, COCKPIT, FINE_STEP, GAT
                             VISIBLE)
 from lcoh.waterfall import (BLOCK_CAPEX, BLOCK_INTEREST, BLOCK_OPEX, BLOCK_POWER, BLOCK_REVENUE, BLOCK_STACK,
                             BLOCK_SUBSIDY, block_subtotal, net_power_items, waterfall_items)
-from lcoh.zeitreihen import SERIES_KIND, SERIES_LABELS, build_timeseries, load_default_timeseries, read_series, to_grid
+from lcoh.zeitreihen import SERIES_KIND, SERIES_LABELS, build_timeseries, load_default_profiles, load_default_timeseries, read_series, to_grid
 
 ASSETS = Path(__file__).resolve().parent / "assets"
 
@@ -639,15 +639,19 @@ def footer() -> None:
                "Genehmigungsplanung und erfolgen ohne Gewähr. Entwickelt an der Hochschule Flensburg im Norddeutschen Reallabor.")
 
 
+DEFAULT_ORIGIN = {
+    "pv_kwh_per_kw": "Standardwerte (Photovoltaik 2025, Stundenwerte, MEZ)",
+    "wind_kwh_per_kw": "Standardwerte (Windkraft Husum 2025, Viertelstundenwerte, MEZ)"}
+
 SERIES_HELP = {
     "pv_kwh_per_kw": (
         "Stündliches Erzeugungsprofil der Anlage hinter PPA 1, angegeben als Erzeugung je installiertem kW und Zeitintervall (Stunde oder Viertelstunde; z. B. Photovoltaik). "
         "Das Tool multipliziert es mit der installierten Leistung von PPA 1; daraus ergibt sich der stündliche Strombezug. "
-        "Hinterlegt ist ein Beispielprofil."),
+        "Hinterlegt ist ein Photovoltaik-Profil für das Jahr 2025 (Zeitbezug MEZ)."),
     "wind_kwh_per_kw": (
         "Stündliches Erzeugungsprofil der Anlage hinter PPA 2, angegeben als Erzeugung je installiertem kW und Zeitintervall (Stunde oder Viertelstunde; z. B. Windkraft). "
         "Das Tool multipliziert es mit der installierten Leistung von PPA 2; daraus ergibt sich der stündliche Strombezug. "
-        "Hinterlegt ist ein Beispielprofil."),
+        "Hinterlegt ist das Windprofil Husum für das Jahr 2025 (Zeitbezug MEZ)."),
     "day_ahead": (
         "Börsenstrompreis (Day-Ahead) je Stunde bzw. Viertelstunde. Er bestimmt den Preis beim Strombezug am Spotmarkt und nach §7 der 37. BImSchV "
         "sowie den Erlös beim Verkauf von Überschussstrom (negative Preise werden dort mit 0 angesetzt). Eine hochgeladene Reihe "
@@ -669,6 +673,10 @@ SERIES_UNITS = {"pv_kwh_per_kw": ("kWh/kW je h", "kWh/kW"), "wind_kwh_per_kw": (
 def series_download(name: str, rate_q: np.ndarray | None, res: str, default_col: str, defaults) -> str:
     """CSV-Text der aktuellen Reihe in ihrer ursprünglichen Auflösung (Energie je Intervall, Preise unverändert)."""
     if rate_q is None:
+        if name == "wind_kwh_per_kw":              # hinterlegt: Viertelstundenwerte (Energie je Viertelstunde)
+            return "\n".join(f"{v / 4.0:.6g}" for v in load_default_profiles()[default_col])
+        if name == "pv_kwh_per_kw":                # hinterlegt: Stundenwerte
+            return "\n".join(f"{v:.6g}" for v in to_grid(load_default_profiles()[default_col].to_numpy(), 1))
         return "\n".join(f"{v:.6g}" for v in defaults[default_col])
     if res == "Stunde":
         vals = to_grid(rate_q, 1)
@@ -679,7 +687,7 @@ def series_download(name: str, rate_q: np.ndarray | None, res: str, default_col:
 
 def render_data_tab(inp) -> None:
     st.markdown("### Zeitreihen (Energiedaten und Preise)")
-    st.caption("Im Standard rechnet das Tool mit den hinterlegten Stundenreihen. Eigene Reihen dürfen als Stunden-, "
+    st.caption("Im Standard rechnet das Tool mit den hinterlegten Reihen (Erzeugungsprofile 2025 in MEZ, Preise 2024). Eigene Reihen dürfen als Stunden-, "
                "Viertelstunden- oder gemischte Werte (z. B. das Jahr 2025) hochgeladen werden (.csv oder .txt).")
     st.caption("Das Tool rechnet immer in Viertelstunden (35.040 Schritte pro Jahr), unabhängig von der Auflösung Ihrer Daten. "
                "Stundenwerte werden dazu auf vier Viertelstunden gelegt (Preise und Leistungen bleiben gleich, Energie je Viertelstunde "
@@ -703,11 +711,13 @@ def render_data_tab(inp) -> None:
             "- **Zahlen:** Dezimalkomma und Dezimalpunkt sind erlaubt, keine Tausendertrennzeichen. Eine Überschriftenzeile in der "
             "ersten Zeile wird übersprungen.\n"
             "- **Prüfung:** Das Tool prüft Anzahl, Zeitabstände und Lesbarkeit der Zahlen und nennt bei Fehlern die betroffene Zeile. "
-            "Ob die Werte sinnvoll sind, müssen Sie selbst sicherstellen.\n"
+            "Ob die Werte sinnvoll sind, müssen Sie selbst sicherstellen. Fehlt am Jahresende höchstens eine Stunde, wird der letzte Wert "
+            "dafür fortgeschrieben und ein Hinweis angezeigt.\n"
             "- **Gültigkeit:** Hochgeladene Reihen gelten nur für die laufende Sitzung. Sie werden **nicht** in der gespeicherten "
             "Eingabedatei (.json) abgelegt und müssen nach einem Neuladen der Seite erneut hochgeladen werden. Mit „Auf Standard "
             "zurücksetzen“ nutzt das Tool wieder die hinterlegte Reihe.")
     defaults = load_default_timeseries()
+    profiles = load_default_profiles()
     series_info = {
         "pv_kwh_per_kw": "pv_kwh_per_kw", "wind_kwh_per_kw": "wind_kwh_per_kw",
         "day_ahead": "day_ahead_eur_per_mwh",
@@ -719,18 +729,20 @@ def render_data_tab(inp) -> None:
             custom = name in st.session_state["series"]
             rate_q = np.array(st.session_state["series"][name], dtype=float) if custom else None
             res, note, fname = st.session_state["series_info"].get(name, ("Stunde", "", ""))
-            values = rate_q if custom else np.array(defaults[col], dtype=float)
-            per_year = values.sum() / (4 if custom else 1)       # Jahresenergie je kW bzw. in kWh
+            profile = name in ("pv_kwh_per_kw", "wind_kwh_per_kw")
+            quarterly = custom or profile                        # Viertelstundenwerte (35.040) statt Stundenwerte (8.760)
+            values = rate_q if custom else np.array((profiles if profile else defaults)[col], dtype=float)
+            per_year = values.sum() / (4 if quarterly else 1)    # Jahresenergie je kW bzw. in kWh
             with c1:
                 herkunft = (f"eigene Datei ({ {'Stunde': 'Stundenwerte', 'Viertelstunde': 'Viertelstundenwerte'}.get(res, 'gemischte Auflösung') })"
-                            if custom else "Standardwerte (Stunde)")
+                            if custom else DEFAULT_ORIGIN.get(name, "Standardwerte (Stunde)"))
                 st.markdown(f"**{SERIES_LABELS[name]}** · {herkunft}")
                 st.caption(f"**Bedeutung:** {SERIES_HELP[name]}")
                 if custom and note:
                     st.caption(f"Hinweis zur Datei: {note}")
                 fig = go.Figure(go.Scatter(y=values, mode="lines", line=dict(color="#1f4e79", width=1)))
                 fig.update_layout(height=160, margin=dict(l=0, r=0, t=5, b=0), yaxis_title=unit,
-                                  xaxis_title="Viertelstunde" if custom else "Stunde")
+                                  xaxis_title="Viertelstunde" if quarterly else "Stunde")
                 st.plotly_chart(fig, width="stretch", key=f"plot_{name}")
                 stats = [f"Summe {de(per_year, 0)} {sum_unit} pro Jahr"] if sum_unit else []
                 stats += [f"Mittelwert {de(values.mean(), 3)}", f"Maximum {de(values.max(), 2)}"]
