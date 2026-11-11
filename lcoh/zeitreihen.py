@@ -31,7 +31,7 @@ def load_default_timeseries() -> pd.DataFrame:
     return pd.read_csv(DATA_FILE)
 
 
-PROFILE_COLUMNS = ("wind_kwh_per_kw", "pv_kwh_per_kw", "section13k_kwh")
+PROFILE_COLUMNS = ("wind_kwh_per_kw", "pv_kwh_per_kw", "section13k_kwh", "day_ahead_eur_per_mwh", "co2_eur_per_t")
 PROFILE_FILE = Path(__file__).resolve().parent / "data" / "profile_2025.csv"
 
 
@@ -40,6 +40,8 @@ def load_default_profiles() -> pd.DataFrame:
 
     pv_kwh_per_kw  PPA 1: normierte Photovoltaik-Leistung 2025 (Stundenwerte, UTC, auf MEZ verschoben)
     wind_kwh_per_kw  PPA 2: Kapazitätsfaktor Windkraft Husum 2025 (Viertelstundenwerte, ab 01.01.2025 00:00 MEZ)
+    day_ahead_eur_per_mwh  Day-Ahead-Preis DE-LU 2025 (Viertelstundenwerte, €/MWh)
+    co2_eur_per_t  CO₂-Preis EU-Auktion 2025 (Viertelstundenwerte, €/t)
     section13k_kwh  ausgewiesene Abregelungsstrommenge 2025, Region T5 (Netztransparenz, MW je Viertelstunde, in kWh je Stunde umgerechnet)
     """
     return pd.read_csv(PROFILE_FILE)

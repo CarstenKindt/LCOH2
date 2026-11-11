@@ -91,7 +91,9 @@ def _rechne(over: dict, steps: int, series: dict | None = None):
 def _stundenprofile() -> dict:
     """Hinterlegte Erzeugungsprofile als Stundenmittel (je Stunde konstant), damit beide Raster dieselben Daten sehen."""
     prof = load_default_profiles()
-    return {c: np.repeat(to_grid(prof[c].to_numpy(), 1), 4).tolist() for c in ("wind_kwh_per_kw", "pv_kwh_per_kw")}
+    namen = {"wind_kwh_per_kw": "wind_kwh_per_kw", "pv_kwh_per_kw": "pv_kwh_per_kw", "section13k_kwh": "section13k_kwh",
+             "day_ahead": "day_ahead_eur_per_mwh", "co2_eur_per_t": "co2_eur_per_t"}
+    return {k: np.repeat(to_grid(prof[c].to_numpy(), 1), 4).tolist() for k, c in namen.items()}
 
 
 def test_viertelstundenrechnung_mit_stundendaten_ohne_batterie_identisch():

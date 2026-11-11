@@ -32,6 +32,12 @@ from lcoh.waterfall import (BLOCK_CAPEX, BLOCK_INTEREST, BLOCK_OPEX, BLOCK_POWER
                             BLOCK_SUBSIDY, block_subtotal, net_power_items, waterfall_items)
 from lcoh.zeitreihen import SERIES_KIND, SERIES_LABELS, build_timeseries, load_default_profiles, load_default_timeseries, read_series, to_grid
 
+HINWEIS_13K = (
+    "Abregelungsstrom nach §13k EnWG steht nur Anlagen **innerhalb einer Entlastungsregion** zur Verfügung. Die ausgewiesenen "
+    "Mengen gelten je Region und unterscheiden sich stark. Die hinterlegte Reihe stammt aus der Region **T5** (TenneT). "
+    "Prüfen Sie, ob Ihr Standort in einer Entlastungsregion liegt, und laden Sie die Reihe Ihrer Region unter „Daten“ hoch. "
+    "Elektrolyseure müssen mindestens 100 kW Nennleistung haben und nach dem 29.12.2023 erstmals in Betrieb gegangen sein.")
+
 ASSETS = Path(__file__).resolve().parent / "assets"
 
 
@@ -490,6 +496,8 @@ with tab_cockpit:
                 st.caption("Weitere Bezugsquellen (Details unter „Eingaben“, Reiter „Strombezug & Nebenkosten“):")
                 row(["section7_enabled"])
                 row(["section13k_enabled"])
+                with st.popover("ⓘ Hinweis zu §13k: Standort und Entlastungsregion"):
+                    st.markdown(HINWEIS_13K)
                 row(["spot_enabled"])
     cockpit_slot = right.container(key="cockpit_out")
 
@@ -642,6 +650,8 @@ def footer() -> None:
 DEFAULT_ORIGIN = {
     "pv_kwh_per_kw": "Standardwerte am Beispiel: Husum, Photovoltaik, 2025, MEZ",
     "wind_kwh_per_kw": "Standardwerte am Beispiel: Husum, Wind, 2025, MEZ",
+    "day_ahead": "Standardwerte: Day-Ahead-Auktion DE-LU, 2025, Viertelstundenwerte, MEZ",
+    "co2_eur_per_t": "Standardwerte: EU-Auktionspreise CO₂, 2025, Viertelstundenwerte, MEZ",
     "section13k_kwh": "Standardwerte: ausgewiesene Abregelungsstrommenge 2025, Region T5 (Netztransparenz), MEZ"}
 
 SERIES_HELP = {
@@ -656,7 +666,7 @@ SERIES_HELP = {
     "day_ahead": (
         "Börsenstrompreis (Day-Ahead) je Stunde bzw. Viertelstunde. Er bestimmt den Preis beim Strombezug am Spotmarkt und nach §7 der 37. BImSchV "
         "sowie den Erlös beim Verkauf von Überschussstrom (negative Preise werden dort mit 0 angesetzt). Eine hochgeladene Reihe "
-        "ersetzt die hinterlegte Preisreihe (Standard: Preise des Jahres 2024)."),
+        "ersetzt die hinterlegte Preisreihe (Standard: Preise des Jahres 2025)."),
     "co2_eur_per_t": (
         "CO₂-Preis (Emissionshandel) je Stunde bzw. Viertelstunde. Er legt die Preisgrenze für den Strombezug nach §7 fest: das 0,36-Fache des "
         "CO₂-Preises, mindestens 20 €/MWh, höchstens der maximale Nachfragepreis. Wirkt nur, wenn §7 eingeschaltet ist und als Quelle "
@@ -678,6 +688,8 @@ def series_download(name: str, rate_q: np.ndarray | None, res: str, default_col:
     if rate_q is None:
         if name in ("wind_kwh_per_kw", "section13k_kwh"):   # hinterlegt: Viertelstundenwerte (Energie je Viertelstunde)
             return "\n".join(f"{v / 4.0:.6g}" for v in load_default_profiles()[default_col])
+        if name in ("day_ahead", "co2_eur_per_t"):  # hinterlegt: Viertelstundenpreise (unverändert)
+            return "\n".join(f"{v:.6g}" for v in load_default_profiles()[default_col])
         if name == "pv_kwh_per_kw":                # hinterlegt: Stundenwerte
             return "\n".join(f"{v:.6g}" for v in to_grid(load_default_profiles()[default_col].to_numpy(), 1))
         return "\n".join(f"{v:.6g}" for v in defaults[default_col])
@@ -690,7 +702,7 @@ def series_download(name: str, rate_q: np.ndarray | None, res: str, default_col:
 
 def render_data_tab(inp) -> None:
     st.markdown("### Zeitreihen (Energiedaten und Preise)")
-    st.caption("Im Standard rechnet das Tool mit den hinterlegten Reihen (Erzeugungsprofile 2025 in MEZ, Preise 2024). Eigene Reihen dürfen als Stunden-, "
+    st.caption("Im Standard rechnet das Tool mit den hinterlegten Reihen (Erzeugungsprofile und Preise 2025, Zeitbezug MEZ). Eigene Reihen dürfen als Stunden-, "
                "Viertelstunden- oder gemischte Werte (z. B. das Jahr 2025) hochgeladen werden (.csv oder .txt).")
     st.caption("Das Tool rechnet immer in Viertelstunden (35.040 Schritte pro Jahr), unabhängig von der Auflösung Ihrer Daten. "
                "Stundenwerte werden dazu auf vier Viertelstunden gelegt (Preise und Leistungen bleiben gleich, Energie je Viertelstunde "
@@ -732,7 +744,7 @@ def render_data_tab(inp) -> None:
             custom = name in st.session_state["series"]
             rate_q = np.array(st.session_state["series"][name], dtype=float) if custom else None
             res, note, fname = st.session_state["series_info"].get(name, ("Stunde", "", ""))
-            profile = name in ("pv_kwh_per_kw", "wind_kwh_per_kw", "section13k_kwh")
+            profile = name in ("pv_kwh_per_kw", "wind_kwh_per_kw", "section13k_kwh", "day_ahead", "co2_eur_per_t")
             quarterly = custom or profile                        # Viertelstundenwerte (35.040) statt Stundenwerte (8.760)
             values = rate_q if custom else np.array((profiles if profile else defaults)[col], dtype=float)
             per_year = values.sum() / (4 if quarterly else 1)    # Jahresenergie je kW bzw. in kWh
@@ -749,16 +761,15 @@ def render_data_tab(inp) -> None:
                                   xaxis_title="Viertelstunde" if quarterly else "Stunde")
                 st.plotly_chart(fig, width="stretch", key=f"plot_{name}")
                 stats = [f"Minimum {de(values.min(), 3)}", f"Durchschnitt {de(values.mean(), 3)}", f"Maximum {de(values.max(), 3)}"]
-                st.caption(" · ".join(stats) + f" {unit}")
+                zeilen = [" · ".join(stats) + f" {unit}"]
                 if sum_unit:
-                    zeilen = [f"Summe {de(per_year, 0)} {sum_unit} pro Jahr"]
+                    zeilen.append(f"Summe {de(per_year, 0)} {sum_unit} pro Jahr")
                     if name in ("pv_kwh_per_kw", "wind_kwh_per_kw"):
                         wort = "Sonnenstunden" if name == "pv_kwh_per_kw" else "Windstunden"
                         n_aktiv = int((values > 0).sum()) / (4 if quarterly else 1)
-                        zeilen = [f"{wort} (Volllaststunden): {de(per_year, 0)} h pro Jahr, im Mittel {de(per_year / 365, 1)} h pro Tag",
-                                  f"Stunden mit Erzeugung: {de(n_aktiv, 0)} h pro Jahr"]
-                    for z in zeilen:
-                        st.caption(z)
+                        zeilen[1:] = [f"{wort} (Volllaststunden): {de(per_year, 0)} h pro Jahr, im Mittel {de(per_year / 365, 1)} h pro Tag",
+                                      f"Stunden mit Erzeugung: {de(n_aktiv, 0)} h pro Jahr"]
+                st.caption("  \n".join(zeilen))
             with c2:
                 unit_kind = SERIES_KIND[name]
                 up = st.file_uploader("Eigene Zeitreihe hochladen", type=["csv", "txt"], key=f"up_{name}")
@@ -778,7 +789,7 @@ def render_data_tab(inp) -> None:
                     st.session_state["series_info"].pop(name, None)
                     st.session_state.pop(f"_up_{name}", None)
                     st.rerun()
-    st.info("Hinweis: Eine hochgeladene Preisreihe ersetzt die hinterlegte Börsenpreisreihe (Standard: Jahr 2024). Die Reihen gelten "
+    st.info("Hinweis: Eine hochgeladene Preisreihe ersetzt die hinterlegte Börsenpreisreihe (Standard: Jahr 2025). Die Reihen gelten "
             "für die gesamte Projektlaufzeit; die jährlichen Preisentwicklungen werden wie bisher darauf angewendet.")
 
 
