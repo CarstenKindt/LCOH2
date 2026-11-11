@@ -640,8 +640,8 @@ def footer() -> None:
 
 
 DEFAULT_ORIGIN = {
-    "pv_kwh_per_kw": "Standardwerte (Photovoltaik 2025, Stundenwerte, MEZ)",
-    "wind_kwh_per_kw": "Standardwerte (Windkraft Husum 2025, Viertelstundenwerte, MEZ)"}
+    "pv_kwh_per_kw": "Standardwerte am Beispiel: Husum, Photovoltaik, 2025, MEZ",
+    "wind_kwh_per_kw": "Standardwerte am Beispiel: Husum, Wind, 2025, MEZ"}
 
 SERIES_HELP = {
     "pv_kwh_per_kw": (
@@ -662,7 +662,8 @@ SERIES_HELP = {
         "„Jahresdaten“ gewählt ist."),
     "section13k_kwh": (
         "Energiemenge je Zeitintervall (Stunde oder Viertelstunde), die im Netz sonst abgeregelt würde und für „Nutzen statt Abregeln“ (§13k EnWG) bezogen werden "
-        "kann. Sie begrenzt den Bezug nach §13k je Stunde. Wirkt nur, wenn §13k eingeschaltet ist."),
+        "kann. Sie begrenzt den Bezug nach §13k je Stunde. Veröffentlichte Abregelungsstrommengen (Netztransparenz) sind Leistungen in MW; "
+        "beim Hochladen wählen Sie „Leistung (MW)“, das Tool bildet daraus die Energie je Viertelstunde. Wirkt nur, wenn §13k eingeschaltet ist."),
 }
 
 
@@ -736,7 +737,8 @@ def render_data_tab(inp) -> None:
             with c1:
                 herkunft = (f"eigene Datei ({ {'Stunde': 'Stundenwerte', 'Viertelstunde': 'Viertelstundenwerte'}.get(res, 'gemischte Auflösung') })"
                             if custom else DEFAULT_ORIGIN.get(name, "Standardwerte (Stunde)"))
-                st.markdown(f"**{SERIES_LABELS[name]}** · {herkunft}")
+                st.markdown(f"**{SERIES_LABELS[name]}**")
+                st.caption(herkunft[0].upper() + herkunft[1:])
                 st.caption(f"**Bedeutung:** {SERIES_HELP[name]}")
                 if custom and note:
                     st.caption(f"Hinweis zur Datei: {note}")
@@ -750,13 +752,19 @@ def render_data_tab(inp) -> None:
                     stats.insert(1, f"Minimum {de(values.min(), 2)}")
                 st.caption(" · ".join(stats) + f" {unit}")
             with c2:
+                unit_kind = SERIES_KIND[name]
+                if name == "section13k_kwh":
+                    choice = st.radio("Die Datei enthält", ["Energie je Intervall (kWh)", "Leistung (MW, z. B. Netztransparenz)"],
+                                      key="unit_13k", help="Veröffentlichte Abregelungsstrommengen sind Leistungen in MW. Das Tool rechnet sie "
+                                      "selbst in Energie je Viertelstunde um (MW × 1.000 × 0,25 h = kWh).")
+                    unit_kind = "leistung_mw" if choice.startswith("Leistung") else "energie"
                 up = st.file_uploader("Eigene Zeitreihe hochladen", type=["csv", "txt"], key=f"up_{name}")
-                if up is not None and st.session_state.get(f"_up_{name}") != (up.name, up.size):
+                if up is not None and st.session_state.get(f"_up_{name}") != (up.name, up.size, unit_kind):
                     try:
-                        parsed = read_series(up.getvalue(), SERIES_KIND[name])
+                        parsed = read_series(up.getvalue(), unit_kind)
                         st.session_state["series"][name] = parsed.rate_quarter.tolist()
                         st.session_state["series_info"][name] = (parsed.resolution, parsed.note, up.name)
-                        st.session_state[f"_up_{name}"] = (up.name, up.size)
+                        st.session_state[f"_up_{name}"] = (up.name, up.size, unit_kind)
                         st.rerun()
                     except ValueError as err:
                         st.error(str(err))

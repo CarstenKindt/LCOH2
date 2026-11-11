@@ -83,6 +83,8 @@ def parse_series(data: bytes) -> list[float]:
         if not line:
             continue
         cells = _split_cells(line)
+        if values and len(cells) > 1 and not cells[0].strip():
+            continue                                       # Summen- oder Prozentzeile am Dateiende (z. B. „;607.396,00“)
         cell = cells[-1].strip().replace(" ", "")
         if cell.count(",") == 1 and "." not in cell:
             cell = cell.replace(",", ".")
@@ -173,6 +175,7 @@ def read_series(data: bytes, kind: str) -> ParsedSeries:
     (der 29. Februar wird entfernt). Mit Zeitstempel in den ersten ein oder zwei Spalten (Datum und Uhrzeit): auch gemischte
     Auflösung; die Dauer jedes Wertes ergibt sich aus dem Abstand zum nächsten Zeitstempel. Der Wert steht in der letzten Spalte.
     Energiereihen gelten je Zeitintervall (kWh je kW und Viertelstunde bei Viertelstundenwerten), Preise unverändert.
+    kind="leistung_mw": Die Werte sind Leistungen in MW (z. B. veröffentlichte Abregelungsstrommengen); daraus folgt die Energie je Intervall.
     Wirft ValueError mit verständlicher Meldung.
     """
     try:
@@ -186,6 +189,8 @@ def read_series(data: bytes, kind: str) -> ParsedSeries:
         if not line:
             continue
         cells = _split_cells(line)
+        if values and len(cells) > 1 and not cells[0].strip():
+            continue                                       # Summen- oder Prozentzeile am Dateiende (z. B. „;607.396,00“)
         cell = cells[-1].strip().replace(" ", "")
         if cell.count(",") == 1 and "." not in cell:
             cell = cell.replace(",", ".")
@@ -257,7 +262,10 @@ def read_series(data: bytes, kind: str) -> ParsedSeries:
     if total != QUARTERS_PER_YEAR:
         raise ValueError(f"Die Werte decken {total / 4:,.2f} Stunden ab, erwartet werden {HOURS_PER_YEAR:,} (ein Jahr ohne "
                          "29. Februar).".replace(",", "#").replace(".", ",").replace("#", "."))
-    rate = vals / (dur / 60.0) if kind == "energie" else vals
+    if kind == "leistung_mw":                              # MW × 1.000 = kW = Rate in kWh je Stunde
+        rate = vals * 1000.0
+    else:
+        rate = vals / (dur / 60.0) if kind == "energie" else vals
     rate_q = np.repeat(rate, quarters)
     if fill:
         rate_q = np.append(rate_q, np.full(fill, rate_q[-1]))
