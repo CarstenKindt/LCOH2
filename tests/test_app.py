@@ -61,7 +61,7 @@ def test_standardwerte():
     assert metrik(at, "Gestehungskosten", "€/kg") == "9,13 €/kg"
     assert metrik(at, "Gestehungskosten", "ct/kWh") == "23,16 ct/kWh"
     assert metrik(at, "Stacktausche") == "0"
-    assert metrik(at, "Anteil grüner Wasserstoff") == "100,0 %"
+    assert metrik(at, "Anteil RFNBO-konformer Wasserstoff") == "100,0 %"
 
 
 def test_thg_aus():

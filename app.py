@@ -648,21 +648,21 @@ def footer() -> None:
 
 
 DEFAULT_ORIGIN = {
-    "pv_kwh_per_kw": "Standardwerte am Beispiel: Husum, Photovoltaik, 2025, MEZ",
-    "wind_kwh_per_kw": "Standardwerte am Beispiel: Husum, Wind, 2025, MEZ",
-    "day_ahead": "Standardwerte: Day-Ahead-Auktion DE-LU, 2025, Viertelstundenwerte, MEZ",
-    "co2_eur_per_t": "Standardwerte: EU-Auktionspreise CO₂, 2025, Viertelstundenwerte, MEZ",
-    "section13k_kwh": "Standardwerte: ausgewiesene Abregelungsstrommenge 2025, Region T5 (Netztransparenz), MEZ"}
+    "pv_kwh_per_kw": "Standardwerte am Beispiel: Husum, Photovoltaik, 2025, MEZ · Quelle: selbst erzeugt",
+    "wind_kwh_per_kw": "Standardwerte am Beispiel: Husum, Wind, 2025, MEZ · Quelle: selbst erzeugt",
+    "day_ahead": "Standardwerte: Day-Ahead DE-LU, 2025 · Quelle: Energy-Charts.info",
+    "co2_eur_per_t": "Standardwerte: CO₂-Preis EU-Auktion, 2025 · Quelle: Energy-Charts.info",
+    "section13k_kwh": "Standardwerte: Abregelungsstrommenge 2025, Region T5 · Quelle: Netztransparenz"}
 
 SERIES_HELP = {
     "pv_kwh_per_kw": (
         "Stündliches Erzeugungsprofil der Anlage hinter PPA 1, angegeben als Erzeugung je installiertem kW und Zeitintervall (Stunde oder Viertelstunde; z. B. Photovoltaik). "
         "Das Tool multipliziert es mit der installierten Leistung von PPA 1; daraus ergibt sich der stündliche Strombezug. "
-        "Hinterlegt ist ein Photovoltaik-Profil für das Jahr 2025 (Zeitbezug MEZ)."),
+        "Hinterlegt ist ein Photovoltaik-Profil für das Jahr 2025 (Sommerzeit berücksichtigt)."),
     "wind_kwh_per_kw": (
         "Stündliches Erzeugungsprofil der Anlage hinter PPA 2, angegeben als Erzeugung je installiertem kW und Zeitintervall (Stunde oder Viertelstunde; z. B. Windkraft). "
         "Das Tool multipliziert es mit der installierten Leistung von PPA 2; daraus ergibt sich der stündliche Strombezug. "
-        "Hinterlegt ist das Windprofil Husum für das Jahr 2025 (Zeitbezug MEZ)."),
+        "Hinterlegt ist das Windprofil Husum für das Jahr 2025 (Sommerzeit berücksichtigt)."),
     "day_ahead": (
         "Börsenstrompreis (Day-Ahead) je Stunde bzw. Viertelstunde. Er bestimmt den Preis beim Strombezug am Spotmarkt und nach §7 der 37. BImSchV "
         "sowie den Erlös beim Verkauf von Überschussstrom (negative Preise werden dort mit 0 angesetzt). Eine hochgeladene Reihe "
@@ -702,11 +702,13 @@ def series_download(name: str, rate_q: np.ndarray | None, res: str, default_col:
 
 def render_data_tab(inp) -> None:
     st.markdown("### Zeitreihen (Energiedaten und Preise)")
-    st.caption("Im Standard rechnet das Tool mit den hinterlegten Reihen (Erzeugungsprofile und Preise 2025, Zeitbezug MEZ). Eigene Reihen dürfen als Stunden-, "
+    st.caption("Im Standard rechnet das Tool mit den hinterlegten Reihen (Erzeugungsprofile und Preise 2025). Eigene Reihen dürfen als Stunden-, "
                "Viertelstunden- oder gemischte Werte (z. B. das Jahr 2025) hochgeladen werden (.csv oder .txt).")
     st.caption("Das Tool rechnet immer in Viertelstunden (35.040 Schritte pro Jahr), unabhängig von der Auflösung Ihrer Daten. "
                "Stundenwerte werden dazu auf vier Viertelstunden gelegt (Preise und Leistungen bleiben gleich, Energie je Viertelstunde "
                "ein Viertel).")
+    st.caption("Die hinterlegten Reihen folgen der Sommerzeit (MEZ/MESZ) und sind durchgehend ab 01.01.2025, 00:00 Uhr gezählt. "
+               "Eigene Reihen sollten dieselbe Zeitbasis haben.")
     with st.expander("Allgemein: So muss eine eigene Reihe aufgebaut sein"):
         st.markdown(
             "- **Zeitraum:** ein Jahr ohne 29. Februar. Bei einem Schaltjahr wird der 29. Februar automatisch entfernt.\n"
@@ -838,8 +840,8 @@ avg_power_price = e.power_cost / (pc.total_procurement_kwh / 1000) if pc.total_p
 HELP_AVG_PRICE = ("Jährliche Stromkosten einschließlich Netzentgelten, Umlagen und Abgaben (nach Befreiungen), geteilt durch die "
                   "gesamte bezogene Strommenge.")
 HELP_GREEN = ("Anteil des bezogenen Stroms, der nicht aus dem Spotmarkt (Netzmix) stammt. PPA (PPA 1, PPA 2, Grundlast), "
-              "§7 und §13k werden als erneuerbar gewertet. Vereinfachte Kennzahl; sie ersetzt keine Prüfung nach den "
-              "RFNBO-Kriterien.")
+              "§7 und §13k werden als RFNBO-konform gewertet. Vereinfachte Annahme; sie ersetzt keine Prüfung der "
+              "RFNBO-Kriterien im Einzelfall.")
 
 
 def summary_box(slot, pairs: list[tuple[str, str]], small: bool = False) -> None:
@@ -926,7 +928,7 @@ with cockpit_slot:
     kmetric(k2, "Gestehungskosten", de(e.lcoh_ct_per_kwh), "ct/kWh", help="Bezogen auf den Brennwert von 39,4 kWh/kg.")
     kmetric(k3, "Wasserstoff", de(e.h2_kg_per_year / 1000, 0), "t/a")
     k4, k5, k6 = st.columns(3)
-    kmetric(k4, "Anteil grüner Wasserstoff", de(green_share * 100, 1), "%", help=HELP_GREEN)
+    kmetric(k4, "Anteil RFNBO-konformer Wasserstoff", de(green_share * 100, 1), "%", help=HELP_GREEN)
     kmetric(k5, "Systemauslastung", de(system_util * 100, 1), "%", help="Stromverbrauch des Gesamtsystems bezogen auf "
               "den Dauerbetrieb mit Nennleistung über 8.760 Stunden.")
     kmetric(k6, "Ø Effizienz", de(r.avg_efficiency * 100, 1), "%", help="Mittlerer Wirkungsgrad des Elektrolyseurs über "
@@ -976,8 +978,6 @@ with tab_res:
     kpi_group(zeile1[1], "Investition und Finanzierung", [
         ("CAPEX nach Förderung", de(e.capex_net / 1e6, 1), "Mio. €", None),
         ("CAPEX nach Förderung je kW", de(e.capex_specific_eur_per_kw, 0), "€/kW", "Investition nach Förderung je kW Elektrolyseurleistung."),
-        ("CAPEX nach Förderung je Jahreskapazität", de(e.capex_net / h2_kg if h2_kg else 0, 0), "€/(kg/a)",
-         "Investition nach Förderung je kg Wasserstoff, der pro Jahr erzeugt wird."),
         ("Kapitalkostensatz (WACC)", de(e.wacc * 100, 1), "%", None),
         ("Anteil Kapitalkosten", de(e.financing_total / cost_total * 100 if cost_total else 0, 1), "%",
          "Kapitaldienst (Tilgung und Zinsen) bezogen auf die Gesamtkosten vor Zusatzeinnahmen.")])
@@ -1002,7 +1002,7 @@ with tab_res:
         ("Spez. Stromverbrauch Elektrolyseur", de(r.ely_consumption_kwh / h2_kg if h2_kg else 0, 1), "kWh/kg",
          "Stromverbrauch des Elektrolyseurs allein je kg Wasserstoff (über die Laufzeit gemittelt)."),
         ("Durchschnittlicher Strompreis (inkl. Abgaben)", de(avg_power_price), "€/MWh", HELP_AVG_PRICE),
-        ("Anteil grüner Wasserstoff", de(green_share * 100, 1), "%", HELP_GREEN)])
+        ("Anteil RFNBO-konformer Wasserstoff", de(green_share * 100, 1), "%", HELP_GREEN)])
 
     st.markdown("### Zusammensetzung der Gestehungskosten")
     mode = st.radio("Darstellung", ["Detailliert (Einzelposten)", "Gestapelt nach Bereichen",
@@ -1240,7 +1240,7 @@ with tab_res:
         ("Wasserstoff und Anlage", "Ø Effizienz Elektrolyseur", r.avg_efficiency * 100, "%"),
         ("Wasserstoff und Anlage", "Systemwirkungsgrad", r.h2_energy_kwh / pc.consumption_total_kwh * 100 if pc.consumption_total_kwh else 0.0, "%"),
         ("Wasserstoff und Anlage", "Anzahl Stacktausche", r.stack_replacements, ""),
-        ("Wasserstoff und Anlage", "Anteil grüner Wasserstoff", green_share * 100, "%"),
+        ("Wasserstoff und Anlage", "Anteil RFNBO-konformer Wasserstoff", green_share * 100, "%"),
         # Strom
         ("Strom", "Spez. Stromverbrauch System", spez_sys, "kWh/kg"),
         ("Strom", "Spez. Stromverbrauch Elektrolyseur", r.ely_consumption_kwh / h2_kg if h2_kg else 0.0, "kWh/kg"),
@@ -1261,7 +1261,6 @@ with tab_res:
         ("Investition und Finanzierung", "CAPEX-Förderung", e.capex_subsidy / 1e6, "Mio. €"),
         ("Investition und Finanzierung", "CAPEX nach Förderung", e.capex_net / 1e6, "Mio. €"),
         ("Investition und Finanzierung", "CAPEX nach Förderung je kW", e.capex_specific_eur_per_kw, "€/kW"),
-        ("Investition und Finanzierung", "CAPEX nach Förderung je Jahreskapazität", e.capex_net / h2_kg if h2_kg else 0.0, "€/(kg/a)"),
         ("Investition und Finanzierung", "Kapitalkostensatz (WACC)", e.wacc * 100, "%")]
     alle += [("Sensitivität", f"{z.name}: Kosten −{pct_txt}", z.lcoh_minus, "€/kg") for z in rows_s]
     alle += [("Sensitivität", f"{z.name}: Kosten +{pct_txt}", z.lcoh_plus, "€/kg") for z in rows_s]
