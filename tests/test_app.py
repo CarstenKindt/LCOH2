@@ -141,3 +141,11 @@ def test_batterie_optimierung_im_cockpit():
     assert not at.exception, at.exception
     assert at.text_input(key="w_battery_efficiency").value
     assert kpis(at, "Gestehungskosten")
+
+
+def test_impressum_und_datenschutz_oeffnen():
+    at = neue_app()
+    at.button(key="open_impressum").click().run()
+    assert not at.exception
+    at.button(key="open_datenschutz").click().run()
+    assert not at.exception

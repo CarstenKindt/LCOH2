@@ -30,6 +30,7 @@ from lcoh.ui_layout import (rename_label, CHOICE_LABELS, COCKPIT, FINE_STEP, GAT
                             VISIBLE)
 from lcoh.waterfall import (BLOCK_CAPEX, BLOCK_INTEREST, BLOCK_OPEX, BLOCK_POWER, BLOCK_REVENUE, BLOCK_STACK,
                             BLOCK_SUBSIDY, block_subtotal, net_power_items, waterfall_items)
+from lcoh.legal import DATENSCHUTZ, IMPRESSUM
 from lcoh.zeitreihen import SERIES_KIND, SERIES_LABELS, build_timeseries, load_default_profiles, load_default_timeseries, read_series, to_grid
 
 HINWEIS_13K = (
@@ -640,11 +641,26 @@ def kmetric(col, label: str, value: str, unit: str = "", help: str | None = None
                  f'<div class="kv">{html.escape(value)}{u}</div></div>', unsafe_allow_html=True)
 
 
+@st.dialog("Impressum", width="large")
+def _impressum_dialog() -> None:
+    st.markdown(IMPRESSUM.replace("\n", "  \n"))
+
+
+@st.dialog("Datenschutz", width="large")
+def _datenschutz_dialog() -> None:
+    st.markdown(DATENSCHUTZ.replace("\n", "  \n"))
+
+
 def footer() -> None:
     st.divider()
     st.caption("Der Wasserstoffkostenrechner liefert eine Abschätzung auf Basis der eingegebenen Annahmen und der "
                "hinterlegten Beispiel-Zeitreihen. Die Ergebnisse ersetzen keine Wirtschaftlichkeitsprüfung oder "
                "Genehmigungsplanung und erfolgen ohne Gewähr. Entwickelt an der Hochschule Flensburg im Norddeutschen Reallabor.")
+    c1, c2, _ = st.columns([1, 1, 6])
+    if c1.button("Impressum", key="open_impressum", type="tertiary"):
+        _impressum_dialog()
+    if c2.button("Datenschutz", key="open_datenschutz", type="tertiary"):
+        _datenschutz_dialog()
 
 
 DEFAULT_ORIGIN = {
