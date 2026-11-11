@@ -70,14 +70,7 @@ def parse_series(data: bytes) -> list[float]:
         line = line.strip()
         if not line:
             continue
-        if ";" in line:
-            cells = line.split(";")
-        elif "\t" in line:
-            cells = line.split("\t")
-        elif line.count(",") >= 2:
-            cells = line.split(",")
-        else:
-            cells = [line]
+        cells = _split_cells(line)
         cell = cells[-1].strip().replace(" ", "")
         if cell.count(",") == 1 and "." not in cell:
             cell = cell.replace(",", ".")
@@ -153,6 +146,11 @@ def _split_cells(line: str) -> list[str]:
         return line.split("\t")
     if line.count(",") >= 2:
         return line.split(",")
+    if line.count(",") == 1:
+        # Zeitstempel,Wert (z. B. „2024-01-01 00:00:00,0.56“): Das Komma trennt. Sonst ist es ein Dezimalkomma („0,56“).
+        head, tail = line.split(",")
+        if _to_datetime(head, None) is not None or _RE_DATE.match(head.strip()):
+            return [head, tail]
     return [line]
 
 

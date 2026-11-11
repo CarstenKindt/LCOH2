@@ -155,3 +155,15 @@ def test_jahresrechnung_mit_preissteigerung_stimmt_im_mittel():
     y = yearly_lcoh(r, e)
     assert abs(y.lcoh_sum_ratio - e.lcoh_eur_per_kg) < 1e-3 * abs(e.lcoh_eur_per_kg)
     assert y.table["Betrieb (OPEX) [€/a]"].iloc[-1] > y.table["Betrieb (OPEX) [€/a]"].iloc[0]
+
+
+def test_zeitstempel_und_wert_mit_komma_getrennt():
+    """Typischer Export: „date_utc,capacity_factor“ mit „2023-12-31 23:00:00,0.65“ (ein Komma je Zeile, Schaltjahr 2024)."""
+    import pandas as pd
+    idx = pd.date_range("2023-12-31 23:00", "2024-12-31 22:00", freq="h")
+    text = "date_utc,capacity_factor\r\n" + "\r\n".join(f"{t:%Y-%m-%d %H:%M:%S},{0.5:.4f}" for t in idx) + "\r\n"
+    p = read_series(text.encode("utf-8"), "energie")
+    assert p.resolution == "Stunde" and len(p.rate_quarter) == 35040
+    assert abs(p.rate_quarter[0] - 0.5) < 1e-12 and "29. Februar" in p.note
+    # Dezimalkomma bleibt Dezimalkomma
+    assert read_series(("\n".join(["0,5"] * 8760)).encode(), "preis").rate_quarter[0] == 0.5
