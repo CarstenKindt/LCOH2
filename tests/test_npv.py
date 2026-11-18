@@ -45,3 +45,19 @@ def test_higher_rate_raises_cost():
     a = npv_lcoh(r, e).lcoh_eur_per_kg
     r, e = _run(lcoh_method="Kapitalwertmethode", discount_rate_mode="Eigener Wert", discount_rate=0.10)
     assert npv_lcoh(r, e).lcoh_eur_per_kg > a
+
+
+def test_yearly_view_reproduces_npv_result():
+    from lcoh.yearly import yearly_lcoh
+    r, e = _run(lcoh_method="Kapitalwertmethode")
+    n = npv_lcoh(r, e)
+    y = yearly_lcoh(r, n.economics, n.rate, n.capital_service, n.stack_service)
+    assert y.lcoh_sum_ratio == pytest.approx(n.lcoh_eur_per_kg, rel=1e-9)
+
+
+def test_sensitivity_uses_annuity_base_in_npv_mode():
+    from lcoh.sensitivity import sensitivity
+    r, e = _run(lcoh_method="Kapitalwertmethode")
+    for row in sensitivity(r, e, 0.3):
+        if row.name == "CAPEX":
+            assert row.lcoh_minus < row.base < row.lcoh_plus
