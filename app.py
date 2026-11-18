@@ -25,6 +25,7 @@ from lcoh.system import system_power
 from lcoh.sensitivity import sensitivity
 from lcoh.energy_balance import energy_balance
 from lcoh.yearly import yearly_lcoh
+from lcoh.npv import METHOD_NPV, npv_lcoh
 from lcoh.charts import COST_BLOCKS as COST_BLOCK_NAMES, battery_soc_figure, sankey_figure, cost_structure_figure, load_duration_figure, sensitivity_figure, spot_price_figure
 from lcoh.ui_layout import (rename_label, CHOICE_LABELS, COCKPIT, FINE_STEP, GATES, LABEL_OVERRIDES, LEVIES, PAGES, REVENUE_PAGE,
                             VISIBLE)
@@ -387,7 +388,11 @@ def rechnen(inputs_json: str, series_json: str, steps: int):
     inp = Inputs.from_dict(json.loads(inputs_json))
     ts = build_timeseries(json.loads(series_json), steps)
     r = run_operation(inp, ts, steps_per_hour=steps)
-    return r, compute_economics(r)
+    e = compute_economics(r)
+    if inp.lcoh_method == METHOD_NPV:
+        n = npv_lcoh(r, e)
+        return r, n.economics, e.lcoh_eur_per_kg, n
+    return r, e, e.lcoh_eur_per_kg, None
 
 
 # ---------------------------------------------------------------- Seitenleiste (Laden/Speichern)
@@ -475,6 +480,7 @@ with tab_cockpit:
                 st.markdown("#### Elektrolyseur & Projekt")
                 row(["electrolyzer_power_kw", "capex_electrolyzer_eur_per_kw", "electrolyzer_efficiency"])
                 row(["commissioning_year", "project_lifetime_years", "min_part_load"])
+                row(["lcoh_method", "discount_rate_mode", "discount_rate"])
                 fill_button(["electrolyzer_power_kw", "capex_electrolyzer_eur_per_kw", "electrolyzer_efficiency",
                              "commissioning_year", "project_lifetime_years", "min_part_load"], "cockpit_ely")
             with st.container(border=True):
@@ -840,7 +846,7 @@ if missing or errors:
     st.stop()
 
 series_json = json.dumps(st.session_state["series"])
-r, e = rechnen(json.dumps(effective, sort_keys=True, default=float), series_json, STEPS)
+r, e, lcoh_annuity, npv = rechnen(json.dumps(effective, sort_keys=True, default=float), series_json, STEPS)
 inp = r.inputs
 
 with st.sidebar:
@@ -951,6 +957,9 @@ with cockpit_slot:
               "Projektlaufzeit, inklusive Förderungen, Befreiungen und Zusatzeinnahmen.")
     kmetric(k2, "Gestehungskosten", de(e.lcoh_ct_per_kwh), "ct/kWh", help="Bezogen auf den Brennwert von 39,4 kWh/kg.")
     kmetric(k3, "Wasserstoff", de(e.h2_kg_per_year / 1000, 0), "t/a")
+    if npv is not None:
+        st.caption(f"Kapitalwertmethode, Diskontierungssatz {de(npv.rate * 100, 2)} %. Zum Vergleich nach der Annuitätenmethode: "
+                   f"{de(lcoh_annuity)} €/kg ({'+' if npv.lcoh_eur_per_kg >= lcoh_annuity else '−'}{de(abs(npv.lcoh_eur_per_kg - lcoh_annuity))} €/kg Unterschied).")
     k4, k5, k6 = st.columns(3)
     kmetric(k4, "Anteil RFNBO-konformer Wasserstoff", de(green_share * 100, 1), "%", help=HELP_GREEN)
     kmetric(k5, "Systemauslastung", de(system_util * 100, 1), "%", help="Stromverbrauch des Gesamtsystems bezogen auf "
@@ -1094,7 +1103,7 @@ with tab_res:
         st.info("Die Batterie ist ausgeschaltet.")
     if inp.battery_enabled and inp.battery_optimize and r.power.battery_capacity_kwh > 0:
         st.markdown("#### Vergleich: Batterie chronologisch (feste Regeln) und nach Preissignalen optimiert")
-        r0, e0 = rechnen(json.dumps({**effective, "battery_optimize": False}, sort_keys=True, default=float), series_json, STEPS)
+        r0, e0, *_ = rechnen(json.dumps({**effective, "battery_optimize": False}, sort_keys=True, default=float), series_json, STEPS)
         def _vgl(label, f, n=2, unit=""):
             a_, b_ = f(r0, e0), f(r, e)
             return (label, de(a_, n) + unit, de(b_, n) + unit, ("+" if b_ >= a_ else "−") + de(abs(b_ - a_), n) + unit)
@@ -1124,6 +1133,8 @@ with tab_res:
         st.caption("Jede Einflussgröße wird einzeln um die Schrittweite verringert bzw. erhöht; alle übrigen Kostenblöcke "
                    "bleiben unverändert. Links: Einflussgröße −x %, rechts: +x %. Die Länge zeigt die Kostenänderung; grün: Die Gestehungskosten sinken, rot: sie steigen.")
     st.plotly_chart(sensitivity_figure(rows_s, S["sensitivity_step"] or 0.3), width="stretch")
+    if npv is not None:
+        st.caption("Die Sensitivitätsanalyse rechnet mit der Annuitätenmethode; die Reihenfolge der Einflussgrößen gilt auch für die Kapitalwertmethode.")
     pct_txt = f"{de(S['sensitivity_step'] * 100 if S['sensitivity_step'] is not None else 30, 0)} %"
     sens_df = pd.DataFrame([(z.name, z.block, z.v_minus, z.v_base, z.v_plus, z.setting, z.lcoh_minus, z.lcoh_plus)
                             for z in rows_s],

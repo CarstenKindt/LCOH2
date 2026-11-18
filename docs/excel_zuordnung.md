@@ -231,3 +231,4 @@ Diese Datei wird automatisch erzeugt (`python tools/build_docs.py`). Alle Standa
 | C92 | Schaltfläche für den §13k-Daten-Import; ersetzt durch Datei-Upload |
 | C185 | Schaltfläche zur Auswahl der Privilegierungen; ersetzt durch Eingabemaske |
 | F129 | Manuelle Hilfseingabe (Wert aus F127 von Hand eintragen); wird im Tool berechnet |
+- Kapitalwertmethode (Schalter, neu im Tool): Excel kennt nur die Annuitätenmethode

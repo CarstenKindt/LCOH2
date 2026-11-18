@@ -41,6 +41,9 @@ class Inputs:
     battery_capex_eur_per_kwh: float = 220.0  # Blatt 2, C49 [€ / kWh]
     battery_other_costs_eur: float = 0.0  # Blatt 2, C50 [€]
     battery_optimize: bool = False  # neu im Tool: Batterie nach Preissignalen optimieren
+    lcoh_method: str = 'Annuitätenmethode'  # neu im Tool: Berechnungsmethode der Gestehungskosten
+    discount_rate_mode: str = 'WACC aus Finanzierung'  # neu im Tool: Diskontierungssatz der Kapitalwertmethode
+    discount_rate: float = 0.07  # neu im Tool: eigener Diskontierungssatz [%]
     battery_efficiency: float = 0.9  # neu im Tool: Rundlaufwirkungsgrad der Batterie, gilt für beide Betriebsweisen [%]
     # ---- Strombezug: PPA
     ppa_baseload_enabled: bool = True  # Blatt 2, C62

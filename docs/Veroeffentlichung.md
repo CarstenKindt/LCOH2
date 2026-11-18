@@ -47,3 +47,7 @@ Ressourcen: etwa 1 GB Arbeitsspeicher; eine Berechnung dauert 1 bis 2 Sekunden.
 - Dürfen dauerhaft laufende Python-/Docker-Dienste betrieben werden?
 - Unter welcher Adresse soll der Rechner erreichbar sein (zum Beispiel unter hs-flensburg.de)?
 - Wer betreut den Server und spielt Updates ein?
+
+## Berechnungsmethode der Gestehungskosten (Schalter im Cockpit)
+
+Das Cockpit bietet zwei Methoden. Die **Annuitätenmethode** (Voreinstellung) rechnet mit gleich hohen Jahresbeträgen; Preissteigerungen gehen als nicht abgezinster Mittelwert ein. Die **Kapitalwertmethode** zinst die Kosten und die Wasserstoffmenge jedes Projektjahres auf heute ab: LCOH₂ = (CAPEX + Σ Kosten_t/(1+i)^t − Σ Erlöse_t/(1+i)^t) / Σ H₂-Menge_t/(1+i)^t. Die Investition fällt in Jahr 0 an, Stacktausche zum Zeitpunkt k × Tauschintervall, alle übrigen Positionen am Ende des jeweiligen Projektjahres. Der Diskontierungssatz ist wahlweise der WACC aus der Finanzierung oder ein eigener Wert; er muss zur Preissteigerung passen (nominal mit Inflation oder real ohne Inflation). Die getrennten Annuitäten für Fremd- und Eigenkapital entfallen, die Finanzierung steckt im Diskontierungssatz. Zeitlich ungleich verteilte Erlöse (z. B. THG) werden bei Abzinsung korrekt gewichtet; dadurch weichen beide Methoden auch bei gleichem Zinssatz voneinander ab. Die Sensitivitätsanalyse rechnet weiterhin mit der Annuitätenmethode.
