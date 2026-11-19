@@ -11,6 +11,7 @@ NICHT_UEBERNOMMEN = {
     "C87": "Schaltfläche für den CO2-Daten-Import; ersetzt durch Datei-Upload",
     "C92": "Schaltfläche für den §13k-Daten-Import; ersetzt durch Datei-Upload",
     "C185": "Schaltfläche zur Auswahl der Privilegierungen; ersetzt durch Eingabemaske",
+    "C164": "Unternehmenssteuersatz; der Kapitalkostensatz wird wie in der Fraunhofer-Studie ohne Steuern gebildet",
     "F129": "Manuelle Hilfseingabe (Wert aus F127 von Hand eintragen); wird im Tool berechnet",
 }
 
@@ -112,7 +113,6 @@ BLATT2 = {
     "C161": ("debt_share", "Finanzierung", "Quote Fremdkapital"),
     "C162": ("debt_interest_rate", "Finanzierung", "Zins Fremdkapital"),
     "C163": ("equity_interest_rate", "Finanzierung", "Kalkulatorischer Zins Eigenkapital"),
-    "C164": ("corporate_tax_rate", "Finanzierung", "Unternehmenssteuersatz (für WACC)"),
     # Förderungen
     "C169": ("capex_subsidy_mode", "Förderungen", "CAPEX-Förderung"),
     "C170": ("capex_subsidy_percent", "Förderungen", "CAPEX-Förderung prozentual (auf CAPEX Total)"),

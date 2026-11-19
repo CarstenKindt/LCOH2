@@ -389,10 +389,8 @@ def rechnen(inputs_json: str, series_json: str, steps: int):
     ts = build_timeseries(json.loads(series_json), steps)
     r = run_operation(inp, ts, steps_per_hour=steps)
     e = compute_economics(r)
-    if inp.lcoh_method == METHOD_NPV:
-        n = npv_lcoh(r, e)
-        return r, n.economics, e, n
-    return r, e, e, None
+    n = npv_lcoh(r, e)  # Kapitalwertmethode immer mitrechnen (Vergleichswert)
+    return r, (n.economics if inp.lcoh_method == METHOD_NPV else e), e, n
 
 
 # ---------------------------------------------------------------- Seitenleiste (Laden/Speichern)
@@ -480,7 +478,7 @@ with tab_cockpit:
                 st.markdown("#### Elektrolyseur & Projekt")
                 row(["electrolyzer_power_kw", "capex_electrolyzer_eur_per_kw", "electrolyzer_efficiency"])
                 row(["commissioning_year", "project_lifetime_years", "min_part_load"])
-                row(["lcoh_method", "discount_rate_mode", "discount_rate"])
+                row(["lcoh_method"])
                 fill_button(["electrolyzer_power_kw", "capex_electrolyzer_eur_per_kw", "electrolyzer_efficiency",
                              "commissioning_year", "project_lifetime_years", "min_part_load"], "cockpit_ely")
             with st.container(border=True):
@@ -848,6 +846,7 @@ if missing or errors:
 series_json = json.dumps(st.session_state["series"])
 r, e, e_ann, npv = rechnen(json.dumps(effective, sort_keys=True, default=float), series_json, STEPS)
 inp = r.inputs
+KW = inp.lcoh_method == METHOD_NPV  # Kapitalwertmethode gewählt
 
 with st.sidebar:
     st.divider()
@@ -957,9 +956,11 @@ with cockpit_slot:
               "Projektlaufzeit, inklusive Förderungen, Befreiungen und Zusatzeinnahmen.")
     kmetric(k2, "Gestehungskosten", de(e.lcoh_ct_per_kwh), "ct/kWh", help="Bezogen auf den Brennwert von 39,4 kWh/kg.")
     kmetric(k3, "Wasserstoff", de(e.h2_kg_per_year / 1000, 0), "t/a")
-    if npv is not None:
-        st.caption(f"Kapitalwertmethode, Diskontierungssatz {de(npv.rate * 100, 2)} %. Zum Vergleich nach der Annuitätenmethode: "
-                   f"{de(e_ann.lcoh_eur_per_kg)} €/kg ({'+' if npv.lcoh_eur_per_kg >= e_ann.lcoh_eur_per_kg else '−'}{de(abs(npv.lcoh_eur_per_kg - e_ann.lcoh_eur_per_kg))} €/kg Unterschied).")
+    if KW:
+        st.caption(f"Berechnet mit der Kapitalwertmethode (abgezinst mit dem Kapitalkostensatz von {de(npv.rate * 100, 1)} %). "
+                   f"Zum Vergleich nach der Annuitätenmethode: {de(e_ann.lcoh_eur_per_kg)} €/kg.")
+    else:
+        st.caption(f"Berechnet mit der Annuitätenmethode. Zum Vergleich nach der Kapitalwertmethode: {de(npv.lcoh_eur_per_kg)} €/kg.")
     k4, k5, k6 = st.columns(3)
     kmetric(k4, "Anteil RFNBO-konformer Wasserstoff", de(green_share * 100, 1), "%", help=HELP_GREEN)
     kmetric(k5, "Systemauslastung", de(system_util * 100, 1), "%", help="Stromverbrauch des Gesamtsystems bezogen auf "
@@ -1064,14 +1065,16 @@ with tab_res:
 
     # ---- Gestehungskosten je Projektjahr
     st.markdown("### Gestehungskosten je Projektjahr")
-    jahre = yearly_lcoh(r, e) if npv is None else yearly_lcoh(r, e, npv.rate, npv.capital_service, npv.stack_service)
+    jahre = (yearly_lcoh(r, e, npv.rate, npv.capital_service, npv.stack_service) if KW else yearly_lcoh(r, e_ann))
     jt = jahre.table
+    x0, x1 = jt["Kalenderjahr"].iloc[0], jt["Kalenderjahr"].iloc[-1]
     figj = go.Figure()
-    figj.add_trace(go.Scatter(x=jt["Kalenderjahr"], y=jt["Gestehungskosten [€/kg]"], mode="lines+markers", name="Gestehungskosten im Jahr",
+    figj.add_trace(go.Scatter(x=jt["Kalenderjahr"], y=jt["Gestehungskosten [€/kg]"], mode="lines+markers", name="Gestehungskosten im Jahr (nominal)",
                               line=dict(color="#2e8b57", width=2.5), hovertemplate="%{x}: %{y:,.2f} €/kg<extra></extra>"))
-    figj.add_trace(go.Scatter(x=[jt["Kalenderjahr"].iloc[0], jt["Kalenderjahr"].iloc[-1]], y=[e.lcoh_eur_per_kg] * 2, mode="lines",
-                              name="Durchschnitt (Hauptergebnis)", line=dict(color="#808495", width=1.5, dash="dash"),
-                              hovertemplate="Durchschnitt: %{y:,.2f} €/kg<extra></extra>"))
+    for name_, val_, col_ in ((f"LCOH₂ Annuitätenmethode: {de(e_ann.lcoh_eur_per_kg)} €/kg", e_ann.lcoh_eur_per_kg, "#808495"),
+                              (f"LCOH₂ Kapitalwertmethode: {de(npv.lcoh_eur_per_kg)} €/kg", npv.lcoh_eur_per_kg, "#1f4e79")):
+        figj.add_trace(go.Scatter(x=[x0, x1], y=[val_] * 2, mode="lines", name=name_, line=dict(color=col_, width=1.8, dash="dash"),
+                                  hovertemplate=name_ + "<extra></extra>"))
     figj.update_layout(height=360, margin=dict(l=0, r=0, t=10, b=0), xaxis_title="Jahr", yaxis_title="Gestehungskosten [€/kg]",
                        legend=dict(orientation="h", y=-0.25, yanchor="top"), separators=",.",
                        xaxis=dict(dtick=1 if len(jt) <= 15 else 2), yaxis=dict(rangemode="tozero"))
@@ -1081,12 +1084,11 @@ with tab_res:
         fmt_j[c] = (lambda v: de(v, 2)) if c in ("Gestehungskosten [€/kg]", "Wasserstoff [t/a]", "Wirkungsgrad Elektrolyseur [%]") \
             else (lambda v: de(v, 0))
     st.dataframe(jt.style.format(fmt_j), hide_index=True, width="stretch")
-    st.caption(f"Je Jahr wirken Preissteigerungen, die Degradation des Elektrolyseurs (Wirkungsgrad sinkt, Stacktausch setzt ihn "
-               f"zurück), die jährlichen THG-Erlöse. Die Strommengen und der Betrieb sind "
-               f"in allen Jahren gleich; Kapitaldienst und Stackkosten werden als gleichbleibende Jahresbeträge angesetzt"
-               f"{' (Annuität zum Diskontierungssatz)' if npv is not None else ''}. "
-               f"{'Abgezinste Summe der Nettokosten geteilt durch die abgezinste Summe des Wasserstoffs' if npv is not None else 'Summe der Nettokosten geteilt durch die Summe des Wasserstoffs über alle Jahre'}: {de(jahre.lcoh_sum_ratio)} €/kg "
-               f"(Hauptergebnis: {de(e.lcoh_eur_per_kg)} €/kg).")
+    st.caption("Je Jahr wirken Preissteigerungen, die Degradation des Elektrolyseurs (Wirkungsgrad sinkt, Stacktausch setzt ihn "
+               "zurück) und die jährlichen THG-Erlöse; alle Werte in Euro des jeweiligen Jahres (nominal). Kapitaldienst und Stackkosten "
+               "sind gleichbleibende Jahresbeträge" + (f" (Annuität zum Kapitalkostensatz von {de(npv.rate * 100, 1)} %)" if KW else
+               " (Annuitäten für Fremd- und Eigenkapital)") + ". Die gestrichelten Linien zeigen das Ergebnis beider Methoden. "
+               "Die Kapitalwertmethode gewichtet frühe Jahre stärker als späte; ihr Ergebnis ist deshalb kein einfacher Mittelwert der Jahreswerte.")
 
     st.markdown("### Geordneter Lastverlauf")
     st.plotly_chart(load_duration_figure(r.hourly, r.power, steps_per_hour=STEPS), width="stretch")
@@ -1134,7 +1136,7 @@ with tab_res:
         st.caption("Jede Einflussgröße wird einzeln um die Schrittweite verringert bzw. erhöht; alle übrigen Kostenblöcke "
                    "bleiben unverändert. Links: Einflussgröße −x %, rechts: +x %. Die Länge zeigt die Kostenänderung; grün: Die Gestehungskosten sinken, rot: sie steigen.")
     st.plotly_chart(sensitivity_figure(rows_s, S["sensitivity_step"] or 0.3), width="stretch")
-    if npv is not None:
+    if KW:
         st.caption(f"Die Sensitivitätsanalyse rechnet mit der Annuitätenmethode (Basis: {de(e_ann.lcoh_eur_per_kg)} €/kg); die Gestehungskosten nach der Kapitalwertmethode betragen {de(e.lcoh_eur_per_kg)} €/kg. Die Rangfolge der Einflussgrößen ist für beide Methoden vergleichbar.")
     pct_txt = f"{de(S['sensitivity_step'] * 100 if S['sensitivity_step'] is not None else 30, 0)} %"
     sens_df = pd.DataFrame([(z.name, z.block, z.v_minus, z.v_base, z.v_plus, z.setting, z.lcoh_minus, z.lcoh_plus)

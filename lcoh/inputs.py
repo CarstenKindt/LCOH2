@@ -42,8 +42,6 @@ class Inputs:
     battery_other_costs_eur: float = 0.0  # Blatt 2, C50 [€]
     battery_optimize: bool = False  # neu im Tool: Batterie nach Preissignalen optimieren
     lcoh_method: str = 'Annuitätenmethode'  # neu im Tool: Berechnungsmethode der Gestehungskosten
-    discount_rate_mode: str = 'WACC aus Finanzierung'  # neu im Tool: Diskontierungssatz der Kapitalwertmethode
-    discount_rate: float = 0.07  # neu im Tool: eigener Diskontierungssatz [%]
     battery_efficiency: float = 0.9  # neu im Tool: Rundlaufwirkungsgrad der Batterie, gilt für beide Betriebsweisen [%]
     # ---- Strombezug: PPA
     ppa_baseload_enabled: bool = True  # Blatt 2, C62
@@ -115,7 +113,6 @@ class Inputs:
     debt_share: float = 0.8  # Blatt 2, C161 [%]
     debt_interest_rate: float = 0.065  # Blatt 2, C162 [%]
     equity_interest_rate: float = 0.1  # Blatt 2, C163 [%]
-    corporate_tax_rate: float = 0.3  # Blatt 2, C164 [%]
     # ---- Förderungen
     capex_subsidy_mode: str = 'Ohne'  # Blatt 2, C169
     capex_subsidy_percent: float = 0.1  # Blatt 2, C170 [%]

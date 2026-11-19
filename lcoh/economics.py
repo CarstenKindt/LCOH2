@@ -175,8 +175,8 @@ def compute_economics(r: OperationResult, year: int | None = None) -> Economics:
     a_debt, a_equity = annuity(debt, inp.debt_interest_rate), annuity(equity, inp.equity_interest_rate)
     financing = a_debt + a_equity
     interest = financing - capex_net / life
-    wacc = (inp.equity_interest_rate * (1 - inp.debt_share)
-            + inp.debt_interest_rate * inp.debt_share * (1 - inp.corporate_tax_rate))
+    # Kapitalkostensatz ohne Steuern (wie Fraunhofer ISE, Stromgestehungskosten 2024): anteilig FK-Zins und EK-Rendite
+    wacc = inp.equity_interest_rate * (1 - inp.debt_share) + inp.debt_interest_rate * inp.debt_share
 
     # ---- Erlöse (Blatt 3, K20:L50)
     thg = thg_revenue_per_year(inp, h2) if year is None else thg_revenue_by_year(inp, h2)[year - 1]

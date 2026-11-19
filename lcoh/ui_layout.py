@@ -6,7 +6,7 @@ COCKPIT = [
     ("Elektrolyseur & Projekt", None, [
         "commissioning_year", "project_lifetime_years", "electrolyzer_power_kw",
         "capex_electrolyzer_eur_per_kw", "electrolyzer_efficiency", "min_part_load"]),
-    ("Berechnungsmethode", None, ["lcoh_method", "discount_rate_mode", "discount_rate"]),
+    ("Berechnungsmethode", None, ["lcoh_method"]),
     ("Batterie", None, ["battery_enabled", "battery_capacity_hours", "battery_input_power_kw", "battery_optimize",
                   "battery_efficiency"]),
     ("Strombezug", None, [
@@ -56,7 +56,7 @@ PAGES = [
         ("Sonstige OPEX", "_detail_opex", ["other_opex_share_of_capex", "other_opex_escalation"]),
     ]),
     ("Finanzierung & Förderungen", [
-        ("Finanzierung", None, ["debt_share", "debt_interest_rate", "equity_interest_rate", "corporate_tax_rate"]),
+        ("Finanzierung", None, ["debt_share", "debt_interest_rate", "equity_interest_rate"]),
         ("CAPEX-Förderung", None, ["capex_subsidy_mode", "capex_subsidy_percent", "capex_subsidy_eur_per_kw"]),
         ("OPEX-Förderung", None, [
             "opex_subsidy_mode", "opex_subsidy_eur_per_kg", "opex_subsidy_eur_per_full_load_hour"]),
@@ -83,8 +83,6 @@ REVENUE_PAGE = [
 VISIBLE = {
     "battery_capacity_hours": lambda v: v["battery_enabled"],
     "battery_input_power_kw": lambda v: v["battery_enabled"],
-    "discount_rate_mode": lambda v: v["lcoh_method"] == "Kapitalwertmethode",
-    "discount_rate": lambda v: v["lcoh_method"] == "Kapitalwertmethode" and v["discount_rate_mode"] == "Eigener Wert",
     "battery_optimize": lambda v: v["battery_enabled"],
     "battery_efficiency": lambda v: v["battery_enabled"],
     "ppa_baseload_kw": lambda v: v["ppa_baseload_enabled"],
@@ -165,8 +163,6 @@ LABEL_OVERRIDES = {
     "ppa_pv_enabled": "PPA 1 aktiv", "ppa_wind_enabled": "PPA 2 aktiv",
     "battery_enabled": "Batterie nutzen?",
     "lcoh_method": "Berechnungsmethode der Gestehungskosten",
-    "discount_rate_mode": "Diskontierungssatz",
-    "discount_rate": "Eigener Diskontierungssatz",
     "battery_optimize": "Batterie nach Preissignalen laden (Optimierung)",
     "battery_efficiency": "Wirkungsgrad Batterie",
     "battery_input_power_kw": "Anschlussleistung gesamt (Anlage + Batterieladung)",

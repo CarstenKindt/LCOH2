@@ -5,7 +5,8 @@ Wasserstoffmengen.
 
 Zeitpunkte: Die Investition fällt im Jahr 0 an. Betriebskosten, Erlöse und die Wasserstoffmenge eines Projektjahres t werden
 am Jahresende (t) abgezinst. Ein Stacktausch wird zum Zeitpunkt k x Tauschintervall abgezinst. Preissteigerungen, Degradation
-und THG-Erlöse wirken im jeweiligen Jahr (wie in der Jahresauswertung). Die Finanzierung steckt im Diskontierungssatz;
+und THG-Erlöse wirken im jeweiligen Jahr (wie in der Jahresauswertung). Diskontierungssatz ist der WACC ohne Steuern
+(wie Fraunhofer ISE, Stromgestehungskosten 2024). Die Finanzierung steckt im Diskontierungssatz;
 eine getrennte Annuität für Fremd- und Eigenkapital entfällt.
 
 Damit alle Auswertungen (Wasserfall, Tabellen) unverändert weiterverwendet werden können, wird das Ergebnis zusätzlich als
@@ -25,8 +26,6 @@ from lcoh.yearly import efficiency_by_year
 
 METHOD_ANNUITY = "Annuitätenmethode"
 METHOD_NPV = "Kapitalwertmethode"
-RATE_WACC = "WACC aus Finanzierung"
-RATE_OWN = "Eigener Wert"
 
 _OPEX_FIELDS = ("opex_maintenance", "opex_personnel", "opex_provisions", "opex_water", "opex_other", "opex_subsidy", "opex_total", "water_cost")
 _REV_FIELDS = ("revenue_thg", "revenue_power_spot", "revenue_power_ppa", "revenue_oxygen", "revenue_heat",
@@ -49,14 +48,12 @@ class NpvResult:
     stack_service: float = 0.0    # Stacktausch als Annuität zum Diskontierungssatz [€/a]
 
 
-def discount_rate(inp, wacc: float) -> float:
-    return wacc if inp.discount_rate_mode == RATE_WACC else inp.discount_rate
 
 
 def npv_lcoh(r: OperationResult, e_ann: Economics) -> NpvResult:
     inp = r.inputs
     life = int(inp.project_lifetime_years)
-    rate = max(discount_rate(inp, e_ann.wacc), 0.0)
+    rate = max(e_ann.wacc, 0.0)
     h2avg = e_ann.h2_kg_per_year
 
     ys, df_list, h2_list, eco = [], [], [], []

@@ -13,6 +13,7 @@ Diese Datei wird automatisch erzeugt (`python tools/build_docs.py`). Alle Standa
 | Effizienz Elektrolyse | `electrolyzer_efficiency` | % | 70 % | Blatt 2, C9 |
 | Minimale Systemteillast | `min_part_load` | % | 20 % | Blatt 2, C10 |
 | Schrittweite für Sensitivitätsanalyse | `sensitivity_step` | % | 30 % | Blatt 2, C12 |
+| Berechnungsmethode | `lcoh_method` |  | Annuitätenmethode | Neu im Tool |
 
 ## CAPEX
 
@@ -30,7 +31,7 @@ Diese Datei wird automatisch erzeugt (`python tools/build_docs.py`). Alle Standa
 | Verdichtersystem | `capex_h2_compression_eur_per_kw` | € / kW | 30 | Blatt 2, C42 |
 | Direktsystem | `capex_h2_direct_eur_per_kw` | € / kW | 10 | Blatt 2, C43 |
 | Individuelle CAPEX 1 (z. B. Netzanschluss) | `capex_custom_1_eur_per_kw` | € / kW | 0 | Blatt 2, C54 |
-| Individuelle CAPEX 2 (z. B. H2-Speicher) | `capex_custom_2_share_of_electrolyzer` | % (von spez. Kosten Ely) | 0 % | Blatt 2, C55 |
+| Individuelle CAPEX 2 (z. B. H₂-Speicher) | `capex_custom_2_share_of_electrolyzer` | % (von spez. Kosten Ely) | 0 % | Blatt 2, C55 |
 | Individuelle CAPEX 3 | `capex_custom_3_eur` | € | 0 | Blatt 2, C56 |
 
 ## Batteriesystem
@@ -42,6 +43,8 @@ Diese Datei wird automatisch erzeugt (`python tools/build_docs.py`). Alle Standa
 | Installierte Eingangsleistung | `battery_input_power_kw` | kW | 50000 | Blatt 2, C48 |
 | Spezifische Investitionskosten | `battery_capex_eur_per_kwh` | € / kWh | 220 | Blatt 2, C49 |
 | Sonstige Kosten | `battery_other_costs_eur` | € | 0 | Blatt 2, C50 |
+| Batterie nach Preissignalen optimieren? | `battery_optimize` |  | nein | Neu im Tool |
+| Wirkungsgrad Batterie | `battery_efficiency` | % | 90 % | Neu im Tool |
 
 ## Strombezug: PPA
 
@@ -52,6 +55,8 @@ Diese Datei wird automatisch erzeugt (`python tools/build_docs.py`). Alle Standa
 | Strompreis Baseload-PPA | `ppa_baseload_price_eur_per_mwh` | € / MWh | 85 | Blatt 2, C64 |
 | Preisentwicklung Baseload-PPA pro Jahr | `ppa_baseload_price_escalation` | % | 3 % | Blatt 2, C65 |
 | PPA Pay-as-Produced aktiv | `ppa_pap_enabled` |  | ja | Blatt 2, C66 |
+| PPA Pay-as-Produced PV aktiv | `ppa_pv_enabled` |  | ja | Blatt 2, C66 |
+| PPA Pay-as-Produced Wind aktiv | `ppa_wind_enabled` |  | ja | Blatt 2, C66 |
 | Installierte Leistung PPA PV | `ppa_pv_kw` | kWh / h | 10000 | Blatt 2, C67 |
 | Strompreis PPA PV | `ppa_pv_price_eur_per_mwh` | € / MWh | 40 | Blatt 2, C68 |
 | Installierte Leistung PPA Wind | `ppa_wind_kw` | kWh / h | 30000 | Blatt 2, C69 |
@@ -74,9 +79,9 @@ Diese Datei wird automatisch erzeugt (`python tools/build_docs.py`). Alle Standa
 |---|---|---|---|---|
 | Strombezug nach 37. BImSchV §7 Abs. 3 | `section7_enabled` |  | ja | Blatt 2, C83 |
 | Negative Preise berücksichtigen? | `section7_negative_prices` |  | ja | Blatt 2, C84 |
-| CO2-Preis: Jahresdaten oder selbst gewählt | `co2_price_source` |  | Jahresdaten | Blatt 2, C86 |
-| Eigener CO2-Börsenpreis | `co2_own_price_eur_per_t` | € / t_CO2 | 0 | Blatt 2, C88 |
-| Preisentwicklung CO2 pro Jahr | `co2_price_escalation` | % | 0 % | Blatt 2, C89 |
+| CO₂-Preis: Jahresdaten oder selbst gewählt | `co2_price_source` |  | Jahresdaten | Blatt 2, C86 |
+| Eigener CO₂-Börsenpreis | `co2_own_price_eur_per_t` | € / t_CO₂ | 0 | Blatt 2, C88 |
+| Preisentwicklung CO₂ pro Jahr | `co2_price_escalation` | % | 0 % | Blatt 2, C89 |
 
 ## Strombezug: §13k EnWG
 
@@ -125,14 +130,14 @@ Diese Datei wird automatisch erzeugt (`python tools/build_docs.py`). Alle Standa
 |---|---|---|---|---|
 | Stromverbrauch Peripherie (Anteil am Elektrolyseur) | `peripherals_share_of_ely` | % (Stromverbrauch Ely) | 20 % | Blatt 2, C105 |
 | Anteil aufbereiteter Wasserstoff an Jahresproduktion | `h2_processed_share` | % | 100 % | Blatt 2, C108 |
-| H2-Verdichter: Ausgangsdruck | `h2_compressor_pressure_bar` | bar | 300 | Blatt 2, C109 |
-| H2-Verdichter: Eintrittstemperatur | `h2_inlet_temperature_c` | °C | 20 | Blatt 2, C110 |
-| H2-Verdichter: Eingangsdruck | `h2_inlet_pressure_bar` | bar | 10 | Blatt 2, C111 |
-| H2-Verdichter: Wirkungsgrad | `h2_compressor_efficiency` | % | 75 % | Blatt 2, C112 |
-| O2-Verdichter: Ausgangsdruck | `o2_compressor_pressure_bar` | bar | 300 | Blatt 2, C114 |
-| O2-Verdichter: Eintrittstemperatur | `o2_inlet_temperature_c` | °C | 20 | Blatt 2, C115 |
-| O2-Verdichter: Eingangsdruck | `o2_inlet_pressure_bar` | bar | 10 | Blatt 2, C116 |
-| O2-Verdichter: Wirkungsgrad | `o2_compressor_efficiency` | % | 70 % | Blatt 2, C117 |
+| H₂-Verdichter: Ausgangsdruck | `h2_compressor_pressure_bar` | bar | 300 | Blatt 2, C109 |
+| H₂-Verdichter: Eintrittstemperatur | `h2_inlet_temperature_c` | °C | 20 | Blatt 2, C110 |
+| H₂-Verdichter: Eingangsdruck | `h2_inlet_pressure_bar` | bar | 10 | Blatt 2, C111 |
+| H₂-Verdichter: Wirkungsgrad | `h2_compressor_efficiency` | % | 75 % | Blatt 2, C112 |
+| O₂-Verdichter: Ausgangsdruck | `o2_compressor_pressure_bar` | bar | 300 | Blatt 2, C114 |
+| O₂-Verdichter: Eintrittstemperatur | `o2_inlet_temperature_c` | °C | 20 | Blatt 2, C115 |
+| O₂-Verdichter: Eingangsdruck | `o2_inlet_pressure_bar` | bar | 10 | Blatt 2, C116 |
+| O₂-Verdichter: Wirkungsgrad | `o2_compressor_efficiency` | % | 70 % | Blatt 2, C117 |
 
 ## Stacktausch
 
@@ -172,7 +177,6 @@ Diese Datei wird automatisch erzeugt (`python tools/build_docs.py`). Alle Standa
 | Quote Fremdkapital | `debt_share` | % | 80 % | Blatt 2, C161 |
 | Zins Fremdkapital | `debt_interest_rate` | % | 6.5 % | Blatt 2, C162 |
 | Kalkulatorischer Zins Eigenkapital | `equity_interest_rate` | % | 10 % | Blatt 2, C163 |
-| Unternehmenssteuersatz (für WACC) | `corporate_tax_rate` | % | 30 % | Blatt 2, C164 |
 
 ## Förderungen
 
@@ -182,10 +186,10 @@ Diese Datei wird automatisch erzeugt (`python tools/build_docs.py`). Alle Standa
 | CAPEX-Förderung prozentual (auf CAPEX Total) | `capex_subsidy_percent` | % (auf Capex Total) | 10 % | Blatt 2, C170 |
 | CAPEX-Förderung absolut | `capex_subsidy_eur_per_kw` | € / kW | 500 | Blatt 2, C171 |
 | OPEX-Förderung | `opex_subsidy_mode` |  | Ohne | Blatt 2, C174 |
-| OPEX-Förderung pro produziertem kg H2 | `opex_subsidy_eur_per_kg` | € / kg | 0.25 | Blatt 2, C175 |
+| OPEX-Förderung pro produziertem kg H₂ | `opex_subsidy_eur_per_kg` | € / kg | 0.25 | Blatt 2, C175 |
 | OPEX-Förderung pro Volllaststunde | `opex_subsidy_eur_per_full_load_hour` | € / h | 0 | Blatt 2, C176 |
 | Strompreisförderung | `power_subsidy_mode` |  | Ohne | Blatt 2, C179 |
-| Strompreisförderung pro produziertem kg H2 | `power_subsidy_eur_per_kg` | € / kg_H2 | 0 | Blatt 2, C180 |
+| Strompreisförderung pro produziertem kg H₂ | `power_subsidy_eur_per_kg` | € / kg_H₂ | 0 | Blatt 2, C180 |
 | Strompreisförderung pro verbrauchter MWh | `power_subsidy_eur_per_mwh` | € / MWh | 10 | Blatt 2, C181 |
 
 ## THG-Quote
@@ -193,10 +197,10 @@ Diese Datei wird automatisch erzeugt (`python tools/build_docs.py`). Alle Standa
 | Bezeichnung | Schlüssel | Einheit | Standardwert | Excel |
 |---|---|---|---|---|
 | THG-Quote berücksichtigen | `thg_enabled` |  | ja | Blatt 2, C198 |
-| Preis THG-Quote | `thg_price_eur_per_t` | € / t_CO2 | 300 | Blatt 2, C199 |
+| Preis THG-Quote | `thg_price_eur_per_t` | € / t_CO₂ | 300 | Blatt 2, C199 |
 | Anteil für Mobilitätssektor | `thg_mobility_share` | % | 75 % | Blatt 2, C200 |
 | Anteil an THG-Einnahmen (Erzeuger / Tankstelle) | `thg_producer_share` | % ((Erzeuger / Tankstelle)) | 95 % | Blatt 2, C201 |
-| THG-Intensität des Wasserstoffs | `thg_h2_intensity_kgco2_per_gj` | kg_CO2/GJ | 10 | Blatt 2, C202 |
+| THG-Intensität des Wasserstoffs | `thg_h2_intensity_kgco2_per_gj` | kg_CO₂/GJ | 10 | Blatt 2, C202 |
 | Anpassungsfaktor (0,4 Brennstoffzellen-Elektroantrieb, 1 Verbrennungsmotor) | `thg_adjustment_factor` |  | 0.4 | Blatt 2, C203 |
 | Jährliche Preissteigerung THG-Quote | `thg_price_escalation` | % | 1.5 % | Blatt 2, C204 |
 
@@ -230,5 +234,6 @@ Diese Datei wird automatisch erzeugt (`python tools/build_docs.py`). Alle Standa
 | C87 | Schaltfläche für den CO2-Daten-Import; ersetzt durch Datei-Upload |
 | C92 | Schaltfläche für den §13k-Daten-Import; ersetzt durch Datei-Upload |
 | C185 | Schaltfläche zur Auswahl der Privilegierungen; ersetzt durch Eingabemaske |
+| C164 | Unternehmenssteuersatz; der Kapitalkostensatz wird wie in der Fraunhofer-Studie ohne Steuern gebildet |
 | F129 | Manuelle Hilfseingabe (Wert aus F127 von Hand eintragen); wird im Tool berechnet |
-- Kapitalwertmethode (Schalter, neu im Tool): Excel kennt nur die Annuitätenmethode
+- Kapitalwertmethode (Schalter im Cockpit, neu im Tool): Das Excel-Modell kennt nur die Annuitätenmethode

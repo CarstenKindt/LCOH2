@@ -154,10 +154,12 @@ def test_impressum_und_datenschutz_oeffnen():
 def test_methodenschalter_kapitalwert():
     at = neue_app()
     annuitaet = metrik(at, "Gestehungskosten", "€/kg")
+    assert any("Berechnet mit der Annuitätenmethode" in c.value for c in at.caption)
     [x for x in at.radio if x.label == "Berechnungsmethode der Gestehungskosten"][0].set_value("Kapitalwertmethode").run()
     assert not at.exception
     kw = metrik(at, "Gestehungskosten", "€/kg")
     assert kw != annuitaet
-    assert any("Kapitalwertmethode, Diskontierungssatz" in c.value and annuitaet.replace(" €/kg", "") in c.value for c in at.caption)
+    assert any("Berechnet mit der Kapitalwertmethode" in c.value and annuitaet.replace(" €/kg", "") in c.value for c in at.caption)
+    assert not [x for x in at.radio if x.label == "Diskontierungssatz"]
     [x for x in at.radio if x.label == "Berechnungsmethode der Gestehungskosten"][0].set_value("Annuitätenmethode").run()
     assert metrik(at, "Gestehungskosten", "€/kg") == annuitaet
