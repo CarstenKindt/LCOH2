@@ -1,4 +1,4 @@
-"""Kapitalwertmethode (wie Fraunhofer ISE): Plausibilität und Zusammenhang mit der Annuitätenmethode."""
+"""Kapitalwertmethode: Plausibilität und Zusammenhang mit der Annuitätenmethode."""
 import dataclasses
 import pytest
 

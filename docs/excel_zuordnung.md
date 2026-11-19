@@ -234,6 +234,6 @@ Diese Datei wird automatisch erzeugt (`python tools/build_docs.py`). Alle Standa
 | C87 | Schaltfläche für den CO2-Daten-Import; ersetzt durch Datei-Upload |
 | C92 | Schaltfläche für den §13k-Daten-Import; ersetzt durch Datei-Upload |
 | C185 | Schaltfläche zur Auswahl der Privilegierungen; ersetzt durch Eingabemaske |
-| C164 | Unternehmenssteuersatz; der Kapitalkostensatz wird wie in der Fraunhofer-Studie ohne Steuern gebildet |
+| C164 | Unternehmenssteuersatz; der Kapitalkostensatz wird ohne Steuern gebildet |
 | F129 | Manuelle Hilfseingabe (Wert aus F127 von Hand eintragen); wird im Tool berechnet |
 - Kapitalwertmethode (Schalter im Cockpit, neu im Tool): Das Excel-Modell kennt nur die Annuitätenmethode

@@ -5,8 +5,8 @@ Wasserstoffmengen.
 
 Zeitpunkte: Die Investition fällt im Jahr 0 an. Betriebskosten, Erlöse und die Wasserstoffmenge eines Projektjahres t werden
 am Jahresende (t) abgezinst. Ein Stacktausch wird zum Zeitpunkt k x Tauschintervall abgezinst. Preissteigerungen, Degradation
-und THG-Erlöse wirken im jeweiligen Jahr (wie in der Jahresauswertung). Diskontierungssatz ist der WACC ohne Steuern
-(wie Fraunhofer ISE, Stromgestehungskosten 2024). Die Finanzierung steckt im Diskontierungssatz;
+und THG-Erlöse wirken im jeweiligen Jahr (wie in der Jahresauswertung). Diskontierungssatz ist der WACC ohne Steuern.
+Die Finanzierung steckt im Diskontierungssatz;
 eine getrennte Annuität für Fremd- und Eigenkapital entfällt.
 
 Damit alle Auswertungen (Wasserfall, Tabellen) unverändert weiterverwendet werden können, wird das Ergebnis zusätzlich als
