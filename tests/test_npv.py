@@ -32,7 +32,7 @@ def test_beispiel_aus_dem_chat():
 
 
 def test_equivalent_economics_consistent_with_headline():
-    r, e = _run(lcoh_method="Kapitalwertmethode")
+    r, e = _run()
     n = npv_lcoh(r, e)
     assert n.economics.lcoh_eur_per_kg == pytest.approx(n.lcoh_eur_per_kg, rel=1e-9)
 
@@ -54,7 +54,7 @@ def test_higher_rate_raises_cost():
 
 def test_yearly_view_reproduces_npv_result():
     from lcoh.yearly import yearly_lcoh
-    r, e = _run(lcoh_method="Kapitalwertmethode")
+    r, e = _run()
     n = npv_lcoh(r, e)
     y = yearly_lcoh(r, n.economics, n.rate, n.capital_service, n.stack_service)
     assert y.lcoh_sum_ratio == pytest.approx(n.lcoh_eur_per_kg, rel=1e-9)
@@ -75,3 +75,16 @@ def test_stacktausch_als_jahresbetrag():
     assert n.stack_service == pytest.approx(e.stack.annual_cost)
     r2, e2 = _run(stack_interest_rate=0.10)
     assert npv_lcoh(r2, e2).lcoh_eur_per_kg > n.lcoh_eur_per_kg
+
+
+def test_sensitivitaet_kapitalwert():
+    from lcoh.sensitivity import sensitivity_npv
+    r, e = _run()
+    rows = {z.name: z for z in sensitivity_npv(r, e, 0.3)}
+    n = npv_lcoh(r, e)
+    for z in rows.values():
+        assert z.base == pytest.approx(n.lcoh_eur_per_kg)
+    assert rows["CAPEX"].lcoh_minus < n.lcoh_eur_per_kg < rows["CAPEX"].lcoh_plus
+    assert rows["Strompreis"].lcoh_minus < n.lcoh_eur_per_kg < rows["Strompreis"].lcoh_plus
+    assert rows["Zinsen (FK + EK)"].lcoh_minus < n.lcoh_eur_per_kg < rows["Zinsen (FK + EK)"].lcoh_plus
+    assert rows["Volllaststunden"].lcoh_plus < n.lcoh_eur_per_kg

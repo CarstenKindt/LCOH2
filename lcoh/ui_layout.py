@@ -6,7 +6,6 @@ COCKPIT = [
     ("Elektrolyseur & Projekt", None, [
         "commissioning_year", "project_lifetime_years", "electrolyzer_power_kw",
         "capex_electrolyzer_eur_per_kw", "electrolyzer_efficiency", "min_part_load"]),
-    ("Berechnungsmethode", None, ["lcoh_method"]),
     ("Batterie", None, ["battery_enabled", "battery_capacity_hours", "battery_input_power_kw", "battery_optimize",
                   "battery_efficiency"]),
     ("Strombezug", None, [
@@ -162,7 +161,6 @@ def rename_label(text):
 LABEL_OVERRIDES = {
     "ppa_pv_enabled": "PPA 1 aktiv", "ppa_wind_enabled": "PPA 2 aktiv",
     "battery_enabled": "Batterie nutzen?",
-    "lcoh_method": "Berechnungsmethode der Gestehungskosten",
     "battery_optimize": "Batterie nach Preissignalen laden (Optimierung)",
     "battery_efficiency": "Wirkungsgrad Batterie",
     "battery_input_power_kw": "Anschlussleistung gesamt (Anlage + Batterieladung)",

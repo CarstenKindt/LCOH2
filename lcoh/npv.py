@@ -45,8 +45,14 @@ class NpvResult:
     pv_revenue: float
     table: pd.DataFrame           # Jahrestabelle mit Abzinsungsfaktoren
     economics: Economics          # Jahresäquivalent (für Wasserfall und Tabellen)
-    capital_service: float = 0.0  # CAPEX als Annuität zum Diskontierungssatz [€/a] (für die Jahresansicht)
-    stack_service: float = 0.0    # Stacktausch als Annuität zum Diskontierungssatz [€/a]
+    capital_service: float = 0.0  # CAPEX als Annuität zum Kapitalkostensatz [€/a] (für die Jahresansicht)
+    stack_service: float = 0.0    # Stacktausch als gleichbleibender Jahresbetrag [€/a]
+    capex_net: float = 0.0
+    pv_power: float = 0.0
+    pv_opex: float = 0.0
+    pv_stack: float = 0.0
+    pv_thg: float = 0.0
+    discount_sum: float = 0.0     # Summe der Abzinsungsfaktoren
 
 
 
@@ -113,4 +119,5 @@ def npv_lcoh(r: OperationResult, e_ann: Economics) -> NpvResult:
         "Barwert Wasserstoff [t]": [h / 1000 * d for h, d in zip(h2_list, df_list)]})
     af = 1.0 / life if rate <= 0 else rate / (1.0 - (1.0 + rate) ** -life)
     return NpvResult(rate, lcoh, pv_h2, capex_net + pv_power + pv_opex + stack_pv, pv_rev, table, eq,
-                     capital_service=capex_net * af, stack_service=stack_year)
+                     capital_service=capex_net * af, stack_service=stack_year, capex_net=capex_net, pv_power=pv_power,
+                     pv_opex=pv_opex, pv_stack=stack_pv, pv_thg=pv(lambda x: x.revenue_thg), discount_sum=sum(df_list))

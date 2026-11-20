@@ -48,13 +48,18 @@ Ressourcen: etwa 1 GB Arbeitsspeicher; eine Berechnung dauert 1 bis 2 Sekunden.
 - Unter welcher Adresse soll der Rechner erreichbar sein (zum Beispiel unter hs-flensburg.de)?
 - Wer betreut den Server und spielt Updates ein?
 
-## Berechnungsmethode der Gestehungskosten (Schalter im Cockpit)
+## Berechnungsmethode der Gestehungskosten
 
-Das Cockpit bietet zwei Methoden; der jeweils andere Wert wird zum Vergleich angezeigt.
+Das Tool berechnet die Gestehungskosten nach der **Kapitalwertmethode**:
 
-- **Annuitätenmethode** (Voreinstellung, wie im Excel-Modell): Die Investition wird mit den Zinsen für Fremd- und Eigenkapital in gleich hohe Jahresbeträge umgerechnet; Betriebskosten und Erlöse gehen als nicht abgezinster Mittelwert über die Laufzeit ein.
-- **Kapitalwertmethode**: LCOH₂ = (I₀ + Σ (Kosten_t + Stack − Erlöse_t)/(1+i)^t) / Σ H₂-Menge_t/(1+i)^t. Die Investition fällt in Jahr 0 an, alle übrigen Zahlungen am Ende des jeweiligen Projektjahres. Der Stacktausch geht in beiden Methoden als gleichbleibender Jahresbetrag ein: Bis zum Tausch wird eine Rücklage gebildet, danach wird der Rest mit einem Kredit zum Stackzins finanziert; Tauschkosten und Kreditzinsen werden gleichmäßig auf die Laufzeit verteilt. Der Zinssatz i ist der Kapitalkostensatz (WACC) ohne Steuern: i = FK-Anteil · FK-Zins + EK-Anteil · EK-Zins. Gerechnet wird in beiden Methoden nominal: Zinssätze und Preissteigerungen enthalten die Inflation. Die Preissteigerungen sind je Kosten- und Erlösart getrennt einstellbar; eine Rate von 0 % bedeutet real sinkende Werte.
+LCOH₂ = (I₀ + Σ (Kosten_t + Stack − Erlöse_t)/(1+i)^t) / Σ H₂-Menge_t/(1+i)^t
 
-Die Abzinsung der Wasserstoffmenge ist eine Folge der finanzmathematischen Umformung: Die Menge steht stellvertretend für die Erlöse aus ihrem Verkauf. Zeitlich ungleich verteilte Erlöse (insbesondere THG-Quote) werden bei der Kapitalwertmethode stärker gewichtet, wenn sie früh anfallen; deshalb weichen beide Methoden deutlich voneinander ab. Haben Fremd- und Eigenkapital denselben Zins und sind alle Jahre gleich, liefern beide Methoden dasselbe Ergebnis.
+Die Investition I₀ (nach Förderung) fällt in Jahr 0 an, alle übrigen Zahlungen am Ende des jeweiligen Projektjahres t. Kosten, Erlöse und Wasserstoffmenge werden für jedes Jahr einzeln berechnet (Preissteigerungen, Degradation, THG-Erlöse des jeweiligen Kalenderjahres). Der Zinssatz i ist der Kapitalkostensatz (WACC) ohne Steuern: i = FK-Anteil · FK-Zins + EK-Anteil · EK-Rendite. Die Abzinsung der Wasserstoffmenge ist eine Folge der finanzmathematischen Umformung: Die Menge steht stellvertretend für die Erlöse aus ihrem Verkauf.
 
-Die Jahresansicht zeigt die nominalen Gestehungskosten je Projektjahr (Kapitaldienst als gleichbleibende Annuität der gewählten Methode) sowie die Ergebnisse beider Methoden als gestrichelte Linien. Die Sensitivitätsanalyse rechnet mit der Annuitätenmethode. Der Unternehmenssteuersatz des Excel-Modells (Blatt 2, C164) wird nicht übernommen.
+Der Stacktausch geht als gleichbleibender Jahresbetrag ein: Bis zur Laufzeitmitte wird eine Rücklage gebildet, der Rest wird mit einem Kredit zum Stackzins finanziert; Tauschkosten und Kreditzinsen werden gleichmäßig auf die Laufzeit verteilt.
+
+Gerechnet wird nominal: Zinssätze und Preissteigerungen enthalten die Inflation. Die Preissteigerungen sind je Kosten- und Erlösart getrennt einstellbar; eine Rate von 0 % bedeutet real sinkende Werte.
+
+Die Jahresansicht zeigt die nominalen Gestehungskosten je Projektjahr (Kapitaldienst als Annuität zum Kapitalkostensatz) und das Gesamtergebnis als gestrichelte Linie. Die Sensitivitätsanalyse rechnet ebenfalls nach der Kapitalwertmethode; Zinsen und Projektlaufzeit werden dabei vollständig neu berechnet.
+
+Das Excel-Modell verwendet eine vereinfachte Annuitätenmethode (Annuität nur auf die Investition, Kosten und Erlöse als nicht abgezinster Mittelwert). Sie ist im Rechenkern weiterhin enthalten und dient dem Abgleich mit der Excel, wird im Tool aber nicht mehr angezeigt.

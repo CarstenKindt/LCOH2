@@ -58,8 +58,9 @@ def metrik(at: AppTest, label: str, unit: str | None = None) -> str:
 
 def test_standardwerte():
     at = neue_app()
-    assert metrik(at, "Gestehungskosten", "€/kg") == "9,13 €/kg"
-    assert metrik(at, "Gestehungskosten", "ct/kWh") == "23,16 ct/kWh"
+    # Kapitalwertmethode (Annuitätenmethode wie Excel: 9,13 €/kg, Prüfung über die Excel-Vergleichstests)
+    assert metrik(at, "Gestehungskosten", "€/kg") == "6,23 €/kg"
+    assert metrik(at, "Gestehungskosten", "ct/kWh") == "15,80 ct/kWh"
     assert metrik(at, "Stacktausche") == "0"
     assert metrik(at, "Anteil RFNBO-konformer Wasserstoff") == "100,0 %"
 
@@ -68,7 +69,7 @@ def test_thg_aus():
     at = neue_app()
     at.toggle(key="w_thg_enabled").set_value(False).run()
     assert not at.exception
-    assert metrik(at, "Gestehungskosten", "€/kg") == "12,50 €/kg"
+    assert metrik(at, "Gestehungskosten", "€/kg") == "10,55 €/kg"
 
 
 def test_zahlenformat_deutsch():
@@ -151,15 +152,9 @@ def test_impressum_und_datenschutz_oeffnen():
     assert not at.exception
 
 
-def test_methodenschalter_kapitalwert():
+def test_kapitalwertmethode_im_cockpit():
     at = neue_app()
-    annuitaet = metrik(at, "Gestehungskosten", "€/kg")
-    assert any("Berechnet mit der Annuitätenmethode" in c.value for c in at.caption)
-    [x for x in at.radio if x.label == "Berechnungsmethode der Gestehungskosten"][0].set_value("Kapitalwertmethode").run()
     assert not at.exception
-    kw = metrik(at, "Gestehungskosten", "€/kg")
-    assert kw != annuitaet
-    assert any("Berechnet mit der Kapitalwertmethode" in c.value and annuitaet.replace(" €/kg", "") in c.value for c in at.caption)
-    assert not [x for x in at.radio if x.label == "Diskontierungssatz"]
-    [x for x in at.radio if x.label == "Berechnungsmethode der Gestehungskosten"][0].set_value("Annuitätenmethode").run()
-    assert metrik(at, "Gestehungskosten", "€/kg") == annuitaet
+    assert not [x for x in at.radio if x.label == "Berechnungsmethode der Gestehungskosten"]
+    assert any("Berechnet mit der Kapitalwertmethode" in c.value and "nominal" in c.value for c in at.caption)
+    assert not any("Annuitätenmethode" in c.value for c in at.caption)

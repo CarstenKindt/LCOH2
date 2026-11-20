@@ -13,7 +13,6 @@ Diese Datei wird automatisch erzeugt (`python tools/build_docs.py`). Alle Standa
 | Effizienz Elektrolyse | `electrolyzer_efficiency` | % | 70 % | Blatt 2, C9 |
 | Minimale Systemteillast | `min_part_load` | % | 20 % | Blatt 2, C10 |
 | Schrittweite für Sensitivitätsanalyse | `sensitivity_step` | % | 30 % | Blatt 2, C12 |
-| Berechnungsmethode | `lcoh_method` |  | Annuitätenmethode | Neu im Tool |
 
 ## CAPEX
 
@@ -236,4 +235,4 @@ Diese Datei wird automatisch erzeugt (`python tools/build_docs.py`). Alle Standa
 | C185 | Schaltfläche zur Auswahl der Privilegierungen; ersetzt durch Eingabemaske |
 | C164 | Unternehmenssteuersatz; der Kapitalkostensatz wird ohne Steuern gebildet |
 | F129 | Manuelle Hilfseingabe (Wert aus F127 von Hand eintragen); wird im Tool berechnet |
-- Kapitalwertmethode (Schalter im Cockpit, neu im Tool): Das Excel-Modell kennt nur die Annuitätenmethode
+- Gestehungskosten nach der Kapitalwertmethode (neu im Tool); das Excel-Modell rechnet mit der vereinfachten Annuitätenmethode

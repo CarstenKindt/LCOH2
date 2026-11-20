@@ -129,3 +129,70 @@ def sensitivity(r: OperationResult, e: Economics, step: float) -> list[Sensitivi
     add("Strompreis", lambda s: lcoh(power=e.power_cost * (1 + s)),
         "Stromkosten [€/a]", lambda s: e.power_cost * (1 + s), lambda s: f"{de(avg_price * (1 + s), 2)} €/MWh")
     return rows
+
+
+def sensitivity_npv(r: OperationResult, e: Economics, step: float) -> list[SensitivityRow]:
+    """Sensitivität nach der Kapitalwertmethode.
+
+    Je Einflussgröße wird nur diese Größe um +/- Schrittweite verändert. Barwerte von Strom, OPEX, THG-Erlösen und CAPEX
+    werden direkt skaliert; Zinsen und Projektlaufzeit werden vollständig neu gerechnet (Abzinsung, Stacktausch, Jahre).
+    Die Werte der Kostenblöcke sind Barwerte über die Projektlaufzeit."""
+    from dataclasses import replace
+    from lcoh.economics import compute_economics
+    from lcoh.npv import npv_lcoh
+    from lcoh.operation import stack_interval_years, stack_replacements
+    from lcoh.stack import stack_costs
+
+    inp = r.inputs
+    n = npv_lcoh(r, e)
+    if not n.pv_h2_kg:
+        return []
+    base = dict(capex=n.capex_net, power=n.pv_power, opex=n.pv_opex, stack=n.pv_stack, thg=n.pv_thg,
+                rev_other=n.pv_revenue - n.pv_thg, h2=n.pv_h2_kg)
+
+    def lc(**ch) -> float:
+        v = {**base, **ch}
+        return (v["capex"] + v["power"] + v["opex"] + v["stack"] - v["thg"] - v["rev_other"]) / v["h2"]
+
+    def neu(**kw):
+        inp2 = replace(inp, **kw)
+        nrep = stack_replacements(inp2, r.full_load_hours)
+        r2 = replace(r, inputs=inp2, stack_replacements=nrep, stack_interval_years=stack_interval_years(inp2, nrep))
+        return npv_lcoh(r2, compute_economics(r2))
+
+    def de(x: float, k: int = 1) -> str:
+        return f"{x:,.{k}f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+    rows = []
+
+    def add(name, fn, block, vfn, setting=None):
+        rows.append(SensitivityRow(name, fn(-step), fn(step), n.lcoh_eur_per_kg, block, vfn(-step), vfn(0.0), vfn(step),
+                                   "" if setting is None else f"{setting(-step)} | {setting(0.0)} | {setting(step)}"))
+
+    add("THG-Minderungsmenge", lambda s: lc(thg=n.pv_thg * (1 + s)), "Barwert THG-Erlöse [€]", lambda s: n.pv_thg * (1 + s))
+    zins = {s: neu(debt_interest_rate=inp.debt_interest_rate * (1 + s), equity_interest_rate=inp.equity_interest_rate * (1 + s),
+                   stack_interest_rate=inp.stack_interest_rate * (1 + s)) for s in (-step, step)}
+    add("Zinsen (FK + EK)", lambda s: zins[s].lcoh_eur_per_kg, "Kapitalkostensatz [%]",
+        lambda s: (zins[s].rate if s else n.rate) * 100,
+        lambda s: f"FK {de(inp.debt_interest_rate * (1 + s) * 100)} % / EK {de(inp.equity_interest_rate * (1 + s) * 100)} %")
+    add("OPEX", lambda s: lc(opex=n.pv_opex * (1 + s)), "Barwert OPEX [€]", lambda s: n.pv_opex * (1 + s))
+    life = inp.project_lifetime_years
+    lz = {s: neu(project_lifetime_years=max(1, round(life * (1 + s)))) for s in (-step, step)}
+    add("Projektlaufzeit", lambda s: lz[s].lcoh_eur_per_kg, "Projektlaufzeit [a]",
+        lambda s: float(max(1, round(life * (1 + s)))), lambda s: f"{max(1, round(life * (1 + s)))} a")
+    add("CAPEX", lambda s: lc(capex=n.capex_net * (1 + s)), "CAPEX [€]", lambda s: n.capex_net * (1 + s))
+
+    def flh_of(s: float) -> float:
+        return min(r.full_load_hours * (1 + s), 8760.0)
+
+    def full_load(s: float) -> float:
+        f = flh_of(s) / r.full_load_hours
+        stk = stack_costs(inp, flh_of(s)).annual_cost * n.discount_sum
+        return lc(power=n.pv_power * f, thg=n.pv_thg * f, rev_other=base["rev_other"] * f, h2=n.pv_h2_kg * f, stack=stk)
+
+    add("Volllaststunden", full_load, "Barwert Stromkosten [€]", lambda s: n.pv_power * flh_of(s) / r.full_load_hours,
+        lambda s: f"{de(flh_of(s), 0)} h/a")
+    avg_price = e.power_cost / (e.power.total_procurement_kwh / 1000) if e.power.total_procurement_kwh else 0.0
+    add("Strompreis", lambda s: lc(power=n.pv_power * (1 + s)), "Barwert Stromkosten [€]", lambda s: n.pv_power * (1 + s),
+        lambda s: f"{de(avg_price * (1 + s), 2)} €/MWh")
+    return rows

@@ -22,10 +22,10 @@ from lcoh.input_spec import SPEC_BY_KEY
 from lcoh.inputs import Inputs
 from lcoh.operation import run_operation
 from lcoh.system import system_power
-from lcoh.sensitivity import sensitivity
+from lcoh.sensitivity import sensitivity_npv
 from lcoh.energy_balance import energy_balance
 from lcoh.yearly import yearly_lcoh
-from lcoh.npv import METHOD_NPV, npv_lcoh
+from lcoh.npv import npv_lcoh
 from lcoh.charts import COST_BLOCKS as COST_BLOCK_NAMES, battery_soc_figure, sankey_figure, cost_structure_figure, load_duration_figure, sensitivity_figure, spot_price_figure
 from lcoh.ui_layout import (rename_label, CHOICE_LABELS, COCKPIT, FINE_STEP, GATES, LABEL_OVERRIDES, LEVIES, PAGES, REVENUE_PAGE,
                             VISIBLE)
@@ -389,8 +389,8 @@ def rechnen(inputs_json: str, series_json: str, steps: int):
     ts = build_timeseries(json.loads(series_json), steps)
     r = run_operation(inp, ts, steps_per_hour=steps)
     e = compute_economics(r)
-    n = npv_lcoh(r, e)  # Kapitalwertmethode immer mitrechnen (Vergleichswert)
-    return r, (n.economics if inp.lcoh_method == METHOD_NPV else e), e, n
+    n = npv_lcoh(r, e)  # Gestehungskosten nach der Kapitalwertmethode
+    return r, n.economics, e, n
 
 
 # ---------------------------------------------------------------- Seitenleiste (Laden/Speichern)
@@ -478,7 +478,6 @@ with tab_cockpit:
                 st.markdown("#### Elektrolyseur & Projekt")
                 row(["electrolyzer_power_kw", "capex_electrolyzer_eur_per_kw", "electrolyzer_efficiency"])
                 row(["commissioning_year", "project_lifetime_years", "min_part_load"])
-                row(["lcoh_method"])
                 fill_button(["electrolyzer_power_kw", "capex_electrolyzer_eur_per_kw", "electrolyzer_efficiency",
                              "commissioning_year", "project_lifetime_years", "min_part_load"], "cockpit_ely")
             with st.container(border=True):
@@ -846,7 +845,6 @@ if missing or errors:
 series_json = json.dumps(st.session_state["series"])
 r, e, e_ann, npv = rechnen(json.dumps(effective, sort_keys=True, default=float), series_json, STEPS)
 inp = r.inputs
-KW = inp.lcoh_method == METHOD_NPV  # Kapitalwertmethode gewählt
 NOMINAL_HINWEIS = ("Das Tool rechnet nominal: Zinssätze und Preissteigerungen sind einschließlich Inflation anzugeben.")
 
 with st.sidebar:
@@ -957,11 +955,8 @@ with cockpit_slot:
               "Projektlaufzeit, inklusive Förderungen, Befreiungen und Zusatzeinnahmen.")
     kmetric(k2, "Gestehungskosten", de(e.lcoh_ct_per_kwh), "ct/kWh", help="Bezogen auf den Brennwert von 39,4 kWh/kg.")
     kmetric(k3, "Wasserstoff", de(e.h2_kg_per_year / 1000, 0), "t/a")
-    if KW:
-        st.caption(f"Berechnet mit der Kapitalwertmethode (abgezinst mit dem Kapitalkostensatz von {de(npv.rate * 100, 1)} %). "
-                   f"Zum Vergleich nach der Annuitätenmethode: {de(e_ann.lcoh_eur_per_kg)} €/kg. " + NOMINAL_HINWEIS)
-    else:
-        st.caption(f"Berechnet mit der Annuitätenmethode. Zum Vergleich nach der Kapitalwertmethode: {de(npv.lcoh_eur_per_kg)} €/kg. " + NOMINAL_HINWEIS)
+    st.caption(f"Berechnet mit der Kapitalwertmethode: Kosten, Erlöse und Wasserstoffmengen jedes Jahres werden mit dem "
+               f"Kapitalkostensatz von {de(npv.rate * 100, 1)} % abgezinst. " + NOMINAL_HINWEIS)
     k4, k5, k6 = st.columns(3)
     kmetric(k4, "Anteil RFNBO-konformer Wasserstoff", de(green_share * 100, 1), "%", help=HELP_GREEN)
     kmetric(k5, "Systemauslastung", de(system_util * 100, 1), "%", help="Stromverbrauch des Gesamtsystems bezogen auf "
@@ -1066,16 +1061,15 @@ with tab_res:
 
     # ---- Gestehungskosten je Projektjahr
     st.markdown("### Gestehungskosten je Projektjahr")
-    jahre = (yearly_lcoh(r, e, npv.rate, npv.capital_service, npv.stack_service) if KW else yearly_lcoh(r, e_ann))
+    jahre = yearly_lcoh(r, e, npv.rate, npv.capital_service, npv.stack_service)
     jt = jahre.table
     x0, x1 = jt["Kalenderjahr"].iloc[0], jt["Kalenderjahr"].iloc[-1]
     figj = go.Figure()
     figj.add_trace(go.Scatter(x=jt["Kalenderjahr"], y=jt["Gestehungskosten [€/kg]"], mode="lines+markers", name="Gestehungskosten im Jahr (nominal)",
                               line=dict(color="#2e8b57", width=2.5), hovertemplate="%{x}: %{y:,.2f} €/kg<extra></extra>"))
-    for name_, val_, col_ in ((f"LCOH₂ Annuitätenmethode: {de(e_ann.lcoh_eur_per_kg)} €/kg", e_ann.lcoh_eur_per_kg, "#808495"),
-                              (f"LCOH₂ Kapitalwertmethode: {de(npv.lcoh_eur_per_kg)} €/kg", npv.lcoh_eur_per_kg, "#1f4e79")):
-        figj.add_trace(go.Scatter(x=[x0, x1], y=[val_] * 2, mode="lines", name=name_, line=dict(color=col_, width=1.8, dash="dash"),
-                                  hovertemplate=name_ + "<extra></extra>"))
+    name_ = f"LCOH₂: {de(npv.lcoh_eur_per_kg)} €/kg"
+    figj.add_trace(go.Scatter(x=[x0, x1], y=[npv.lcoh_eur_per_kg] * 2, mode="lines", name=name_,
+                              line=dict(color="#1f4e79", width=1.8, dash="dash"), hovertemplate=name_ + "<extra></extra>"))
     figj.update_layout(height=360, margin=dict(l=0, r=0, t=10, b=0), xaxis_title="Jahr", yaxis_title="Gestehungskosten [€/kg]",
                        legend=dict(orientation="h", y=-0.25, yanchor="top"), separators=",.",
                        xaxis=dict(dtick=1 if len(jt) <= 15 else 2), yaxis=dict(rangemode="tozero"))
@@ -1087,9 +1081,9 @@ with tab_res:
     st.dataframe(jt.style.format(fmt_j), hide_index=True, width="stretch")
     st.caption("Je Jahr wirken Preissteigerungen, die Degradation des Elektrolyseurs (Wirkungsgrad sinkt, Stacktausch setzt ihn "
                "zurück) und die jährlichen THG-Erlöse; alle Werte in Euro des jeweiligen Jahres (nominal). Kapitaldienst und Stackkosten "
-               "sind gleichbleibende Jahresbeträge" + (f" (Annuität zum Kapitalkostensatz von {de(npv.rate * 100, 1)} %)" if KW else
-               " (Annuitäten für Fremd- und Eigenkapital)") + ". Die gestrichelten Linien zeigen das Ergebnis beider Methoden. "
-               "Die Kapitalwertmethode gewichtet frühe Jahre stärker als späte; ihr Ergebnis ist deshalb kein einfacher Mittelwert der Jahreswerte.")
+               f"sind gleichbleibende Jahresbeträge (Kapitaldienst als Annuität zum Kapitalkostensatz von {de(npv.rate * 100, 1)} %). "
+               "Die gestrichelte Linie zeigt die Gestehungskosten über die Projektlaufzeit. Weil frühe Jahre durch die Abzinsung stärker "
+               "zählen als späte, ist sie kein einfacher Mittelwert der Jahreswerte.")
 
     st.markdown("### Geordneter Lastverlauf")
     st.plotly_chart(load_duration_figure(r.hourly, r.power, steps_per_hour=STEPS), width="stretch")
@@ -1132,17 +1126,15 @@ with tab_res:
     sc1, sc2 = st.columns([1, 3])
     with sc1:
         field("sensitivity_step")
-    rows_s = sensitivity(r, e_ann, S["sensitivity_step"] if S["sensitivity_step"] is not None else 0.3)
+    rows_s = sensitivity_npv(r, e_ann, S["sensitivity_step"] if S["sensitivity_step"] is not None else 0.3)
     with sc2:
-        st.caption("Jede Einflussgröße wird einzeln um die Schrittweite verringert bzw. erhöht; alle übrigen Kostenblöcke "
-                   "bleiben unverändert. Links: Einflussgröße −x %, rechts: +x %. Die Länge zeigt die Kostenänderung; grün: Die Gestehungskosten sinken, rot: sie steigen.")
+        st.caption("Jede Einflussgröße wird einzeln um die Schrittweite verringert bzw. erhöht; alle übrigen Größen "
+                   "bleiben unverändert. Zinsen und Projektlaufzeit werden vollständig neu gerechnet. Links: Einflussgröße −x %, rechts: +x %. Die Länge zeigt die Kostenänderung; grün: Die Gestehungskosten sinken, rot: sie steigen.")
     st.plotly_chart(sensitivity_figure(rows_s, S["sensitivity_step"] or 0.3), width="stretch")
-    if KW:
-        st.caption(f"Die Sensitivitätsanalyse rechnet mit der Annuitätenmethode (Basis: {de(e_ann.lcoh_eur_per_kg)} €/kg); die Gestehungskosten nach der Kapitalwertmethode betragen {de(e.lcoh_eur_per_kg)} €/kg. Die Rangfolge der Einflussgrößen ist für beide Methoden vergleichbar.")
     pct_txt = f"{de(S['sensitivity_step'] * 100 if S['sensitivity_step'] is not None else 30, 0)} %"
     sens_df = pd.DataFrame([(z.name, z.block, z.v_minus, z.v_base, z.v_plus, z.setting, z.lcoh_minus, z.lcoh_plus)
                             for z in rows_s],
-                           columns=["Einflussgröße", "Betroffener Kostenblock", f"Wert −{pct_txt}", "Basis",
+                           columns=["Einflussgröße", "Betroffener Kostenblock (Barwert)", f"Wert −{pct_txt}", "Basis",
                                     f"Wert +{pct_txt}", "Einstellung (− | Basis | +)", "Gestehungskosten − [€/kg]",
                                     "Gestehungskosten + [€/kg]"])
     def _unit(block: str) -> str:
