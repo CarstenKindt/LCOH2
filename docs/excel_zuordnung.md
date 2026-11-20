@@ -12,7 +12,6 @@ Diese Datei wird automatisch erzeugt (`python tools/build_docs.py`). Alle Standa
 | Projektlaufzeit | `project_lifetime_years` | a | 20 | Blatt 2, C8 |
 | Effizienz Elektrolyse | `electrolyzer_efficiency` | % | 70 % | Blatt 2, C9 |
 | Minimale Systemteillast | `min_part_load` | % | 20 % | Blatt 2, C10 |
-| Schrittweite für Sensitivitätsanalyse | `sensitivity_step` | % | 30 % | Blatt 2, C12 |
 
 ## CAPEX
 
@@ -44,6 +43,15 @@ Diese Datei wird automatisch erzeugt (`python tools/build_docs.py`). Alle Standa
 | Sonstige Kosten | `battery_other_costs_eur` | € | 0 | Blatt 2, C50 |
 | Batterie nach Preissignalen optimieren? | `battery_optimize` |  | nein | Neu im Tool |
 | Wirkungsgrad Batterie | `battery_efficiency` | % | 90 % | Neu im Tool |
+
+## Wirtschaftlichkeit
+
+| Bezeichnung | Schlüssel | Einheit | Standardwert | Excel |
+|---|---|---|---|---|
+| Vorgabe des Wasserstoffpreises | `h2_price_mode` |  | Marge auf die Gestehungskosten | Neu im Tool |
+| Marge auf die Gestehungskosten | `h2_margin` | % | 10 % | Neu im Tool |
+| Zielverkaufspreis Wasserstoff | `h2_target_price_eur_per_kg` | €/kg | 8 | Neu im Tool |
+| Preissteigerung Wasserstoff | `h2_price_escalation` | % | 0 % | Neu im Tool |
 
 ## Strombezug: PPA
 
@@ -233,6 +241,7 @@ Diese Datei wird automatisch erzeugt (`python tools/build_docs.py`). Alle Standa
 | C87 | Schaltfläche für den CO2-Daten-Import; ersetzt durch Datei-Upload |
 | C92 | Schaltfläche für den §13k-Daten-Import; ersetzt durch Datei-Upload |
 | C185 | Schaltfläche zur Auswahl der Privilegierungen; ersetzt durch Eingabemaske |
+| C12 | Schrittweite der Sensitivitätsanalyse; im Tool fest 25 % |
 | C164 | Unternehmenssteuersatz; der Kapitalkostensatz wird ohne Steuern gebildet |
 | F129 | Manuelle Hilfseingabe (Wert aus F127 von Hand eintragen); wird im Tool berechnet |
 - Gestehungskosten nach der Kapitalwertmethode (neu im Tool); das Excel-Modell rechnet mit der vereinfachten Annuitätenmethode

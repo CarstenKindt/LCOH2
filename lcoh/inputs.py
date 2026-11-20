@@ -18,7 +18,6 @@ class Inputs:
     project_lifetime_years: int = 20  # Blatt 2, C8 [a]
     electrolyzer_efficiency: float = 0.7  # Blatt 2, C9 [%]
     min_part_load: float = 0.2  # Blatt 2, C10 [%]
-    sensitivity_step: float = 0.3  # Blatt 2, C12 [%]
     # ---- CAPEX
     capex_epc_eur_per_kw: float = 120.0  # Blatt 2, C23 [€ / kW]
     capex_bop_eur_per_kw: float = 750.0  # Blatt 2, C26 [€ / kW]
@@ -41,6 +40,10 @@ class Inputs:
     battery_capex_eur_per_kwh: float = 220.0  # Blatt 2, C49 [€ / kWh]
     battery_other_costs_eur: float = 0.0  # Blatt 2, C50 [€]
     battery_optimize: bool = False  # neu im Tool: Batterie nach Preissignalen optimieren
+    h2_price_mode: str = 'Marge auf die Gestehungskosten'  # neu im Tool: Vorgabe des Wasserstoffpreises
+    h2_margin: float = 0.1  # neu im Tool: Marge auf die Gestehungskosten [%]
+    h2_target_price_eur_per_kg: float = 8.0  # neu im Tool: Zielverkaufspreis Wasserstoff [€/kg]
+    h2_price_escalation: float = 0.0  # neu im Tool: jährliche nominale Veränderung des Wasserstoffpreises [%]
     battery_efficiency: float = 0.9  # neu im Tool: Rundlaufwirkungsgrad der Batterie, gilt für beide Betriebsweisen [%]
     # ---- Strombezug: PPA
     ppa_baseload_enabled: bool = True  # Blatt 2, C62

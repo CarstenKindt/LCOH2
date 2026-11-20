@@ -159,3 +159,12 @@ def test_kapitalwertmethode_im_cockpit():
     assert any("Berechnungen nominal mit Kapitalwertmethode" in m.value for m in at.markdown)
     assert any("keine Steuern verrechnet" in m.value for m in at.markdown)
     assert not any("Annuitätenmethode" in c.value for c in at.caption)
+
+
+def test_wirtschaftliche_kennzahlen():
+    at = neue_app()
+    assert any("Kapitalwert (NPV)" in m.value for m in at.markdown)
+    r = [x for x in at.radio if x.label.startswith("Vorgabe des Wasserstoffpreises")][0]
+    r.set_value("Zielverkaufspreis").run()
+    assert not at.exception
+    assert [x for x in at.text_input if x.label.startswith("Zielverkaufspreis Wasserstoff")]

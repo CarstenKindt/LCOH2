@@ -82,6 +82,8 @@ REVENUE_PAGE = [
 VISIBLE = {
     "battery_capacity_hours": lambda v: v["battery_enabled"],
     "battery_input_power_kw": lambda v: v["battery_enabled"],
+    "h2_margin": lambda v: v["h2_price_mode"] == "Marge auf die Gestehungskosten",
+    "h2_target_price_eur_per_kg": lambda v: v["h2_price_mode"] == "Zielverkaufspreis",
     "battery_optimize": lambda v: v["battery_enabled"],
     "battery_efficiency": lambda v: v["battery_enabled"],
     "ppa_baseload_kw": lambda v: v["ppa_baseload_enabled"],
@@ -161,6 +163,7 @@ def rename_label(text):
 LABEL_OVERRIDES = {
     "ppa_pv_enabled": "PPA 1 aktiv", "ppa_wind_enabled": "PPA 2 aktiv",
     "battery_enabled": "Batterie nutzen?",
+    "h2_price_mode": "Vorgabe des Wasserstoffpreises",
     "battery_optimize": "Batterie nach Preissignalen laden (Optimierung)",
     "battery_efficiency": "Wirkungsgrad Batterie",
     "battery_input_power_kw": "Anschlussleistung gesamt (Anlage + Batterieladung)",

@@ -63,3 +63,17 @@ Gerechnet wird nominal: Zinssätze und Preissteigerungen enthalten die Inflation
 Die Jahresansicht zeigt die nominalen Gestehungskosten je Projektjahr (Kapitaldienst als Annuität zum Kapitalkostensatz) und das Gesamtergebnis als gestrichelte Linie. Die Sensitivitätsanalyse rechnet ebenfalls nach der Kapitalwertmethode; Zinsen und Projektlaufzeit werden dabei vollständig neu berechnet.
 
 Das Excel-Modell verwendet eine vereinfachte Annuitätenmethode (Annuität nur auf die Investition, Kosten und Erlöse als nicht abgezinster Mittelwert). Sie ist im Rechenkern weiterhin enthalten und dient dem Abgleich mit der Excel, wird im Tool aber nicht mehr angezeigt.
+
+## Weitere wirtschaftliche Kennzahlen (Reiter „Ergebnisse“)
+
+Der Reiter „Ergebnisse“ ist in „Allgemeine Ergebnisse“ und „Weitere wirtschaftliche Kennzahlen“ gegliedert. Im zweiten Bereich wird ein Wasserstoffpreis vorgegeben, entweder als Marge auf die Gestehungskosten oder als Zielverkaufspreis, optional mit jährlicher Preissteigerung. Die allgemeinen Ergebnisse bleiben davon unberührt.
+
+Grundlage sind dieselben Jahreswerte wie bei den Gestehungskosten (nominal, ohne Steuern). Operativer Cashflow (CFADS) = Erlös Wasserstoff + THG-Erlöse + weitere Erlöse − Strom − Betrieb − Stacktausch (Jahresbetrag).
+
+- **Projektsicht:** Investition in Jahr 0, danach CFADS. Kapitalwert mit dem Kapitalkostensatz (WACC), interner Zinsfuß (Projektrendite), statische und dynamische Amortisation.
+- **Eigenkapitalsicht:** Fremdkapital als Annuitätendarlehen zum Fremdkapitalzins über die Projektlaufzeit. Eigenkapital-Cashflow = CFADS − Kapitaldienst Fremdkapital; Eigenkapitalrendite (IRR) und Kapitalwert mit der geforderten Eigenkapitalrendite.
+- **Fremdkapitalsicht:** Schuldendienstdeckungsgrad DSCR = CFADS / Kapitaldienst (Minimum und Mittelwert).
+
+Bei einem Preis in Höhe der Gestehungskosten ist der Kapitalwert null und die Projektrendite gleich dem Kapitalkostensatz. Wechselt der Eigenkapital-Cashflow mehrfach das Vorzeichen, ist der interne Zinsfuß nur eingeschränkt aussagekräftig; das Tool weist darauf hin. Nicht berücksichtigt: Steuern und Abschreibungen, Restwert am Laufzeitende, Umlaufvermögen, abweichende Kreditlaufzeiten.
+
+Die Sensitivitätsanalyse arbeitet mit einer festen Schrittweite von 25 %.

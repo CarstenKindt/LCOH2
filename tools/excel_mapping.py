@@ -11,6 +11,7 @@ NICHT_UEBERNOMMEN = {
     "C87": "Schaltfläche für den CO2-Daten-Import; ersetzt durch Datei-Upload",
     "C92": "Schaltfläche für den §13k-Daten-Import; ersetzt durch Datei-Upload",
     "C185": "Schaltfläche zur Auswahl der Privilegierungen; ersetzt durch Eingabemaske",
+    "C12": "Schrittweite der Sensitivitätsanalyse; im Tool fest 25 %",
     "C164": "Unternehmenssteuersatz; der Kapitalkostensatz wird ohne Steuern gebildet",
     "F129": "Manuelle Hilfseingabe (Wert aus F127 von Hand eintragen); wird im Tool berechnet",
 }
@@ -23,7 +24,6 @@ BLATT2 = {
     "C8":   ("project_lifetime_years", "System", None),
     "C9":   ("electrolyzer_efficiency", "System", None),
     "C10":  ("min_part_load", "System", "Minimale Systemteillast"),
-    "C12":  ("sensitivity_step", "System", "Schrittweite für Sensitivitätsanalyse"),
     # CAPEX
     "C23":  ("capex_epc_eur_per_kw", "CAPEX", "EPC (Engineering, Procurement, Construction)"),
     "C26":  ("capex_bop_eur_per_kw", "CAPEX", "Balance of Plant"),
