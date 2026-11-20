@@ -161,10 +161,30 @@ def test_kapitalwertmethode_im_cockpit():
     assert not any("Annuitätenmethode" in c.value for c in at.caption)
 
 
-def test_wirtschaftliche_kennzahlen():
+def test_oekonomische_kennzahlen_ausgeblendet():
+    """Der Bereich ist im Code vorhanden, aber bis zur Veröffentlichung ausgeblendet."""
     at = neue_app()
-    assert any("Kapitalwert (NPV)" in m.value for m in at.markdown)
-    r = [x for x in at.radio if x.label.startswith("Vorgabe des Wasserstoffpreises")][0]
-    r.set_value("Zielverkaufspreis").run()
     assert not at.exception
-    assert [x for x in at.text_input if x.label.startswith("Zielverkaufspreis Wasserstoff")]
+    assert not any("Kapitalwert (NPV)" in m.value for m in at.markdown)
+    assert "Weitere ökonomische Kennzahlen" not in [t.label for t in at.tabs]
+    assert not [x for x in at.radio if x.label.startswith("Vorgabe des Wasserstoffpreises")]
+
+
+def test_oekonomische_kennzahlen_eingeblendet(tmp_path):
+    """Mit SHOW_FINANCE = True erscheint der Bereich und rechnet fehlerfrei (Kopie der App im selben Ordner)."""
+    root = Path(__file__).resolve().parent.parent
+    src = (root / "app.py").read_text(encoding="utf-8").replace("SHOW_FINANCE = False", "SHOW_FINANCE = True", 1)
+    kopie = root / "_app_mit_kennzahlen_test.py"
+    kopie.write_text(src, encoding="utf-8")
+    try:
+        at = AppTest.from_file(str(kopie), default_timeout=120)
+        at.run()
+        [b for b in at.button if b.label == "Standardwerte laden"][0].click().run()
+        assert not at.exception
+        assert "Weitere ökonomische Kennzahlen" in [t.label for t in at.tabs]
+        assert any("Kapitalwert (NPV)" in m.value for m in at.markdown)
+        r = [x for x in at.radio if x.label.startswith("Vorgabe des Wasserstoffpreises")][0]
+        r.set_value("Zielverkaufspreis").run()
+        assert not at.exception
+    finally:
+        kopie.unlink()

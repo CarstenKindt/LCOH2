@@ -844,6 +844,8 @@ if missing or errors:
     st.stop()
 
 series_json = json.dumps(st.session_state["series"])
+# Bereich „Weitere ökonomische Kennzahlen“: fertig, wird aber erst später veröffentlicht (True = sichtbar)
+SHOW_FINANCE = False
 FINANCE_KEYS = ("h2_price_mode", "h2_margin", "h2_target_price_eur_per_kg", "h2_price_escalation")
 r, e, e_ann, npv = rechnen(json.dumps({k_: v_ for k_, v_ in effective.items() if k_ not in FINANCE_KEYS}, sort_keys=True,
                                       default=float), series_json, STEPS)
@@ -1084,7 +1086,10 @@ def render_finance_tab() -> None:
 
 
 with tab_res:
-    res_allg, res_wirt = st.tabs(["Allgemeine Ergebnisse", "Weitere ökonomische Kennzahlen"])
+    if SHOW_FINANCE:
+        res_allg, res_wirt = st.tabs(["Allgemeine Ergebnisse", "Weitere ökonomische Kennzahlen"])
+    else:
+        res_allg, res_wirt = st.container(), None
     with res_allg:
         h2_kg = e.h2_kg_per_year
         cost_total = e.power_cost + e.stack_cost_per_year + e.opex_total + e.financing_total
@@ -1430,8 +1435,9 @@ with tab_res:
                            "eingaben_lcoh2.json", "application/json", width="stretch")
 
 
-    with res_wirt:
-        render_finance_tab()
+    if res_wirt is not None:
+        with res_wirt:
+            render_finance_tab()
 
 with tab_data:
     render_data_tab(inp)

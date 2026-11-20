@@ -64,7 +64,9 @@ Die Jahresansicht zeigt die nominalen Gestehungskosten je Projektjahr (Kapitaldi
 
 Das Excel-Modell verwendet eine vereinfachte Annuitätenmethode (Annuität nur auf die Investition, Kosten und Erlöse als nicht abgezinster Mittelwert). Sie ist im Rechenkern weiterhin enthalten und dient dem Abgleich mit der Excel, wird im Tool aber nicht mehr angezeigt.
 
-## Weitere ökonomische Kennzahlen (Reiter „Ergebnisse“)
+## Weitere ökonomische Kennzahlen (Reiter „Ergebnisse“, derzeit ausgeblendet)
+
+Der Bereich ist fertig umgesetzt, wird aber erst später veröffentlicht. Er wird in `app.py` mit `SHOW_FINANCE = True` eingeblendet; solange er ausgeblendet ist, zeigt der Reiter „Ergebnisse“ die allgemeinen Ergebnisse ohne Unterreiter.
 
 Der Reiter „Ergebnisse“ ist in „Allgemeine Ergebnisse“ und „Weitere ökonomische Kennzahlen“ gegliedert. Im zweiten Bereich wird ein Wasserstoffpreis vorgegeben, entweder als Marge auf die Gestehungskosten oder als Zielverkaufspreis, optional mit jährlicher Preissteigerung. Die allgemeinen Ergebnisse bleiben davon unberührt.
 
