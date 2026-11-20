@@ -4,7 +4,8 @@ LCOH = (CAPEX + Summe der abgezinsten Jahreskosten + abgezinste Stacktausche - a
 Wasserstoffmengen.
 
 Zeitpunkte: Die Investition fällt im Jahr 0 an. Betriebskosten, Erlöse und die Wasserstoffmenge eines Projektjahres t werden
-am Jahresende (t) abgezinst. Ein Stacktausch wird zum Zeitpunkt k x Tauschintervall abgezinst. Preissteigerungen, Degradation
+am Jahresende (t) abgezinst. Der Stacktausch geht als gleichbleibender Jahresbetrag (Tauschkosten +
+Kreditzinsen, verteilt auf die Laufzeit) in jedes Projektjahr ein. Preissteigerungen, Degradation
 und THG-Erlöse wirken im jeweiligen Jahr (wie in der Jahresauswertung). Diskontierungssatz ist der WACC ohne Steuern.
 Die Finanzierung steckt im Diskontierungssatz;
 eine getrennte Annuität für Fremd- und Eigenkapital entfällt.
@@ -73,12 +74,11 @@ def npv_lcoh(r: OperationResult, e_ann: Economics) -> NpvResult:
     def pv(fn) -> float:
         return sum(fn(ey) * d for ey, d in zip(eco, df_list))
 
-    # Stacktausch: Kosten je Tausch zum Zeitpunkt k x Intervall
+    # Stacktausch: wie in der Annuitätenmethode als gleichbleibender Jahresbetrag über die gesamte Laufzeit eingepreist
+    # (Rücklage bis zum Tausch, danach Kredit zum Stackzins; Tauschkosten + Kreditzinsen gleichmäßig auf alle Jahre verteilt)
     sc = e_ann.stack
-    stack_pv = 0.0
-    if sc.replacements > 0:
-        each = sc.total_exchange_cost / sc.replacements
-        stack_pv = sum(each * (1.0 + rate) ** -(n * sc.interval_years) for n in range(1, sc.replacements + 1))
+    stack_year = sc.annual_cost if sc.replacements > 0 else 0.0
+    stack_pv = sum(stack_year * d for d in df_list)
 
     pv_power = pv(lambda x: x.power_cost)
     pv_opex = pv(lambda x: x.opex_total)
@@ -113,4 +113,4 @@ def npv_lcoh(r: OperationResult, e_ann: Economics) -> NpvResult:
         "Barwert Wasserstoff [t]": [h / 1000 * d for h, d in zip(h2_list, df_list)]})
     af = 1.0 / life if rate <= 0 else rate / (1.0 - (1.0 + rate) ** -life)
     return NpvResult(rate, lcoh, pv_h2, capex_net + pv_power + pv_opex + stack_pv, pv_rev, table, eq,
-                     capital_service=capex_net * af, stack_service=stack_pv * af)
+                     capital_service=capex_net * af, stack_service=stack_year)

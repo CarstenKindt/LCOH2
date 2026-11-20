@@ -66,3 +66,12 @@ def test_sensitivity_on_annuity_base():
     for row in sensitivity(r, e, 0.3):
         if row.name == "CAPEX":
             assert row.lcoh_minus < row.base < row.lcoh_plus
+
+
+def test_stacktausch_als_jahresbetrag():
+    """Stacktausch in beiden Methoden als gleichbleibender Jahresbetrag (Tauschkosten + Kreditzinsen)."""
+    r, e = _run()
+    n = npv_lcoh(r, e)
+    assert n.stack_service == pytest.approx(e.stack.annual_cost)
+    r2, e2 = _run(stack_interest_rate=0.10)
+    assert npv_lcoh(r2, e2).lcoh_eur_per_kg > n.lcoh_eur_per_kg

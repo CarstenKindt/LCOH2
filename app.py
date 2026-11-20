@@ -847,6 +847,7 @@ series_json = json.dumps(st.session_state["series"])
 r, e, e_ann, npv = rechnen(json.dumps(effective, sort_keys=True, default=float), series_json, STEPS)
 inp = r.inputs
 KW = inp.lcoh_method == METHOD_NPV  # Kapitalwertmethode gewählt
+NOMINAL_HINWEIS = ("Das Tool rechnet nominal: Zinssätze und Preissteigerungen sind einschließlich Inflation anzugeben.")
 
 with st.sidebar:
     st.divider()
@@ -958,9 +959,9 @@ with cockpit_slot:
     kmetric(k3, "Wasserstoff", de(e.h2_kg_per_year / 1000, 0), "t/a")
     if KW:
         st.caption(f"Berechnet mit der Kapitalwertmethode (abgezinst mit dem Kapitalkostensatz von {de(npv.rate * 100, 1)} %). "
-                   f"Zum Vergleich nach der Annuitätenmethode: {de(e_ann.lcoh_eur_per_kg)} €/kg.")
+                   f"Zum Vergleich nach der Annuitätenmethode: {de(e_ann.lcoh_eur_per_kg)} €/kg. " + NOMINAL_HINWEIS)
     else:
-        st.caption(f"Berechnet mit der Annuitätenmethode. Zum Vergleich nach der Kapitalwertmethode: {de(npv.lcoh_eur_per_kg)} €/kg.")
+        st.caption(f"Berechnet mit der Annuitätenmethode. Zum Vergleich nach der Kapitalwertmethode: {de(npv.lcoh_eur_per_kg)} €/kg. " + NOMINAL_HINWEIS)
     k4, k5, k6 = st.columns(3)
     kmetric(k4, "Anteil RFNBO-konformer Wasserstoff", de(green_share * 100, 1), "%", help=HELP_GREEN)
     kmetric(k5, "Systemauslastung", de(system_util * 100, 1), "%", help="Stromverbrauch des Gesamtsystems bezogen auf "
