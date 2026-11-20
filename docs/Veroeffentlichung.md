@@ -64,9 +64,9 @@ Die Jahresansicht zeigt die nominalen Gestehungskosten je Projektjahr (Kapitaldi
 
 Das Excel-Modell verwendet eine vereinfachte Annuitätenmethode (Annuität nur auf die Investition, Kosten und Erlöse als nicht abgezinster Mittelwert). Sie ist im Rechenkern weiterhin enthalten und dient dem Abgleich mit der Excel, wird im Tool aber nicht mehr angezeigt.
 
-## Weitere wirtschaftliche Kennzahlen (Reiter „Ergebnisse“)
+## Weitere ökonomische Kennzahlen (Reiter „Ergebnisse“)
 
-Der Reiter „Ergebnisse“ ist in „Allgemeine Ergebnisse“ und „Weitere wirtschaftliche Kennzahlen“ gegliedert. Im zweiten Bereich wird ein Wasserstoffpreis vorgegeben, entweder als Marge auf die Gestehungskosten oder als Zielverkaufspreis, optional mit jährlicher Preissteigerung. Die allgemeinen Ergebnisse bleiben davon unberührt.
+Der Reiter „Ergebnisse“ ist in „Allgemeine Ergebnisse“ und „Weitere ökonomische Kennzahlen“ gegliedert. Im zweiten Bereich wird ein Wasserstoffpreis vorgegeben, entweder als Marge auf die Gestehungskosten oder als Zielverkaufspreis, optional mit jährlicher Preissteigerung. Die allgemeinen Ergebnisse bleiben davon unberührt.
 
 Grundlage sind dieselben Jahreswerte wie bei den Gestehungskosten (nominal, ohne Steuern). Der Wasserstofferlös wird in den Anteil zu Gestehungskosten und die Marge aufgeteilt. Im Projekt-Cashflow steht der Stacktausch im Jahr, in dem er stattfindet; in der Eigenkapitalsicht wird er wie bei den Gestehungskosten über eine Rücklage (erste Laufzeithälfte) und einen Kredit zum Stackzins (zweite Hälfte) finanziert. CFADS = operativer Cashflow abzüglich Rücklage für den Stacktausch. Weil die Gestehungskosten den Stacktausch einschließlich Kreditzinsen gleichmäßig verteilen, ist der Projekt-Kapitalwert bei 0 % Marge leicht positiv.
 

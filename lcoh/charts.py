@@ -186,7 +186,7 @@ def battery_soc_figure(hourly, power, height: int = 300, steps_per_hour: int = 1
 
 def spot_price_figure(market, height: int = 380, steps_per_hour: int = 1) -> go.Figure:
     """Börsenpreis über das Jahr: Die Linie ist grün, solange der Preis unter der §7-Grenze liegt, gelb bis zum eigenen
-    Maximalpreis und rot darüber. Dazu dünne Linien für die §7-Grenze, die §7-Mindestgrenze und den eigenen Maximalpreis."""
+    Maximalpreis und rot darüber. Dazu dünne Linien für die §7-Grenze (höherer Wert aus 20 €/MWh und 0,36 × CO₂-Preis) und den eigenen Maximalpreis."""
     from lcoh import constants as k
     raw = np.asarray(market.price_raw, dtype=float)
     lim7 = np.asarray(market.section7_limit, dtype=float)
@@ -206,21 +206,15 @@ def spot_price_figure(market, height: int = 380, steps_per_hour: int = 1) -> go.
         fig.add_trace(go.Scatter(x=xs, y=ys, mode="lines", name=name, line=dict(color=col, width=1.0), hoverinfo="skip"))
     fig.add_trace(go.Scatter(x=xt, y=raw, mode="markers", marker=dict(size=4, opacity=0), showlegend=False,
                              hovertemplate="%{x|%d.%m. %H:%M} Uhr: %{y:,.2f} €/MWh<extra></extra>"))
-    if np.ptp(lim7) > 1e-9:
-        fig.add_trace(go.Scatter(x=xt, y=lim7, mode="lines", name="§7-Grenze (0,36 × CO₂-Preis)",
-                                 line=dict(color="#0b5d2a", width=1.2), hovertemplate="§7-Grenze: %{y:,.2f} €/MWh<extra></extra>"))
-    else:
-        fig.add_trace(go.Scatter(x=[xt[0], xt[-1]], y=[lim7[0]] * 2, mode="lines", name=f"§7-Grenze: {de(float(lim7[0]))} €/MWh",
-                                 line=dict(color="#0b5d2a", width=1.2)))
-    fig.add_trace(go.Scatter(x=[xt[0], xt[-1]], y=[k.SECTION7_MIN_LIMIT_EUR_PER_MWH] * 2, mode="lines",
-                             name=f"§7-Mindestgrenze: {de(k.SECTION7_MIN_LIMIT_EUR_PER_MWH, 0)} €/MWh",
-                             line=dict(color="#0b5d2a", width=1.0, dash="dot"), hoverinfo="skip"))
+    fig.add_trace(go.Scatter(x=xt, y=lim7, mode="lines", name="§7-Grenze (0,36 × CO₂-Preis, mindestens 20 €/MWh)",
+                             line=dict(color="#0b5d2a", width=1.2), hovertemplate="§7-Grenze: %{y:,.2f} €/MWh<extra></extra>"))
     fig.add_trace(go.Scatter(x=[xt[0], xt[-1]], y=[smax] * 2, mode="lines", name=f"Eigener Maximalpreis: {de(smax)} €/MWh",
                              line=dict(color="#1b1b1b", width=1.2, dash="dash"), hoverinfo="skip"))
     top = max(smax * 2.5, float(np.percentile(raw, 99.8)))
     low = min(0.0, float(np.percentile(raw, 0.2)))
     fig.update_layout(height=height, margin=dict(l=0, r=0, t=10, b=0), xaxis=xaxis,
-                      yaxis=dict(title="Preis [€/MWh]", range=[low * 1.1, top]), separators=",.",
+                      yaxis=dict(title="Preis [€/MWh]", range=[low * 1.1, top], zeroline=True, zerolinecolor="black",
+                                 zerolinewidth=1.3), separators=",.",
                       legend=dict(orientation="h", y=1.02, yanchor="bottom"))
     return fig
 

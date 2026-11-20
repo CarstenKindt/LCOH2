@@ -1,4 +1,4 @@
-"""Weitere wirtschaftliche Kennzahlen: Zusammenhang mit den Gestehungskosten."""
+"""Weitere ökonomische Kennzahlen: Zusammenhang mit den Gestehungskosten."""
 import pytest
 
 from lcoh.economics import compute_economics

@@ -1,4 +1,4 @@
-"""Diagramme für den Bereich „Weitere wirtschaftliche Kennzahlen“."""
+"""Diagramme für den Bereich „Weitere ökonomische Kennzahlen“."""
 from __future__ import annotations
 
 import numpy as np
@@ -12,6 +12,16 @@ C_INV, C_POWER, C_OPEX, C_STACK, C_CAP = "#7f7f7f", "#c0504d", "#e8a33d", "#8064
 C_MARGIN = "#5ab4e5"
 M = 1e6
 LEGEND = dict(orientation="h", y=-0.24, yanchor="top")
+BAR_OPACITY = 0.7
+
+
+def _finish(fig: go.Figure, **zero) -> go.Figure:
+    """Hellere Balken und schwarze Nulllinie für alle Jahresdiagramme."""
+    for tr in fig.data:
+        if isinstance(tr, go.Bar):
+            tr.marker.opacity = BAR_OPACITY
+    fig.update_yaxes(zeroline=True, zerolinecolor="black", zerolinewidth=1.3, **zero)
+    return fig
 
 
 def _xlabels(t):
@@ -38,7 +48,7 @@ def cashflow_figure(f, height: int = 480) -> go.Figure:
                              hovertemplate="Kumulierter Barwert %{x}: %{y:,.2f} Mio. €<extra></extra>"))
     fig.update_layout(barmode="relative", height=height, margin=dict(l=0, r=0, t=10, b=0), separators=",.", xaxis=dict(type="category"),
                       yaxis_title="Mio. € (nominal)", legend=LEGEND)
-    return fig
+    return _finish(fig)
 
 
 def cost_revenue_figure(f, height: int = 440) -> go.Figure:
@@ -60,7 +70,7 @@ def cost_revenue_figure(f, height: int = 440) -> go.Figure:
                              hovertemplate=name + " %{x}: %{y:,.2f} Mio. €<extra></extra>"))
     fig.update_layout(barmode="relative", height=height, margin=dict(l=0, r=0, t=10, b=0), separators=",.", xaxis=dict(type="category"),
                       yaxis_title="Mio. € pro Jahr (nominal)", legend=LEGEND)
-    return fig
+    return _finish(fig)
 
 
 def per_kg_figure(f, height: int = 460, show_price: bool = True) -> go.Figure:
@@ -90,12 +100,14 @@ def per_kg_figure(f, height: int = 460, show_price: bool = True) -> go.Figure:
     fig.add_trace(go.Scatter(x=x, y=[f.lcoh] * len(x), name=f"LCOH₂: {de(f.lcoh)} €/kg", mode="lines",
                              line=dict(color="black", width=1.8, dash="dash"), hoverinfo="skip"))
     if show_price:
-        fig.add_trace(go.Scatter(x=x, y=t["Verkaufspreis [€/kg]"], name="Verkaufspreis Wasserstoff (Fläche: Marge)", mode="lines",
-                                 line=dict(color=C_H2, width=3), fill="tonexty", fillcolor="rgba(90,180,229,0.35)",
-                                 hovertemplate="Verkaufspreis %{x}: %{y:,.2f} €/kg<extra></extra>"))
+        marge = t["Verkaufspreis [€/kg]"].to_numpy() - f.lcoh
+        fig.add_trace(go.Bar(x=x, y=marge, name="Marge", marker_color=C_MARGIN,
+                             hovertemplate="Marge %{x}: %{y:,.2f} €/kg<extra></extra>"))
+        fig.add_trace(go.Scatter(x=x, y=t["Verkaufspreis [€/kg]"], name="Verkaufspreis Wasserstoff", mode="lines",
+                                 line=dict(color=C_H2, width=2.5), hovertemplate="Verkaufspreis %{x}: %{y:,.2f} €/kg<extra></extra>"))
     fig.update_layout(barmode="relative", height=height, margin=dict(l=0, r=0, t=10, b=0), separators=",.", xaxis=dict(type="category"),
                       yaxis_title="€ pro kg Wasserstoff (nominal)", legend=LEGEND)
-    return fig
+    return _finish(fig)
 
 
 def equity_figure(f, height: int = 420) -> go.Figure:
@@ -114,4 +126,6 @@ def equity_figure(f, height: int = 420) -> go.Figure:
     fig.update_layout(height=height, margin=dict(l=0, r=0, t=10, b=0), separators=",.", xaxis=dict(type="category"), legend=LEGEND)
     fig.update_yaxes(title_text="Mio. € (nominal)", secondary_y=False)
     fig.update_yaxes(title_text="DSCR [–]", secondary_y=True, showgrid=False)
+    _finish(fig, secondary_y=False)
+    fig.update_yaxes(zeroline=False, secondary_y=True)
     return fig

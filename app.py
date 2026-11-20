@@ -978,7 +978,7 @@ with cockpit_slot:
 
 # ---------------------------------------------------------------- Ergebnisse
 def render_finance_tab() -> None:
-    """Weitere wirtschaftliche Kennzahlen bei vorgegebenem Wasserstoffpreis (Marge oder Zielverkaufspreis)."""
+    """Weitere ökonomische Kennzahlen bei vorgegebenem Wasserstoffpreis (Marge oder Zielverkaufspreis)."""
     st.caption("Hier können Sie einen Verkaufspreis für den Wasserstoff vorgeben. Daraus ergeben sich Cashflows und Kennzahlen für "
                "Projekt, Eigenkapital und Fremdkapital. Die allgemeinen Ergebnisse und die Gestehungskosten bleiben davon unberührt. "
                "Alle Werte nominal, ohne Steuern.")
@@ -1084,7 +1084,7 @@ def render_finance_tab() -> None:
 
 
 with tab_res:
-    res_allg, res_wirt = st.tabs(["Allgemeine Ergebnisse", "Weitere wirtschaftliche Kennzahlen"])
+    res_allg, res_wirt = st.tabs(["Allgemeine Ergebnisse", "Weitere ökonomische Kennzahlen"])
     with res_allg:
         h2_kg = e.h2_kg_per_year
         cost_total = e.power_cost + e.stack_cost_per_year + e.opex_total + e.financing_total
@@ -1175,37 +1175,18 @@ with tab_res:
                    f"Gestehungskosten{'' if e_view is e else ' im Jahr'}: {de(e_view.lcoh_eur_per_kg)} €/kg")
 
         # ---- Gestehungskosten je Projektjahr
-        st.markdown("### Gestehungskosten je Projektjahr")
+        st.markdown("### Jährliche Kosten und Erlöse je kg Wasserstoff")
         jahre = yearly_lcoh(r, e, npv.rate, npv.capital_service, npv.stack_service)
         jt = jahre.table
-        x0, x1 = jt["Kalenderjahr"].iloc[0], jt["Kalenderjahr"].iloc[-1]
-        figj = go.Figure()
-        figj.add_trace(go.Scatter(x=jt["Kalenderjahr"], y=jt["Gestehungskosten [€/kg]"], mode="lines+markers", name="Gestehungskosten im Jahr (nominal)",
-                                  line=dict(color="#2e8b57", width=2.5), hovertemplate="%{x}: %{y:,.2f} €/kg<extra></extra>"))
-        name_ = f"LCOH₂: {de(npv.lcoh_eur_per_kg)} €/kg"
-        figj.add_trace(go.Scatter(x=[x0, x1], y=[npv.lcoh_eur_per_kg] * 2, mode="lines", name=name_,
-                                  line=dict(color="#1f4e79", width=1.8, dash="dash"), hovertemplate=name_ + "<extra></extra>"))
-        figj.update_layout(height=360, margin=dict(l=0, r=0, t=10, b=0), xaxis_title="Jahr", yaxis_title="Gestehungskosten [€/kg]",
-                           legend=dict(orientation="h", y=-0.25, yanchor="top"), separators=",.",
-                           xaxis=dict(dtick=1 if len(jt) <= 15 else 2), yaxis=dict(rangemode="tozero"))
-        st.plotly_chart(figj, width="stretch")
+        _f0 = compute_finance(r, e_ann, npv, "Marge auf die Gestehungskosten", 0.0, 0.0, 0.0)
+        st.plotly_chart(per_kg_figure(_f0, show_price=False), width="stretch")
+        st.caption("Kosten oben, Nebenerlöse unten; die schwarze Linie zeigt die Gestehungskosten des einzelnen Jahres. "
+                   "Die gestrichelte Linie zeigt die durchschnittlichen Gestehungskosten über die Projektlaufzeit (Kapitalwertmethode).")
         fmt_j = {"Jahr": "{:d}", "Kalenderjahr": "{:d}"}
         for c in jt.columns[2:]:
             fmt_j[c] = (lambda v: de(v, 2)) if c in ("Gestehungskosten [€/kg]", "Wasserstoff [t/a]", "Wirkungsgrad Elektrolyseur [%]") \
                 else (lambda v: de(v, 0))
         st.dataframe(jt.style.format(fmt_j), hide_index=True, width="stretch")
-        st.caption("Je Jahr wirken Preissteigerungen, die Degradation des Elektrolyseurs (Wirkungsgrad sinkt, Stacktausch setzt ihn "
-                   "zurück) und die jährlichen THG-Erlöse; alle Werte in Euro des jeweiligen Jahres (nominal). Kapitaldienst und Stackkosten "
-                   f"sind gleichbleibende Jahresbeträge (Kapitaldienst als Annuität zum Kapitalkostensatz von {de(npv.rate * 100, 1)} %). "
-                   "Die gestrichelte Linie zeigt die Gestehungskosten über die Projektlaufzeit. Weil frühe Jahre durch die Abzinsung stärker "
-                   "zählen als späte, ist sie kein einfacher Mittelwert der Jahreswerte.")
-
-        st.markdown("### Kosten und Erlöse je kg Wasserstoff")
-        _f0 = compute_finance(r, e_ann, npv, "Marge auf die Gestehungskosten", 0.0, 0.0, 0.0)
-        st.plotly_chart(per_kg_figure(_f0, show_price=False), width="stretch")
-        st.caption("Kosten oben, Nebenerlöse unten, je kg Wasserstoff des jeweiligen Jahres (nominal); Kapitaldienst als Annuität zum "
-                   "Kapitalkostensatz, Stacktausch als gleichbleibender Jahresbetrag. Schwarze Linie: Gestehungskosten des einzelnen "
-                   "Jahres; gestrichelt: Gestehungskosten über die Projektlaufzeit.")
 
         st.markdown("### Geordneter Lastverlauf")
         st.plotly_chart(load_duration_figure(r.hourly, r.power, steps_per_hour=STEPS), width="stretch")
@@ -1241,9 +1222,9 @@ with tab_res:
         st.markdown("### Spotmarktpreise")
         st.plotly_chart(spot_price_figure(r.market, steps_per_hour=STEPS), width="stretch")
         st.caption(f"Die Preislinie ist grün, solange der Preis unter der §7-Grenze liegt, gelb zwischen der §7-Grenze und Ihrem "
-                   f"Maximalpreis ({de(inp.spot_max_price_eur_per_mwh)} €/MWh) und rot darüber. Die dünnen Linien zeigen die §7-Grenze "
-                   f"(0,36 × CO₂-Preis), die §7-Mindestgrenze von 20 €/MWh und Ihren Maximalpreis. Einzelne extreme Preisspitzen sind "
-                   f"zugunsten der Lesbarkeit abgeschnitten; Sie können im Diagramm hineinzoomen.")
+                   f"Maximalpreis ({de(inp.spot_max_price_eur_per_mwh)} €/MWh) und rot darüber. Die §7-Grenze ist der höhere Wert aus "
+                   f"20 €/MWh und dem 0,36-Fachen des CO₂-Preises. Einzelne extreme Preisspitzen sind zugunsten der Lesbarkeit "
+                   f"abgeschnitten; Sie können im Diagramm hineinzoomen.")
 
         st.markdown("### Sensitivitätsanalyse")
         SENS_STEP = 0.25

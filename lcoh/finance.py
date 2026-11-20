@@ -1,4 +1,4 @@
-"""Weitere wirtschaftliche Kennzahlen bei einem vorgegebenen Wasserstoffpreis (Marge oder Zielverkaufspreis).
+"""Weitere ökonomische Kennzahlen bei einem vorgegebenen Wasserstoffpreis (Marge oder Zielverkaufspreis).
 
 Grundlage sind dieselben Jahreswerte wie bei den Gestehungskosten (Kapitalwertmethode): Kosten, Erlöse und
 Wasserstoffmengen jedes Projektjahres, nominal, ohne Steuern. Der Stacktausch geht als gleichbleibender Jahresbetrag ein.
