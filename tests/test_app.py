@@ -156,5 +156,6 @@ def test_kapitalwertmethode_im_cockpit():
     at = neue_app()
     assert not at.exception
     assert not [x for x in at.radio if x.label == "Berechnungsmethode der Gestehungskosten"]
-    assert any("Berechnet mit der Kapitalwertmethode" in c.value and "nominal" in c.value for c in at.caption)
+    assert any("Berechnungen nominal mit Kapitalwertmethode" in m.value for m in at.markdown)
+    assert any("keine Steuern verrechnet" in m.value for m in at.markdown)
     assert not any("Annuitätenmethode" in c.value for c in at.caption)

@@ -845,7 +845,6 @@ if missing or errors:
 series_json = json.dumps(st.session_state["series"])
 r, e, e_ann, npv = rechnen(json.dumps(effective, sort_keys=True, default=float), series_json, STEPS)
 inp = r.inputs
-NOMINAL_HINWEIS = ("Das Tool rechnet nominal: Zinssätze und Preissteigerungen sind einschließlich Inflation anzugeben.")
 
 with st.sidebar:
     st.divider()
@@ -952,11 +951,9 @@ with cockpit_slot:
     st.markdown("### **Ergebnis**")
     k1, k2, k3 = st.columns(3)
     kmetric(k1, "Gestehungskosten", de(e.lcoh_eur_per_kg), "€/kg", help="Wasserstoffgestehungskosten (LCOH₂) über die "
-              "Projektlaufzeit, inklusive Förderungen, Befreiungen und Zusatzeinnahmen.")
+              "Projektlaufzeit, inklusive Förderungen, Befreiungen und Zusatzeinnahmen. Berechnungen nominal mit Kapitalwertmethode.")
     kmetric(k2, "Gestehungskosten", de(e.lcoh_ct_per_kwh), "ct/kWh", help="Bezogen auf den Brennwert von 39,4 kWh/kg.")
     kmetric(k3, "Wasserstoff", de(e.h2_kg_per_year / 1000, 0), "t/a")
-    st.caption(f"Berechnet mit der Kapitalwertmethode: Kosten, Erlöse und Wasserstoffmengen jedes Jahres werden mit dem "
-               f"Kapitalkostensatz von {de(npv.rate * 100, 1)} % abgezinst. " + NOMINAL_HINWEIS)
     k4, k5, k6 = st.columns(3)
     kmetric(k4, "Anteil RFNBO-konformer Wasserstoff", de(green_share * 100, 1), "%", help=HELP_GREEN)
     kmetric(k5, "Systemauslastung", de(system_util * 100, 1), "%", help="Stromverbrauch des Gesamtsystems bezogen auf "
@@ -965,7 +962,7 @@ with cockpit_slot:
               "die Projektlaufzeit (inklusive Degradation).")
     k7, k8, k9 = st.columns(3)
     kmetric(k7, "Volllaststunden", de(r.full_load_hours, 0), "h/a")
-    kmetric(k8, "Kapitalkostensatz (WACC)", de(e.wacc * 100, 1), "%")
+    kmetric(k8, "Kapitalkostensatz (WACC)", de(e.wacc * 100, 1), "%", help="Gewichteter Mittelwert aus Fremdkapitalzins und Eigenkapitalrendite. Es wurden keine Steuern verrechnet.")
     kmetric(k9, "Stacktausche", str(r.stack_replacements), "", help=f"Anzahl der Stacktausche in der Projektlaufzeit "
               f"(alle {de(r.stack_interval_years, 1)} Jahre).")
     k10, _, _ = st.columns(3)
@@ -1008,7 +1005,7 @@ with tab_res:
     kpi_group(zeile1[1], "Investition und Finanzierung", [
         ("CAPEX nach Förderung", de(e.capex_net / 1e6, 1), "Mio. €", None),
         ("CAPEX nach Förderung je kW", de(e.capex_specific_eur_per_kw, 0), "€/kW", "Investition nach Förderung je kW Elektrolyseurleistung."),
-        ("Kapitalkostensatz (WACC)", de(e.wacc * 100, 1), "%", None),
+        ("Kapitalkostensatz (WACC)", de(e.wacc * 100, 1), "%", "Gewichteter Mittelwert aus Fremdkapitalzins und Eigenkapitalrendite. Es wurden keine Steuern verrechnet."),
         ("Anteil Kapitalkosten", de(e.financing_total / cost_total * 100 if cost_total else 0, 1), "%",
          "Kapitaldienst (Tilgung und Zinsen) bezogen auf die Gesamtkosten vor Zusatzeinnahmen.")])
     kpi_group(zeile2[0], "Wasserstoff und Anlage", [
