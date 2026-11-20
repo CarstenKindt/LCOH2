@@ -25,7 +25,7 @@ from lcoh.system import system_power
 from lcoh.sensitivity import sensitivity_npv
 from lcoh.energy_balance import energy_balance
 from lcoh.yearly import yearly_lcoh
-from lcoh.npv import npv_lcoh
+from lcoh.npv import economics_for_year, npv_lcoh
 from lcoh.finance import compute_finance
 from lcoh.charts_finance import cashflow_figure, cost_revenue_figure, equity_figure, per_kg_figure
 from lcoh.charts import COST_BLOCKS as COST_BLOCK_NAMES, battery_soc_figure, sankey_figure, cost_structure_figure, load_duration_figure, sensitivity_figure, spot_price_figure
@@ -1022,12 +1022,12 @@ def render_finance_tab() -> None:
         ("Kapitalwert (NPV)", de(f.npv_project / 1e6), "Mio. €",
          f"Summe aller abgezinsten Cashflows des Projekts, abgezinst mit dem Kapitalkostensatz von {de(f.wacc * 100, 1)} %. "
          "Positiv: Das Projekt verdient mehr als die geforderte Kapitalverzinsung."),
-        ("Projektrendite (IRR)", pct(f.irr_project), "%", "Interner Zinsfuß der Projekt-Cashflows (Gesamtkapital, vor Finanzierung)."),
+        ("Projektrendite", pct(f.irr_project), "%", "Verzinsung des gesamten eingesetzten Kapitals (interner Zinsfuß der Projekt-Cashflows vor Finanzierung). Vergleichsmaßstab: Kapitalkostensatz (WACC)."),
         ("Amortisation statisch", yrs(f.payback_static), "Jahre", "Zeit, bis die Summe der Cashflows die Investition deckt (ohne Abzinsung)."),
         ("Amortisation dynamisch", yrs(f.payback_dynamic), "Jahre", "Zeit, bis die Summe der abgezinsten Cashflows die Investition deckt.")])
     group(z2[0], "Eigenkapital", [
         ("Eigenkapitaleinsatz", de(f.equity / 1e6), "Mio. €", "Investition nach Förderung abzüglich Fremdkapital."),
-        ("Eigenkapitalrendite (IRR)", pct(f.irr_equity), "%", "Interner Zinsfuß der Eigenkapital-Cashflows nach Kapitaldienst."),
+        ("Eigenkapitalrendite", pct(f.irr_equity), "%", "Verzinsung des Eigenkapitals (interner Zinsfuß der Eigenkapital-Cashflows nach Zins und Tilgung). Vergleichsmaßstab: geforderte Eigenkapitalrendite."),
         ("Kapitalwert Eigenkapital", de(f.npv_equity / 1e6), "Mio. €",
          f"Eigenkapital-Cashflows, abgezinst mit der geforderten Eigenkapitalrendite von {de(r.inputs.equity_interest_rate * 100, 1)} %."),
         ("Überschuss nach Kapitaldienst (Summe)", de(f.profit_total / 1e6), "Mio. €",
@@ -1037,8 +1037,8 @@ def render_finance_tab() -> None:
         ("Kapitaldienst Fremdkapital", de(f.debt_service / 1e6), "Mio. €/a",
          "Zins und Tilgung als Annuität zum Fremdkapitalzins über die Projektlaufzeit."),
         ("DSCR minimal", "–" if f.dscr_min is None else de(f.dscr_min), "",
-         "Schuldendienstdeckungsgrad im schwächsten Jahr: operativer Cashflow geteilt durch den Kapitaldienst. Banken verlangen "
-         "meist mindestens 1,2 bis 1,3."),
+         "Schuldendienstdeckungsgrad im schwächsten Jahr: operativer Cashflow nach Rücklage für den Stacktausch geteilt "
+         "durch den Kapitaldienst (Fremdkapital und Stackkredit). Banken verlangen meist mindestens 1,2 bis 1,3."),
         ("DSCR Mittelwert", "–" if f.dscr_avg is None else de(f.dscr_avg), "", "Mittlerer Schuldendienstdeckungsgrad über die Laufzeit.")])
     if f.sign_changes_equity > 1:
         st.caption("Hinweis: Der Eigenkapital-Cashflow wechselt mehrfach das Vorzeichen (Jahre mit Unterdeckung). Der interne Zinsfuß ist "
@@ -1046,18 +1046,23 @@ def render_finance_tab() -> None:
 
     st.markdown("### Jährliche Cashflows")
     st.plotly_chart(cashflow_figure(f), width="stretch")
-    st.caption("Balken oben: Einnahmen, Balken unten: Ausgaben. Die rote Linie zeigt den kumulierten Barwert. Endet sie über null, "
-               "verdient das Projekt mehr als den Kapitalkostensatz; bei einem Preis in Höhe der Gestehungskosten endet sie genau bei null.")
+    st.caption("Balken oben: Einnahmen (Wasserstoff zu Gestehungskosten und Marge getrennt), Balken unten: Ausgaben. Der Stacktausch "
+               "steht im Jahr, in dem er stattfindet. Die rote Linie zeigt den kumulierten Barwert; endet sie über null, verdient das "
+               "Projekt mehr als den Kapitalkostensatz. Weil die Gestehungskosten den Stacktausch einschließlich Kreditzinsen gleichmäßig "
+               "auf die Laufzeit verteilen, endet sie bei 0 % Marge leicht über null.")
     st.markdown("### Kosten und Erlöse je Projektjahr")
     st.plotly_chart(cost_revenue_figure(f), width="stretch")
-    st.caption("Linker Balken: Kosten einschließlich Kapitaldienst (Annuität zum Kapitalkostensatz), rechter Balken: Erlöse.")
+    st.caption("Linker Balken: Kosten einschließlich Kapitaldienst (Annuität zum Kapitalkostensatz), Stacktausch im Jahr des Tauschs; "
+               "rechter Balken: Erlöse mit getrennt ausgewiesener Marge.")
     st.markdown("### Kosten und Erlöse je kg Wasserstoff")
     st.plotly_chart(per_kg_figure(f), width="stretch")
-    st.caption("Kosten oben, Nebenerlöse unten. Die schwarze Linie zeigt die Gestehungskosten des einzelnen Jahres, die blaue Linie "
-               "den Verkaufspreis. Liegt der Preis über der schwarzen Linie, erwirtschaftet das Jahr einen Überschuss.")
+    st.caption("Kosten oben, Nebenerlöse unten; Stacktausch hier als gleichbleibender Jahresbetrag. Die schwarze Linie zeigt die "
+               "Gestehungskosten des einzelnen Jahres, die gestrichelte Linie die Gestehungskosten über die Laufzeit, die blaue Linie den "
+               "Verkaufspreis; die blaue Fläche ist die Marge. Liegt der Preis über der schwarzen Linie, erwirtschaftet das Jahr einen Überschuss.")
     st.markdown("### Eigenkapital-Cashflow und Schuldendienstdeckung")
     st.plotly_chart(equity_figure(f), width="stretch")
-    st.caption("Balken: Cashflow für die Eigenkapitalgeber nach Zins und Tilgung des Fremdkapitals. Linie: DSCR; unter 1,0 reicht der "
+    st.caption("Balken: Cashflow für die Eigenkapitalgeber nach Zins und Tilgung des Fremdkapitals, nach Rücklage und Kreditrate "
+               "für den Stacktausch. Linie: DSCR je Jahr (Minimum und Mittelwert stehen oben bei „Fremdkapital“); unter 1,0 reicht der "
                "operative Cashflow nicht für den Kapitaldienst.")
     st.markdown("### Cashflow-Tabelle")
     tab = f.table.copy()
@@ -1147,20 +1152,27 @@ with tab_res:
                              help="Wechselt die Beschriftung der Balken zwischen Euro je kg Wasserstoff und dem prozentualen "
                                   "Anteil an den Gestehungskosten brutto.")
         percent = unit_mode.startswith("Anteil")
-        items = waterfall_items(r, e, "verbraucher")
+        _jahre_opt = ["Durchschnitt über die Projektlaufzeit"] + [
+            f"{inp.commissioning_year + t - 1} (Projektjahr {t})" for t in range(1, int(inp.project_lifetime_years) + 1)]
+        _wahl = st.selectbox("Betrachtung", _jahre_opt, index=0, key="chart_year",
+                             help="Durchschnitt über die Projektlaufzeit: Gestehungskosten nach der Kapitalwertmethode. "
+                                  "Einzelnes Jahr: Preise, Wirkungsgrad und THG-Erlöse dieses Jahres; Kapitaldienst und Stacktausch "
+                                  "als gleichbleibende Jahresbeträge.")
+        e_view = e if _wahl == _jahre_opt[0] else economics_for_year(r, npv, _jahre_opt.index(_wahl))
+        items = waterfall_items(r, e_view, "verbraucher")
         detail = mode.startswith("Detailliert")
         sub_title = None
         if mode.startswith("Gestapelt & Befreiungen"):
-            items = waterfall_items(r, e, "verbraucher", netto=True)
+            items = waterfall_items(r, e_view, "verbraucher", netto=True)
             sub_title = "Förderungen"
-        fig = cost_structure_figure(items, e.lcoh_eur_per_kg, detail=detail, height=640 if detail else 520,
+        fig = cost_structure_figure(items, e_view.lcoh_eur_per_kg, detail=detail, height=640 if detail else 520,
                                     subsidy_title=sub_title, percent=percent)
         st.plotly_chart(fig, width="stretch")
         gross = sum(i.eur_per_kg for i in items if i.block in COST_BLOCK_NAMES)
         gross_text = ("Gestehungskosten brutto (ohne Förderungen und Zusatzeinnahmen)" if sub_title
                       else "Gestehungskosten brutto (ohne Förderungen, Befreiungen und Zusatzeinnahmen)")
         st.caption(f"{gross_text}: {de(gross)} €/kg · "
-                   f"Gestehungskosten: {de(e.lcoh_eur_per_kg)} €/kg")
+                   f"Gestehungskosten{'' if e_view is e else ' im Jahr'}: {de(e_view.lcoh_eur_per_kg)} €/kg")
 
         # ---- Gestehungskosten je Projektjahr
         st.markdown("### Gestehungskosten je Projektjahr")
@@ -1187,6 +1199,13 @@ with tab_res:
                    f"sind gleichbleibende Jahresbeträge (Kapitaldienst als Annuität zum Kapitalkostensatz von {de(npv.rate * 100, 1)} %). "
                    "Die gestrichelte Linie zeigt die Gestehungskosten über die Projektlaufzeit. Weil frühe Jahre durch die Abzinsung stärker "
                    "zählen als späte, ist sie kein einfacher Mittelwert der Jahreswerte.")
+
+        st.markdown("### Kosten und Erlöse je kg Wasserstoff")
+        _f0 = compute_finance(r, e_ann, npv, "Marge auf die Gestehungskosten", 0.0, 0.0, 0.0)
+        st.plotly_chart(per_kg_figure(_f0, show_price=False), width="stretch")
+        st.caption("Kosten oben, Nebenerlöse unten, je kg Wasserstoff des jeweiligen Jahres (nominal); Kapitaldienst als Annuität zum "
+                   "Kapitalkostensatz, Stacktausch als gleichbleibender Jahresbetrag. Schwarze Linie: Gestehungskosten des einzelnen "
+                   "Jahres; gestrichelt: Gestehungskosten über die Projektlaufzeit.")
 
         st.markdown("### Geordneter Lastverlauf")
         st.plotly_chart(load_duration_figure(r.hourly, r.power, steps_per_hour=STEPS), width="stretch")
@@ -1221,17 +1240,16 @@ with tab_res:
 
         st.markdown("### Spotmarktpreise")
         st.plotly_chart(spot_price_figure(r.market, steps_per_hour=STEPS), width="stretch")
-        st.caption("Oben: Börsenpreis mit der §7-Grenze (grün), der §7-Mindestgrenze von 20 €/MWh (grün gepunktet) und Ihrem "
-                   "Maximalpreis (rot gestrichelt). Das Band darunter zeigt für jeden Zeitpunkt, in welchem Bereich der Preis liegt: grün "
-                   "unter der §7-Grenze, gelb bis zu Ihrem Maximalpreis, rot darüber. Einzelne extreme Preisspitzen sind zugunsten der "
-                   "Lesbarkeit abgeschnitten; Sie können im Diagramm hineinzoomen.")
+        st.caption(f"Die Preislinie ist grün, solange der Preis unter der §7-Grenze liegt, gelb zwischen der §7-Grenze und Ihrem "
+                   f"Maximalpreis ({de(inp.spot_max_price_eur_per_mwh)} €/MWh) und rot darüber. Die dünnen Linien zeigen die §7-Grenze "
+                   f"(0,36 × CO₂-Preis), die §7-Mindestgrenze von 20 €/MWh und Ihren Maximalpreis. Einzelne extreme Preisspitzen sind "
+                   f"zugunsten der Lesbarkeit abgeschnitten; Sie können im Diagramm hineinzoomen.")
 
         st.markdown("### Sensitivitätsanalyse")
         SENS_STEP = 0.25
         rows_s = sensitivity_npv(r, e_ann, SENS_STEP)
         st.caption("Jede Einflussgröße wird einzeln um 25 % verringert bzw. erhöht; alle übrigen Größen "
-                   "bleiben unverändert. Zinsen und Projektlaufzeit werden vollständig neu gerechnet. Links: Einflussgröße −25 %, rechts: +25 %. "
-                   "Die Länge zeigt die Kostenänderung; grün: Die Gestehungskosten sinken, rot: sie steigen.")
+                   "bleiben unverändert.")
         st.plotly_chart(sensitivity_figure(rows_s, SENS_STEP), width="stretch")
         pct_txt = "25 %"
         sens_df = pd.DataFrame([(z.name, z.block, z.v_minus, z.v_base, z.v_plus, z.setting, z.lcoh_minus, z.lcoh_plus)

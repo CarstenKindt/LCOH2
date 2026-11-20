@@ -68,12 +68,14 @@ Das Excel-Modell verwendet eine vereinfachte Annuitätenmethode (Annuität nur a
 
 Der Reiter „Ergebnisse“ ist in „Allgemeine Ergebnisse“ und „Weitere wirtschaftliche Kennzahlen“ gegliedert. Im zweiten Bereich wird ein Wasserstoffpreis vorgegeben, entweder als Marge auf die Gestehungskosten oder als Zielverkaufspreis, optional mit jährlicher Preissteigerung. Die allgemeinen Ergebnisse bleiben davon unberührt.
 
-Grundlage sind dieselben Jahreswerte wie bei den Gestehungskosten (nominal, ohne Steuern). Operativer Cashflow (CFADS) = Erlös Wasserstoff + THG-Erlöse + weitere Erlöse − Strom − Betrieb − Stacktausch (Jahresbetrag).
+Grundlage sind dieselben Jahreswerte wie bei den Gestehungskosten (nominal, ohne Steuern). Der Wasserstofferlös wird in den Anteil zu Gestehungskosten und die Marge aufgeteilt. Im Projekt-Cashflow steht der Stacktausch im Jahr, in dem er stattfindet; in der Eigenkapitalsicht wird er wie bei den Gestehungskosten über eine Rücklage (erste Laufzeithälfte) und einen Kredit zum Stackzins (zweite Hälfte) finanziert. CFADS = operativer Cashflow abzüglich Rücklage für den Stacktausch. Weil die Gestehungskosten den Stacktausch einschließlich Kreditzinsen gleichmäßig verteilen, ist der Projekt-Kapitalwert bei 0 % Marge leicht positiv.
 
 - **Projektsicht:** Investition in Jahr 0, danach CFADS. Kapitalwert mit dem Kapitalkostensatz (WACC), interner Zinsfuß (Projektrendite), statische und dynamische Amortisation.
 - **Eigenkapitalsicht:** Fremdkapital als Annuitätendarlehen zum Fremdkapitalzins über die Projektlaufzeit. Eigenkapital-Cashflow = CFADS − Kapitaldienst Fremdkapital; Eigenkapitalrendite (IRR) und Kapitalwert mit der geforderten Eigenkapitalrendite.
-- **Fremdkapitalsicht:** Schuldendienstdeckungsgrad DSCR = CFADS / Kapitaldienst (Minimum und Mittelwert).
+- **Fremdkapitalsicht:** Schuldendienstdeckungsgrad DSCR = CFADS / Kapitaldienst aus Fremdkapital und Stackkredit (je Jahr, Minimum und Mittelwert).
 
-Bei einem Preis in Höhe der Gestehungskosten ist der Kapitalwert null und die Projektrendite gleich dem Kapitalkostensatz. Wechselt der Eigenkapital-Cashflow mehrfach das Vorzeichen, ist der interne Zinsfuß nur eingeschränkt aussagekräftig; das Tool weist darauf hin. Nicht berücksichtigt: Steuern und Abschreibungen, Restwert am Laufzeitende, Umlaufvermögen, abweichende Kreditlaufzeiten.
+Ohne Stacktausch ist bei einem Preis in Höhe der Gestehungskosten der Kapitalwert null und die Projektrendite gleich dem Kapitalkostensatz. Wechselt der Eigenkapital-Cashflow mehrfach das Vorzeichen, ist der interne Zinsfuß nur eingeschränkt aussagekräftig; das Tool weist darauf hin. Nicht berücksichtigt: Steuern und Abschreibungen, Restwert am Laufzeitende, Umlaufvermögen, abweichende Kreditlaufzeiten.
 
 Die Sensitivitätsanalyse arbeitet mit einer festen Schrittweite von 25 %.
+
+Die Zusammensetzung der Gestehungskosten lässt sich für den Durchschnitt über die Projektlaufzeit (Standard) oder für jedes einzelne Projektjahr anzeigen.

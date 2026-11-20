@@ -121,3 +121,22 @@ def npv_lcoh(r: OperationResult, e_ann: Economics) -> NpvResult:
     return NpvResult(rate, lcoh, pv_h2, capex_net + pv_power + pv_opex + stack_pv, pv_rev, table, eq,
                      capital_service=capex_net * af, stack_service=stack_year, capex_net=capex_net, pv_power=pv_power,
                      pv_opex=pv_opex, pv_stack=stack_pv, pv_thg=pv(lambda x: x.revenue_thg), discount_sum=sum(df_list))
+
+
+def economics_for_year(r: OperationResult, n: NpvResult, year: int) -> Economics:
+    """Ergebnisse eines einzelnen Projektjahres in der Struktur von Economics (für die Zusammensetzung je Jahr).
+
+    Preise, Wirkungsgrad und THG-Erlöse des Jahres; Kapitaldienst und Stacktausch als gleichbleibende Jahresbeträge
+    wie in der Jahresansicht (Annuität zum Kapitalkostensatz bzw. Jahresbetrag des Stacktauschs)."""
+    eff = efficiency_by_year(r)[year - 1]
+    h2_kwh = r.ely_consumption_kwh * eff
+    ry = replace(r, avg_efficiency=eff, h2_energy_kwh=h2_kwh, h2_kg_per_year=h2_kwh / k.HHV_KWH_PER_KG_H2)
+    ey = compute_economics(ry, year)
+    life = r.inputs.project_lifetime_years
+    fin = n.capital_service
+    stack = replace(ey.stack, annual_cost=n.stack_service)
+    cost = ey.power_cost + n.stack_service + ey.opex_total + fin
+    lcoh = (cost - ey.revenue_total) / ry.h2_kg_per_year if ry.h2_kg_per_year else 0.0
+    return replace(ey, financing_total=fin, debt_annuity=fin * r.inputs.debt_share, equity_annuity=fin * (1 - r.inputs.debt_share),
+                   interest_cost=fin - ey.capex_net / life, stack=stack, stack_cost_per_year=n.stack_service,
+                   lcoh_eur_per_kg=lcoh, lcoh_ct_per_kwh=lcoh * k.CT_PER_EUR / k.HHV_KWH_PER_KG_H2)

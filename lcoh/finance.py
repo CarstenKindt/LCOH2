@@ -103,14 +103,36 @@ def compute_finance(r: OperationResult, e_ann: Economics, n: NpvResult, mode: st
     h2 = np.r_[0.0, [x.h2_kg_per_year for x in eco]]
     price = np.r_[0.0, [price1 * (1.0 + price_escalation) ** (t - 1) for t in range(1, life + 1)]]
     rev_h2 = h2 * price
+    rev_at_lcoh = h2 * lcoh
+    margin_eur = rev_h2 - rev_at_lcoh
     rev_thg = np.r_[0.0, [x.revenue_thg for x in eco]]
     rev_other = np.r_[0.0, [x.revenue_total - x.revenue_thg for x in eco]]
     power = np.r_[0.0, [x.power_cost for x in eco]]
     opex = np.r_[0.0, [x.opex_total for x in eco]]
-    stack = np.r_[0.0, [n.stack_service] * life]
     capex = n.capex_net
-    cfads = rev_h2 + rev_thg + rev_other - power - opex - stack
-    cf_project = cfads.copy()
+
+    # Stacktausch: im Projekt-Cashflow im Jahr des Tauschs; für die Kostenansicht als gleichbleibender Jahresbetrag
+    sc = e_ann.stack
+    stack_actual = np.zeros(life + 1)
+    for j in range(1, sc.replacements + 1):
+        t_j = int(round(j * sc.interval_years))
+        if 1 <= t_j <= life:
+            stack_actual[t_j] += sc.total_exchange_cost / sc.replacements
+    stack_smooth = np.r_[0.0, [n.stack_service] * life]
+    # Finanzierung des Stacktauschs (Eigenkapitalsicht): Rücklage in der ersten Laufzeithälfte, danach Kredit zum Stackzins
+    half = life / 2.0
+    first = [t for t in range(1, life + 1) if t <= half]
+    second = [t for t in range(1, life + 1) if t > half]
+    reserve = np.zeros(life + 1)
+    stack_loan = np.zeros(life + 1)
+    if sc.replacements > 0:
+        for t in first:
+            reserve[t] = sc.provision_total / len(first)
+        for t in second:
+            stack_loan[t] = sc.annuity
+
+    op_cf = rev_h2 + rev_thg + rev_other - power - opex          # operativer Cashflow vor Stacktausch
+    cf_project = op_cf - stack_actual
     cf_project[0] = -capex
 
     debt = capex * inp.debt_share
@@ -118,22 +140,28 @@ def compute_finance(r: OperationResult, e_ann: Economics, n: NpvResult, mode: st
     i_d = inp.debt_interest_rate
     ds = debt / life if i_d <= 0 else debt * i_d / (1.0 - (1.0 + i_d) ** -life)
     debt_service = np.r_[0.0, [ds] * life]
-    cf_equity = cfads - debt_service
+    cfads = op_cf - reserve                                      # verfügbar für den Schuldendienst
+    total_ds = debt_service + stack_loan
+    cf_equity = cfads - total_ds
     cf_equity[0] = -equity
 
     wacc = n.rate
     disc = (1.0 + wacc) ** -years.astype(float)
-    dscr = cfads[1:] / ds if ds > 0 else None
+    dscr = cfads[1:] / total_ds[1:] if ds > 0 else None
 
     table = pd.DataFrame({
         "Jahr": years, "Kalenderjahr": [inp.commissioning_year + t - 1 if t else inp.commissioning_year for t in years],
         "Wasserstoff [t]": h2 / 1000, "Verkaufspreis [€/kg]": price,
-        "Erlös Wasserstoff [€]": rev_h2, "Erlös THG-Quote [€]": rev_thg, "Weitere Erlöse [€]": rev_other,
-        "Strom [€]": -power, "Betrieb (OPEX) [€]": -opex, "Stacktausch [€]": -stack,
+        "Erlös Wasserstoff [€]": rev_h2, "Erlös Wasserstoff zu Gestehungskosten [€]": rev_at_lcoh, "Marge [€]": margin_eur,
+        "Erlös THG-Quote [€]": rev_thg, "Weitere Erlöse [€]": rev_other,
+        "Strom [€]": -power, "Betrieb (OPEX) [€]": -opex, "Stacktausch [€]": -stack_actual,
+        "Stacktausch als Jahresbetrag [€]": -stack_smooth,
         "Investition [€]": np.r_[-capex, np.zeros(life)],
         "Cashflow Projekt [€]": cf_project, "Cashflow Projekt abgezinst [€]": cf_project * disc,
         "Kumuliert abgezinst [€]": np.cumsum(cf_project * disc),
-        "Kapitaldienst Fremdkapital [€]": -debt_service, "Cashflow Eigenkapital [€]": cf_equity,
+        "Rücklage Stacktausch [€]": -reserve, "CFADS [€]": np.r_[0.0, cfads[1:]],
+        "Kapitaldienst Fremdkapital [€]": -debt_service, "Kapitaldienst Stackkredit [€]": -stack_loan,
+        "Cashflow Eigenkapital [€]": cf_equity,
         "DSCR": np.r_[np.nan, dscr] if dscr is not None else np.nan})
 
     return FinanceResult(

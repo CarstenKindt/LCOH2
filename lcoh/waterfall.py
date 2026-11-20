@@ -66,10 +66,17 @@ def waterfall_items(r: OperationResult, e: Economics, power_view: str = "quelle"
         avg = purchase / proc_mwh if proc_mwh else 0.0
         levy_rate = full_levies / total_mwh if total_mwh else 0.0
         # Befreiungen hängen an den Seiten Elektrolyseur und Rest; je Verbraucher gleicher Satz je Seite
+        def side_rate(side: str, only_paid: bool) -> float:
+            return sum(getattr(inp, f"levy_{side}_{n}_ct_per_kwh") for n in pc.levy_full_eur
+                       if not (only_paid and getattr(inp, f"levy_{side}_{n}_exempt"))) * 10.0
+
+        # Abgleich mit den volle Abgaben in pc (bei der Kapitalwertmethode abgezinst gewichtet, sonst Faktor 1)
+        rest_mwh = (per_mwh + o2_mwh + h2_mwh)
+        plain = ely_mwh * side_rate("ely", False) + rest_mwh * side_rate("rest", False)
+        scale = full_levies / plain if plain else 1.0
+
         def cost_of(mwh: float, side: str) -> float:
-            side_full = sum(getattr(inp, f"levy_{side}_{n}_ct_per_kwh") for n in pc.levy_full_eur
-                            if not (netto and getattr(inp, f"levy_{side}_{n}_exempt"))) * 10.0
-            return mwh * (avg + side_full)
+            return mwh * (avg + side_rate(side, netto) * scale)
         add(BLOCK_POWER, "Strom Elektrolyseur", cost_of(ely_mwh, "ely"))
         add(BLOCK_POWER, "Strom Peripherie", cost_of(per_mwh, "rest"))
         add(BLOCK_POWER, "Strom O₂-Verdichter", cost_of(o2_mwh, "rest"))

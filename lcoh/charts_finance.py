@@ -9,8 +9,9 @@ from lcoh.charts import de
 
 C_H2, C_THG, C_REV = "#1f4e79", "#2e8b57", "#7fb77e"
 C_INV, C_POWER, C_OPEX, C_STACK, C_CAP = "#7f7f7f", "#c0504d", "#e8a33d", "#8064a2", "#4f6d8f"
+C_MARGIN = "#5ab4e5"
 M = 1e6
-LEGEND = dict(orientation="h", y=-0.18, yanchor="top")
+LEGEND = dict(orientation="h", y=-0.24, yanchor="top")
 
 
 def _xlabels(t):
@@ -22,7 +23,8 @@ def cashflow_figure(f, height: int = 480) -> go.Figure:
     t = f.table
     x = _xlabels(t)
     fig = go.Figure()
-    pos = [("Erlös Wasserstoff [€]", f"Wasserstoffverkauf ({de(f.price_year1)} €/kg im ersten Jahr)", C_H2),
+    pos = [("Erlös Wasserstoff zu Gestehungskosten [€]", f"Wasserstoffverkauf zu Gestehungskosten ({de(f.lcoh)} €/kg)", C_H2),
+           ("Marge [€]", "Marge", C_MARGIN),
            ("Erlös THG-Quote [€]", "THG-Quote", C_THG), ("Weitere Erlöse [€]", "Weitere Erlöse (Strom, O₂, Wärme u. a.)", C_REV)]
     neg = [("Investition [€]", "Investition", C_INV), ("Strom [€]", "Strom", C_POWER),
            ("Betrieb (OPEX) [€]", "Betrieb (OPEX)", C_OPEX), ("Stacktausch [€]", "Stacktausch", C_STACK)]
@@ -51,7 +53,8 @@ def cost_revenue_figure(f, height: int = 440) -> go.Figure:
     cap = np.full(len(t), f.capital_service / M)
     fig.add_trace(go.Bar(x=x, y=cap, name=f"Kosten: Kapitaldienst (Annuität zu {de(f.wacc * 100, 1)} %)", marker_color=C_CAP,
                          offsetgroup="k", hovertemplate="Kapitaldienst %{x}: %{y:,.2f} Mio. €<extra></extra>"))
-    for col, name, c in [("Erlös Wasserstoff [€]", "Erlös: Wasserstoffverkauf", C_H2), ("Erlös THG-Quote [€]", "Erlös: THG-Quote", C_THG),
+    for col, name, c in [("Erlös Wasserstoff zu Gestehungskosten [€]", "Erlös: Wasserstoff zu Gestehungskosten", C_H2),
+                         ("Marge [€]", "Erlös: Marge", C_MARGIN), ("Erlös THG-Quote [€]", "Erlös: THG-Quote", C_THG),
                          ("Weitere Erlöse [€]", "Erlös: weitere Erlöse", C_REV)]:
         fig.add_trace(go.Bar(x=x, y=t[col] / M, name=name, marker_color=c, offsetgroup="e",
                              hovertemplate=name + " %{x}: %{y:,.2f} Mio. €<extra></extra>"))
@@ -60,14 +63,15 @@ def cost_revenue_figure(f, height: int = 440) -> go.Figure:
     return fig
 
 
-def per_kg_figure(f, height: int = 460) -> go.Figure:
-    """Kosten (oben) und Nebenerlöse (unten) je kg Wasserstoff, Gestehungskosten des Jahres und Verkaufspreis."""
+def per_kg_figure(f, height: int = 460, show_price: bool = True) -> go.Figure:
+    """Kosten (oben) und Nebenerlöse (unten) je kg Wasserstoff, Gestehungskosten des Jahres; optional Verkaufspreis und Marge.
+    Kostenansicht: Kapitaldienst als Annuität zum Kapitalkostensatz, Stacktausch als gleichbleibender Jahresbetrag."""
     t = f.table.iloc[1:]
     x = [str(int(c)) for c in t["Kalenderjahr"]]
     h = (t["Wasserstoff [t]"] * 1000).to_numpy()
     fig = go.Figure()
     costs = [("Strom [€]", "Kosten: Strom", C_POWER), ("Betrieb (OPEX) [€]", "Kosten: Betrieb (OPEX)", C_OPEX),
-             ("Stacktausch [€]", "Kosten: Stacktausch", C_STACK)]
+             ("Stacktausch als Jahresbetrag [€]", "Kosten: Stacktausch", C_STACK)]
     tot = np.zeros(len(t))
     for col, name, c in costs:
         v = -t[col].to_numpy() / h
@@ -83,10 +87,12 @@ def per_kg_figure(f, height: int = 460) -> go.Figure:
         fig.add_trace(go.Bar(x=x, y=v, name=name, marker_color=c, hovertemplate=name + " %{x}: %{y:,.2f} €/kg<extra></extra>"))
     fig.add_trace(go.Scatter(x=x, y=tot, name="Gestehungskosten im Jahr", mode="lines+markers", line=dict(color="black", width=2),
                              hovertemplate="Gestehungskosten %{x}: %{y:,.2f} €/kg<extra></extra>"))
-    fig.add_trace(go.Scatter(x=x, y=t["Verkaufspreis [€/kg]"], name="Verkaufspreis Wasserstoff", mode="lines",
-                             line=dict(color=C_H2, width=3), hovertemplate="Verkaufspreis %{x}: %{y:,.2f} €/kg<extra></extra>"))
-    fig.add_trace(go.Scatter(x=[x[0], x[-1]], y=[f.lcoh] * 2, name=f"LCOH₂: {de(f.lcoh)} €/kg", mode="lines",
-                             line=dict(color="#d62728", width=1.8, dash="dash"), hoverinfo="skip"))
+    fig.add_trace(go.Scatter(x=x, y=[f.lcoh] * len(x), name=f"LCOH₂: {de(f.lcoh)} €/kg", mode="lines",
+                             line=dict(color="black", width=1.8, dash="dash"), hoverinfo="skip"))
+    if show_price:
+        fig.add_trace(go.Scatter(x=x, y=t["Verkaufspreis [€/kg]"], name="Verkaufspreis Wasserstoff (Fläche: Marge)", mode="lines",
+                                 line=dict(color=C_H2, width=3), fill="tonexty", fillcolor="rgba(90,180,229,0.35)",
+                                 hovertemplate="Verkaufspreis %{x}: %{y:,.2f} €/kg<extra></extra>"))
     fig.update_layout(barmode="relative", height=height, margin=dict(l=0, r=0, t=10, b=0), separators=",.", xaxis=dict(type="category"),
                       yaxis_title="€ pro kg Wasserstoff (nominal)", legend=LEGEND)
     return fig
