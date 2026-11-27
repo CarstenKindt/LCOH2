@@ -730,7 +730,7 @@ def render_data_tab(inp) -> None:
             "(.csv oder .txt). Eine hochgeladene Reihe ersetzt die hinterlegte.\n"
             "- Die Reihen gelten für die gesamte Projektlaufzeit; die jährlichen Preisentwicklungen werden darauf angewendet.\n\n"
             "**Zeitbasis und Zeitraum**\n"
-            "- Die hinterlegten Reihen folgen der Sommerzeit (MEZ/MESZ) und sind durchgehend ab 01.01.2025, 00:00 Uhr gezählt. "
+            "- Die hinterlegten Reihen sind ab 01.01.2025, 00:00 Uhr MEZ fortlaufend gezählt (fester Zeitbezug MEZ, ohne Umstellung auf Sommerzeit). "
             "Eigene Reihen sollten dieselbe Zeitbasis haben.\n"
             "- Alle Reihen laufen zeitlich vom Jahresanfang bis zum Jahresende und müssen dieselbe Zuordnung haben, damit z. B. "
             "Erzeugungsprofil und Börsenpreis zeitlich zusammenpassen.\n"
