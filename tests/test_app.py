@@ -59,8 +59,8 @@ def metrik(at: AppTest, label: str, unit: str | None = None) -> str:
 def test_standardwerte():
     at = neue_app()
     # Kapitalwertmethode, Standardwerte = Szenario S1 der Veröffentlichung (⅔ Wind, ⅓ PV, nur Wasserstoff)
-    assert metrik(at, "Gestehungskosten", "€/kg") == "9,48 €/kg"
-    assert metrik(at, "Gestehungskosten", "ct/kWh") == "24,06 ct/kWh"
+    assert metrik(at, "Gestehungskosten", "€/kg") == "9,50 €/kg"
+    assert metrik(at, "Gestehungskosten", "ct/kWh") == "24,11 ct/kWh"
     assert metrik(at, "Stacktausche") == "1"
     assert metrik(at, "Anteil RFNBO-konformer Wasserstoff") == "100,0 %"
 
@@ -69,7 +69,7 @@ def test_thg_an():
     at = neue_app()
     at.toggle(key="w_thg_enabled").set_value(True).run()
     assert not at.exception
-    assert metrik(at, "Gestehungskosten", "€/kg") == "5,23 €/kg"
+    assert metrik(at, "Gestehungskosten", "€/kg") == "5,25 €/kg"
 
 
 def test_zahlenformat_deutsch():

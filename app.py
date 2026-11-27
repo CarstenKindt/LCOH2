@@ -678,11 +678,11 @@ SERIES_HELP = {
     "pv_kwh_per_kw": (
         "Stündliches Erzeugungsprofil der Anlage hinter PPA 1, angegeben als Erzeugung je installiertem kW und Zeitintervall (Stunde oder Viertelstunde; z. B. Photovoltaik). "
         "Das Tool multipliziert es mit der installierten Leistung von PPA 1; daraus ergibt sich der stündliche Strombezug. "
-        "Hinterlegt ist ein Photovoltaik-Profil für das Jahr 2025 (Sommerzeit berücksichtigt)."),
+        "Hinterlegt ist ein Photovoltaik-Profil für Husum im Jahr 2025 (Zeitbezug MEZ, ohne Umstellung auf Sommerzeit)."),
     "wind_kwh_per_kw": (
         "Stündliches Erzeugungsprofil der Anlage hinter PPA 2, angegeben als Erzeugung je installiertem kW und Zeitintervall (Stunde oder Viertelstunde; z. B. Windkraft). "
         "Das Tool multipliziert es mit der installierten Leistung von PPA 2; daraus ergibt sich der stündliche Strombezug. "
-        "Hinterlegt ist das Windprofil Husum für das Jahr 2025 (Sommerzeit berücksichtigt)."),
+        "Hinterlegt ist das Windprofil Husum für das Jahr 2025 (Zeitbezug MEZ, ohne Umstellung auf Sommerzeit)."),
     "day_ahead": (
         "Börsenstrompreis (Day-Ahead) je Stunde bzw. Viertelstunde. Er bestimmt den Preis beim Strombezug am Spotmarkt und nach §7 der 37. BImSchV "
         "sowie den Erlös beim Verkauf von Überschussstrom (negative Preise werden dort mit 0 angesetzt). Eine hochgeladene Reihe "

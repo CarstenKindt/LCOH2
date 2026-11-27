@@ -38,7 +38,8 @@ PROFILE_FILE = Path(__file__).resolve().parent / "data" / "profile_2025.csv"
 def load_default_profiles() -> pd.DataFrame:
     """Hinterlegte Erzeugungsprofile 2025 in Viertelstunden (35.040 Zeilen, Rate je Stunde), Zeitbezug MEZ (UTC+1).
 
-    pv_kwh_per_kw  PPA 1: normierte Photovoltaik-Leistung 2025 (Stundenwerte, UTC, auf MEZ verschoben)
+    pv_kwh_per_kw  PPA 1: normierte Photovoltaik-Leistung 2025 (Stundenwerte, MEZ; Stand 27.11.2026: Zeitversatz der
+                   Wetterdaten korrigiert, vorher lag die Reihe rund 1,5 h zu spät)
     wind_kwh_per_kw  PPA 2: Kapazitätsfaktor Windkraft Husum 2025 (Viertelstundenwerte, ab 01.01.2025 00:00 MEZ)
     day_ahead_eur_per_mwh  Day-Ahead-Preis DE-LU 2025 (Viertelstundenwerte, €/MWh)
     co2_eur_per_t  CO₂-Preis EU-Auktion 2025 (Viertelstundenwerte, €/t)
